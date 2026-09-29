@@ -37,7 +37,7 @@
                 </div>
             @else
                 <div class="overflow-x-auto">
-                    <table class="w-full min-w-[36rem] text-left">
+                    <table class="w-full min-w-xl text-left">
                         <thead class="border-b border-outline-variant bg-surface-lowest">
                             <tr class="font-mono text-xs uppercase tracking-[0.12em] text-on-surface-variant">
                                 <th class="px-5 py-4 font-medium sm:px-6">Name</th>
