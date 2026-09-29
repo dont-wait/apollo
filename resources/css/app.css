@@ -4,6 +4,52 @@
 @source '../../storage/framework/views/*.php';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+    --color-background: #111319;
+    --color-surface-lowest: #0b0e13;
+    --color-surface-low: #191c21;
+    --color-surface: #1d2025;
+    --color-surface-high: #272a30;
+    --color-surface-highest: #32353b;
+    --color-surface-bright: #36393f;
+
+    --color-on-surface: #e1e2ea;
+    --color-on-surface-variant: #bdc8d1;
+    --color-outline: #87929a;
+    --color-outline-variant: #3e484f;
+
+    --color-primary: #8ed5ff;
+    --color-primary-container: #38bdf8;
+    --color-on-primary: #00354a;
+    --color-secondary: #c0c1ff;
+    --color-secondary-container: #3131c0;
+    --color-tertiary: #56e5a9;
+    --color-tertiary-container: #30c88f;
+
+    --color-error: #ffb4ab;
+    --color-error-container: #93000a;
+}
+
+@layer base {
+    [x-cloak] {
+        display: none !important;
+    }
+
+    :root {
+        color-scheme: dark;
+    }
+
+    body {
+        min-width: 320px;
+        background-color: var(--color-background);
+        color: var(--color-on-surface);
+    }
+
+    ::selection {
+        background-color: var(--color-primary-container);
+        color: var(--color-on-primary);
+    }
 }

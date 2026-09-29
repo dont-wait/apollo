@@ -1,127 +1,60 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', config('app.name', 'Laravel'))</title>
-    <style>
-        :root {
-            color-scheme: light;
-            font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-            color: #172033;
-            background: #f4f7fb;
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-        }
-
-        a {
-            color: inherit;
-        }
-
-        .container {
-            width: min(100% - 2rem, 72rem);
-            margin: 0 auto;
-        }
-
-        .site-header {
-            padding: 1.25rem 0;
-            background: #172033;
-            color: #fff;
-        }
-
-        .site-header .container,
-        .page-heading {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 1rem;
-        }
-
-        .brand {
-            font-weight: 700;
-            text-decoration: none;
-        }
-
-        main {
-            padding: 3rem 0;
-        }
-
-        .page-heading {
-            margin-bottom: 1.5rem;
-        }
-
-        h1,
-        p {
-            margin-top: 0;
-        }
-
-        h1 {
-            margin-bottom: .5rem;
-        }
-
-        .muted {
-            color: #64748b;
-        }
-
-        .card {
-            overflow-x: auto;
-            background: #fff;
-            border: 1px solid #dbe3ef;
-            border-radius: .75rem;
-            box-shadow: 0 0.5rem 1.5rem rgb(23 32 51 / 6%);
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
-        }
-
-        th,
-        td {
-            padding: 1rem 1.25rem;
-            border-bottom: 1px solid #e8edf4;
-        }
-
-        th {
-            color: #64748b;
-            font-size: .8rem;
-            letter-spacing: .04em;
-            text-transform: uppercase;
-        }
-
-        tr:last-child td {
-            border-bottom: 0;
-        }
-
-        .empty-state {
-            padding: 3rem 1.5rem;
-            text-align: center;
-        }
-
-        .pagination {
-            margin-top: 1.5rem;
-        }
-    </style>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body>
-    <header class="site-header">
-        <div class="container">
-            <a class="brand" href="{{ route('home') }}">{{ config('app.name', 'Laravel') }}</a>
-            <span>Server-rendered MVC</span>
+<body class="min-h-screen bg-background font-sans text-on-surface antialiased">
+    <header
+        class="border-b border-outline-variant/50 bg-surface-low"
+        x-data="{ mobileMenuOpen: false }"
+        @keydown.escape.window="mobileMenuOpen = false"
+    >
+        <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+            <a class="flex items-center gap-3 text-sm font-semibold tracking-wide text-on-surface transition-colors hover:text-primary" href="{{ route('home') }}">
+                <span class="flex size-8 items-center justify-center rounded-lg bg-primary-container font-display text-sm font-bold text-on-primary">N</span>
+                <span>{{ config('app.name', 'NeuralLog') }}</span>
+            </a>
+
+            <nav class="hidden items-center gap-6 sm:flex" aria-label="Primary navigation">
+                <a class="font-mono text-xs uppercase tracking-[0.16em] text-primary" href="{{ route('home') }}">Users</a>
+                <span class="font-mono text-xs uppercase tracking-[0.18em] text-on-surface-variant">Server-rendered MVC</span>
+            </nav>
+
+            <button
+                class="rounded-md border border-outline-variant px-3 py-2 font-mono text-xs uppercase tracking-[0.16em] text-on-surface-variant transition-colors hover:border-primary hover:text-primary sm:hidden"
+                type="button"
+                aria-controls="mobile-navigation"
+                :aria-expanded="mobileMenuOpen"
+                @click="mobileMenuOpen = !mobileMenuOpen"
+            >
+                <span x-show="!mobileMenuOpen">Menu</span>
+                <span x-cloak x-show="mobileMenuOpen">Close</span>
+            </button>
         </div>
+
+        <nav
+            id="mobile-navigation"
+            class="border-t border-outline-variant/50 px-4 py-3 sm:hidden"
+            x-cloak
+            x-show="mobileMenuOpen"
+            x-transition.origin.top
+            aria-label="Mobile navigation"
+        >
+            <a
+                class="block rounded-md px-3 py-3 font-mono text-xs uppercase tracking-[0.16em] text-primary transition-colors hover:bg-surface-high"
+                href="{{ route('home') }}"
+                @click="mobileMenuOpen = false"
+            >
+                Users
+            </a>
+        </nav>
     </header>
 
-    <main>
-        <div class="container">
-            @yield('content')
-        </div>
+    <main class="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+        @yield('content')
     </main>
 </body>
 </html>
