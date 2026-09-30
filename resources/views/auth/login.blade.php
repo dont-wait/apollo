@@ -21,7 +21,6 @@
 
         @if ($errors->any())
             <div class="rounded-lg border border-error/40 bg-error-container/30 px-3 py-3 text-sm text-error" role="alert">
-                <p class="font-semibold">Unable to authenticate.</p>
                 <ul class="mt-1 list-disc space-y-1 pl-4">
                     @foreach ($errors->all() as $error)
                         <li>{{ $error }}</li>
@@ -46,7 +45,14 @@
                 <div class="relative">
                     <input class="h-11 w-full rounded-lg border border-outline-variant/60 bg-surface px-3 pr-11 text-sm text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/40 focus:border-primary focus:ring-1 focus:ring-primary" id="password" name="password" :type="showPassword ? 'text' : 'password'" placeholder="••••••••••••" autocomplete="current-password" required>
                     <button class="absolute inset-y-0 right-2 flex items-center rounded px-2 text-xs text-on-surface-variant transition-colors hover:text-on-surface" type="button" @click="showPassword = !showPassword" :aria-label="showPassword ? 'Hide password' : 'Show password'">
-                        <span x-text="showPassword ? 'Hide' : 'Show'"></span>
+                        <svg class="size-5" x-show="!showPassword" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path d="M2.5 12s3.5-5 9.5-5 9.5 5 9.5 5-3.5 5-9.5 5-9.5-5-9.5-5Z"></path>
+                            <circle cx="12" cy="12" r="2.5"></circle>
+                        </svg>
+                        <svg class="size-5" x-cloak x-show="showPassword" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path d="m3 3 18 18"></path>
+                            <path d="M10.6 6.2A10.7 10.7 0 0 1 12 6c6 0 9.5 6 9.5 6a17.4 17.4 0 0 1-3.2 3.7M6.2 6.3C3.8 8 2.5 12 2.5 12s3.5 6 9.5 6c1.5 0 2.8-.4 4-.9"></path>
+                        </svg>
                     </button>
                 </div>
                 @error('password')
