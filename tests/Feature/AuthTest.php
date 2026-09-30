@@ -18,6 +18,8 @@ class AuthTest extends TestCase
         $response->assertOk()
             ->assertViewIs('auth.login')
             ->assertSeeText('Welcome back to NeuralLog')
+            ->assertSeeText('Continue with GitHub')
+            ->assertSeeText('Continue with Google')
             ->assertSeeText('Sign In to Account');
     }
 

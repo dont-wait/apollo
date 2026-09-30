@@ -19,7 +19,7 @@
             </a>
 
             <nav class="hidden items-center gap-6 sm:flex" aria-label="Primary navigation">
-                <a class="font-mono text-xs uppercase tracking-[0.16em] text-primary" href="{{ route('home') }}">Users</a>
+                <a class="font-mono text-xs uppercase tracking-[0.16em] text-primary" href="{{ route('home') }}">Home</a>
                 @auth
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
@@ -56,7 +56,7 @@
                 href="{{ route('home') }}"
                 @click="mobileMenuOpen = false"
             >
-                Users
+                Home
             </a>
             @auth
                 <form class="px-3 py-3" method="POST" action="{{ route('logout') }}">
