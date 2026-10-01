@@ -19,8 +19,16 @@
             </a>
 
             <nav class="hidden items-center gap-6 sm:flex" aria-label="Primary navigation">
-                <a class="font-mono text-xs uppercase tracking-[0.16em] text-primary" href="{{ route('home') }}">Users</a>
-                <span class="font-mono text-xs uppercase tracking-[0.18em] text-on-surface-variant">Server-rendered MVC</span>
+                <a class="font-mono text-xs uppercase tracking-[0.16em] text-primary" href="{{ route('home') }}">Home</a>
+                @auth
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button class="font-mono text-xs uppercase tracking-[0.16em] text-on-surface-variant transition-colors hover:text-primary" type="submit">Sign Out</button>
+                    </form>
+                @else
+                    <a class="font-mono text-xs uppercase tracking-[0.16em] text-on-surface-variant transition-colors hover:text-primary" href="{{ route('login') }}">Sign In</a>
+                    <a class="font-mono text-xs uppercase tracking-[0.16em] text-on-surface-variant transition-colors hover:text-primary" href="{{ route('register') }}">Register</a>
+                @endauth
             </nav>
 
             <button
@@ -48,8 +56,17 @@
                 href="{{ route('home') }}"
                 @click="mobileMenuOpen = false"
             >
-                Users
+                Home
             </a>
+            @auth
+                <form class="px-3 py-3" method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button class="font-mono text-xs uppercase tracking-[0.16em] text-on-surface-variant transition-colors hover:text-primary" type="submit">Sign Out</button>
+                </form>
+            @else
+                <a class="block rounded-md px-3 py-3 font-mono text-xs uppercase tracking-[0.16em] text-on-surface-variant transition-colors hover:bg-surface-high hover:text-primary" href="{{ route('login') }}" @click="mobileMenuOpen = false">Sign In</a>
+                <a class="block rounded-md px-3 py-3 font-mono text-xs uppercase tracking-[0.16em] text-on-surface-variant transition-colors hover:bg-surface-high hover:text-primary" href="{{ route('register') }}" @click="mobileMenuOpen = false">Register</a>
+            @endauth
         </nav>
     </header>
 
