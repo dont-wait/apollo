@@ -9,6 +9,19 @@ return new class extends Migration
 {
     public function up(): void
     {
+        $unexpectedRoles = DB::table('users')
+            ->whereNotIn('role', ['admin', 'user', 'ADMIN', 'USER'])
+            ->distinct()
+            ->pluck('role')
+            ->all();
+
+        if ($unexpectedRoles !== []) {
+            throw new RuntimeException(sprintf(
+                'Cannot normalize users.role. Unexpected legacy roles found: %s.',
+                implode(', ', $unexpectedRoles),
+            ));
+        }
+
         DB::table('users')->where('role', 'admin')->update(['role' => 'ADMIN']);
         DB::table('users')->where('role', 'user')->update(['role' => 'USER']);
 
