@@ -32,7 +32,7 @@ class AdminUserSeeder extends Seeder
         $admin->name = config('admin.name');
         $admin->email = $email;
         $admin->password = $password;
-        $admin->role = 'admin';
+        $admin->role = 'ADMIN';
         $admin->email_verified_at = now();
         $admin->save();
 

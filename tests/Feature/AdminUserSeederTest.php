@@ -25,7 +25,7 @@ class AdminUserSeederTest extends TestCase
 
         $admin = User::query()->where('email', 'seed-admin@example.com')->firstOrFail();
 
-        $this->assertSame('admin', $admin->role);
+        $this->assertSame('ADMIN', $admin->role);
         $this->assertTrue($admin->isAdmin());
         $this->assertTrue(Hash::check('admin-password', $admin->password));
     }
@@ -34,7 +34,7 @@ class AdminUserSeederTest extends TestCase
     {
         User::factory()->create([
             'email' => 'seed-admin@example.com',
-            'role' => 'user',
+            'role' => 'USER',
         ]);
         Config::set('admin.email', 'seed-admin@example.com');
 
@@ -50,7 +50,7 @@ class AdminUserSeederTest extends TestCase
 
         $this->assertDatabaseHas('users', [
             'email' => 'seed-admin@example.com',
-            'role' => 'user',
+            'role' => 'USER',
         ]);
     }
 }
