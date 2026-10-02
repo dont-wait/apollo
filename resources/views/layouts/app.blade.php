@@ -18,7 +18,7 @@
         <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
             <a class="flex shrink-0 items-center gap-2.5 text-sm font-semibold tracking-wide text-on-surface transition-colors hover:text-primary" href="{{ route('home') }}">
                 <span class="flex size-8 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 font-display text-sm font-bold text-primary">A</span>
-                <span>{{ config('app.name', 'NeuralLog') }}</span>
+                <span>{{ config('app.name', 'Apollo Blog') }}</span>
                 <span class="hidden font-mono text-[9px] uppercase tracking-[0.18em] text-primary/70 sm:inline">AI &amp; Systems</span>
             </a>
 
@@ -29,7 +29,7 @@
                 <a class="font-mono text-[11px] uppercase tracking-[0.14em] text-on-surface-variant transition-colors hover:text-primary" href="#about">About</a>
             </nav>
 
-            <div class="hidden items-center gap-3 sm:flex">
+            <div class="hidden items-center gap-3 lg:flex">
                 <a class="hidden items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-on-surface-variant transition-colors hover:text-primary md:flex" href="#articles">
                     <span class="material-symbols-outlined text-[16px]" aria-hidden="true">search</span>
                     Search

@@ -3,21 +3,21 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class AuthTest extends TestCase
 {
-    use DatabaseTransactions;
+    use LazilyRefreshDatabase;
 
-    public function test_login_page_renders_the_neurallog_authentication_screen(): void
+    public function test_login_page_renders_the_apollo_blog_authentication_screen(): void
     {
         $response = $this->get(route('login'));
 
         $response->assertOk()
             ->assertViewIs('auth.login')
-            ->assertSeeText('Welcome back to NeuralLog')
+            ->assertSeeText('Welcome back to Apollo Blog')
             ->assertSeeText('Continue with GitHub')
             ->assertSeeText('Continue with Google')
             ->assertSeeText('Sign In to Account');
@@ -29,7 +29,7 @@ class AuthTest extends TestCase
 
         $response->assertOk()
             ->assertViewIs('auth.register')
-            ->assertSeeText('Join NeuralLog Research')
+            ->assertSeeText('Join Apollo Blog')
             ->assertSeeText('Initialize Account');
     }
 

@@ -67,7 +67,7 @@
 
 @extends('layouts.app')
 
-@section('title', 'NeuralLog · AI & Systems Engineering')
+@section('title', 'Apollo Blog · AI & Systems Engineering')
 
 @section('content')
     <div
@@ -197,6 +197,7 @@
                             :class="activeCategory === @js($category) ? 'bg-surface-high text-primary' : 'text-on-surface-variant hover:bg-surface hover:text-on-surface'"
                             type="button"
                             role="tab"
+                            aria-controls="articles"
                             :aria-selected="activeCategory === @js($category)"
                             @click="activeCategory = @js($category)"
                         >
@@ -206,16 +207,45 @@
                 </div>
 
                 <div class="flex shrink-0 items-center gap-2">
-                    <label class="sr-only" for="sort-posts">Sort articles</label>
-                    <div class="flex items-center gap-1.5 rounded bg-surface px-2.5 py-1.5">
-                        <span class="material-symbols-outlined text-[16px] text-outline" aria-hidden="true">sort</span>
-                        <select id="sort-posts" x-model="sort" class="bg-transparent font-mono text-[10px] uppercase tracking-[0.08em] text-on-surface outline-none">
-                            <option value="latest">Latest</option>
-                            <option value="popular">Most bookmarked</option>
-                            <option value="reading">Longest reads</option>
-                        </select>
+                    <span class="sr-only">Sort articles</span>
+                    <div class="relative" @keydown.escape.window="sortMenuOpen = false">
+                        <button
+                            class="flex min-w-40 items-center gap-2 rounded border border-outline-variant/40 bg-surface px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-on-surface transition-colors hover:border-primary/50 hover:bg-surface-high"
+                            type="button"
+                            aria-haspopup="listbox"
+                            :aria-expanded="sortMenuOpen"
+                            @click="sortMenuOpen = !sortMenuOpen"
+                        >
+                            <span class="material-symbols-outlined text-[16px] text-primary" aria-hidden="true">sort</span>
+                            <span class="flex-1 text-left" x-text="sortLabel()"></span>
+                            <span class="material-symbols-outlined text-[16px] text-outline transition-transform" :class="sortMenuOpen ? 'rotate-180' : ''" aria-hidden="true">expand_more</span>
+                        </button>
+
+                        <div
+                            x-cloak
+                            x-show="sortMenuOpen"
+                            x-transition.origin.top.right
+                            @click.outside="sortMenuOpen = false"
+                            class="absolute right-0 top-full z-30 mt-2 min-w-48 overflow-hidden rounded-lg border border-outline-variant/60 bg-surface-high p-1.5 shadow-2xl shadow-black/30"
+                            role="listbox"
+                            aria-label="Sort articles"
+                        >
+                            <template x-for="option in sortOptions" :key="option.value">
+                                <button
+                                    class="flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-left font-mono text-[10px] uppercase tracking-[0.08em] transition-colors"
+                                    :class="sort === option.value ? 'bg-primary/10 text-primary' : 'text-on-surface-variant hover:bg-surface hover:text-on-surface'"
+                                    type="button"
+                                    role="option"
+                                    :aria-selected="sort === option.value"
+                                    @click="setSort(option.value)"
+                                >
+                                    <span class="material-symbols-outlined text-[15px]" :class="sort === option.value ? 'opacity-100' : 'opacity-0'" aria-hidden="true">check</span>
+                                    <span x-text="option.label"></span>
+                                </button>
+                            </template>
+                        </div>
                     </div>
-                    <div class="flex items-center rounded bg-surface p-0.5" aria-label="View mode">
+                    <div class="hidden items-center rounded bg-surface p-0.5 md:flex" aria-label="View mode">
                         <button class="rounded p-1.5 transition-colors" :class="view === 'list' ? 'bg-surface-high text-primary' : 'text-outline hover:text-on-surface'" type="button" aria-label="List view" :aria-pressed="view === 'list'" @click="view = 'list'">
                             <span class="material-symbols-outlined text-[18px]" aria-hidden="true">view_agenda</span>
                         </button>
@@ -239,17 +269,18 @@
                     </div>
 
                     <div class="grid gap-4" :class="view === 'grid' ? 'md:grid-cols-2' : ''">
-                        <template x-for="post in visiblePosts()" :key="post.id">
+                        <template x-for="(post, index) in visiblePosts()" :key="`${post.id}-${view}`">
                             <article
-                                class="group min-w-0 rounded-lg border border-outline-variant/30 bg-surface-low p-3.5 shadow-md transition-all hover:-translate-y-px hover:border-primary/30 hover:bg-surface"
+                                class="home-feed-card group min-w-0 rounded-lg border border-outline-variant/30 bg-surface-low p-3.5 shadow-md transition-all duration-500 ease-out hover:-translate-y-px hover:border-primary/30 hover:bg-surface"
                                 :class="view === 'grid' ? 'flex flex-col' : 'flex flex-col sm:flex-row'"
+                                :style="`animation-delay: ${Math.min(index * 45, 180)}ms`"
                             >
                                 <div class="relative shrink-0 overflow-hidden rounded bg-surface-lowest" :class="view === 'grid' ? 'h-44 w-full' : 'h-40 w-full sm:h-36 sm:w-48'">
                                     <img class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" :src="post.image" :alt="post.title" loading="lazy">
                                     <span class="absolute left-2 top-2 rounded bg-surface-lowest/90 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-primary backdrop-blur" x-text="post.label"></span>
                                 </div>
 
-                                <div class="flex min-w-0 flex-1 flex-col justify-between gap-4 pt-1 sm:pl-4 sm:pt-0">
+                                <div class="flex min-w-0 flex-1 flex-col justify-between gap-4 pt-1 sm:pt-0" :class="view === 'grid' ? 'sm:pl-0' : 'sm:pl-4'">
                                     <div>
                                         <div class="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em]">
                                             <span class="inline-flex items-center gap-1.5 rounded bg-tertiary/10 px-2 py-0.5 text-tertiary">
@@ -309,12 +340,12 @@
                         </button>
                         <div class="hidden items-center gap-1 sm:flex" aria-label="Pagination">
                             <span class="flex size-8 items-center justify-center rounded bg-primary font-mono text-xs font-semibold text-on-primary">1</span>
-                            <button class="flex size-8 items-center justify-center rounded bg-surface-low font-mono text-xs text-on-surface-variant transition-colors hover:bg-surface-high" type="button">2</button>
-                            <button class="flex size-8 items-center justify-center rounded bg-surface-low font-mono text-xs text-on-surface-variant transition-colors hover:bg-surface-high" type="button">3</button>
+                            <button class="flex size-8 cursor-not-allowed items-center justify-center rounded bg-surface-low font-mono text-xs text-on-surface-variant/50" type="button" disabled aria-disabled="true">2</button>
+                            <button class="flex size-8 cursor-not-allowed items-center justify-center rounded bg-surface-low font-mono text-xs text-on-surface-variant/50" type="button" disabled aria-disabled="true">3</button>
                             <span class="px-1 font-mono text-xs text-outline">...</span>
-                            <button class="flex size-8 items-center justify-center rounded bg-surface-low font-mono text-xs text-on-surface-variant transition-colors hover:bg-surface-high" type="button">18</button>
+                            <button class="flex size-8 cursor-not-allowed items-center justify-center rounded bg-surface-low font-mono text-xs text-on-surface-variant/50" type="button" disabled aria-disabled="true">18</button>
                         </div>
-                        <button class="inline-flex items-center gap-1.5 rounded bg-surface-low px-3.5 py-2 font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant transition-colors hover:bg-surface-high hover:text-on-surface" type="button">
+                        <button class="inline-flex cursor-not-allowed items-center gap-1.5 rounded bg-surface-low px-3.5 py-2 font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant/50" type="button" disabled aria-disabled="true">
                             Next
                             <span class="material-symbols-outlined text-[16px]" aria-hidden="true">arrow_forward</span>
                         </button>
@@ -375,7 +406,7 @@
                 <div class="md:col-span-6">
                     <a class="flex items-center gap-2.5 font-display font-semibold text-on-surface" href="{{ route('home') }}">
                         <span class="flex size-7 items-center justify-center rounded border border-primary/30 bg-primary/10 text-sm text-primary">A</span>
-                        NeuralLog
+                        Apollo Blog
                     </a>
                     <p class="mt-3 max-w-md text-sm leading-6 text-on-surface-variant">Rigorous notes on AI systems, distributed infrastructure, and the practical work behind reliable software.</p>
                     <p class="mt-4 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-tertiary"><span class="size-1.5 animate-pulse rounded-full bg-tertiary"></span> Human-in-the-loop research</p>
@@ -397,7 +428,7 @@
                     </div>
                 </div>
             </div>
-            <div class="mx-auto max-w-7xl border-t border-outline-variant/20 px-4 py-4 font-mono text-[10px] text-outline sm:px-6 lg:px-8">© {{ date('Y') }} NeuralLog. Notes from the edge of the stack.</div>
+            <div class="mx-auto max-w-7xl border-t border-outline-variant/20 px-4 py-4 font-mono text-[10px] text-outline sm:px-6 lg:px-8">© {{ date('Y') }} Apollo Blog. Notes from the edge of the stack.</div>
         </footer>
 
         <div x-cloak x-show="bookmarkNotice" x-transition class="fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-md items-center justify-between gap-4 rounded-lg border border-primary/30 bg-surface-high px-4 py-3 shadow-2xl shadow-black/30" role="status">

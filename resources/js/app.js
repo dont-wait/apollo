@@ -9,6 +9,12 @@ window.homeFeed = (posts, authenticated, loginUrl) => ({
     search: '',
     activeCategory: 'All Posts',
     sort: 'latest',
+    sortMenuOpen: false,
+    sortOptions: [
+        { value: 'latest', label: 'Latest' },
+        { value: 'popular', label: 'Most bookmarked' },
+        { value: 'reading', label: 'Longest reads' },
+    ],
     view: 'list',
     bookmarked: [],
     bookmarkNotice: false,
@@ -34,6 +40,15 @@ window.homeFeed = (posts, authenticated, loginUrl) => ({
         }
 
         return visiblePosts.sort((a, b) => b.publishedOrder - a.publishedOrder);
+    },
+
+    sortLabel() {
+        return this.sortOptions.find((option) => option.value === this.sort)?.label ?? 'Latest';
+    },
+
+    setSort(value) {
+        this.sort = value;
+        this.sortMenuOpen = false;
     },
 
     isBookmarked(postId) {
