@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Database\Seeders\AdminUserSeeder;
-use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Hash;
 use RuntimeException;
@@ -12,7 +12,7 @@ use Tests\TestCase;
 
 class AdminUserSeederTest extends TestCase
 {
-    use DatabaseTransactions;
+    use LazilyRefreshDatabase;
 
     public function test_admin_seeder_creates_a_configured_admin_account(): void
     {

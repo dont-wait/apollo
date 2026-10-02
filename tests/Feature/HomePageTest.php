@@ -3,12 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
 class HomePageTest extends TestCase
 {
-    use DatabaseTransactions;
+    use LazilyRefreshDatabase;
 
     public function test_home_page_renders_without_exposing_users(): void
     {
@@ -21,7 +21,8 @@ class HomePageTest extends TestCase
 
         $response->assertOk()
             ->assertViewIs('home.index')
-            ->assertSeeText('Welcome to Apollo Blog')
+            ->assertSeeText('Engineering notes for the systems behind AI.')
+            ->assertSeeText('AI Weekly: What changed in models, agents, and inference this week')
             ->assertDontSeeText($user->name)
             ->assertDontSeeText($user->email);
     }

@@ -1,11 +1,11 @@
 @extends('layouts.auth')
 
-@section('title', 'Sign In · NeuralLog')
+@section('title', 'Sign In · Apollo Blog')
 
 @section('content')
     <div class="flex flex-col gap-6 rounded-xl bg-surface-low p-6 shadow-2xl shadow-black/20 sm:p-8">
         @include('auth.partials.brand', [
-            'heading' => 'Welcome back to NeuralLog',
+            'heading' => 'Welcome back to Apollo Blog',
             'description' => 'Access deep AI engineering dispatches, bookmark articles, and join the technical discussion.',
         ])
 
