@@ -1,11 +1,11 @@
 @extends('layouts.auth')
 
-@section('title', 'Create Account · NeuralLog')
+@section('title', 'Create Account · Apollo Blog')
 
 @section('content')
     <div class="flex flex-col gap-6 rounded-xl bg-surface-low p-6 shadow-2xl shadow-black/20 sm:p-8">
         @include('auth.partials.brand', [
-            'heading' => 'Join NeuralLog Research',
+            'heading' => 'Join Apollo Blog',
             'description' => 'Create your developer profile to publish analyses, follow papers, and customize topics.',
         ])
 
