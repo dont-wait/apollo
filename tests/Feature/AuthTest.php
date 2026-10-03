@@ -47,7 +47,7 @@ class AuthTest extends TestCase
         $this->assertDatabaseHas('users', [
             'name' => 'Ada Lovelace',
             'email' => 'ada@example.com',
-            'role' => 'user',
+            'role' => 'USER',
         ]);
 
         $user = User::query()->where('email', 'ada@example.com')->firstOrFail();

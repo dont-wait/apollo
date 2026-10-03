@@ -1,0 +1,395 @@
+// Apollo Blog database schema
+// Import this file into https://dbdiagram.io
+
+Enum user_role {
+  ADMIN
+  USER
+}
+
+Enum record_status {
+  ACTIVE
+  INACTIVE
+}
+
+Enum post_status {
+  DRAFT
+  REVIEW
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+Enum post_source_type {
+  MANUAL
+  AI_WEEKLY
+}
+
+Enum comment_status {
+  VISIBLE
+  HIDDEN
+  DELETED
+}
+
+Enum ai_source_type {
+  RSS
+  API
+  WEBSITE
+}
+
+Enum ai_article_status {
+  COLLECTED
+  ANALYZED
+  FAILED
+}
+
+Enum analysis_status {
+  SUCCESS
+  FAILED
+}
+
+Enum weekly_review_status {
+  DRAFT
+  REVIEW
+  CONVERTED
+  DISCARDED
+}
+
+Enum run_type {
+  COLLECT
+  ANALYZE
+  GENERATE_REVIEW
+  PUBLISH_SCHEDULED
+}
+
+Enum run_status {
+  PENDING
+  RUNNING
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+Enum trigger_type {
+  SCHEDULED
+  MANUAL
+}
+
+Table users {
+  id bigint [pk, increment]
+  name varchar(255) [not null]
+  email varchar(255) [not null, unique]
+  email_verified_at datetime
+  password varchar(255) [not null]
+  remember_token varchar(100)
+  role user_role [not null, default: 'USER']
+  status record_status [not null, default: 'ACTIVE']
+  avatar_url varchar(1000)
+  last_login_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+
+  Indexes {
+    (role, status)
+  }
+}
+
+Table sessions {
+  id varchar(255) [pk]
+  user_id bigint
+  ip_address varchar(45)
+  user_agent text
+  payload longtext [not null]
+  last_activity int [not null]
+}
+
+Table password_reset_tokens {
+  email varchar(255) [pk]
+  token varchar(255) [not null]
+  created_at datetime
+}
+
+Table cache {
+  key varchar(255) [pk]
+  value mediumtext [not null]
+  expiration bigint [not null]
+}
+
+Table cache_locks {
+  key varchar(255) [pk]
+  owner varchar(255) [not null]
+  expiration bigint [not null]
+}
+
+Table jobs {
+  id bigint [pk, increment]
+  queue varchar(255) [not null]
+  payload longtext [not null]
+  attempts int [not null]
+  reserved_at int
+  available_at int [not null]
+  created_at int [not null]
+}
+
+Table job_batches {
+  id varchar(255) [pk]
+  name varchar(255) [not null]
+  total_jobs int [not null]
+  pending_jobs int [not null]
+  failed_jobs int [not null]
+  failed_job_ids longtext [not null]
+  options mediumtext
+  cancelled_at int
+  created_at int [not null]
+  finished_at int
+}
+
+Table failed_jobs {
+  id bigint [pk, increment]
+  uuid varchar(255) [not null, unique]
+  connection text [not null]
+  queue text [not null]
+  payload longtext [not null]
+  exception longtext [not null]
+  failed_at datetime [not null]
+}
+
+Table categories {
+  id bigint [pk, increment]
+  parent_id bigint
+  name varchar(100) [not null]
+  slug varchar(120) [not null, unique]
+  description varchar(500)
+  status record_status [not null, default: 'ACTIVE']
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table tags {
+  id bigint [pk, increment]
+  name varchar(60) [not null, unique]
+  slug varchar(80) [not null, unique]
+  created_at datetime [not null]
+}
+
+Table media {
+  id bigint [pk, increment]
+  uploaded_by bigint [not null]
+  file_name varchar(255) [not null]
+  mime_type varchar(100) [not null]
+  size_bytes bigint [not null]
+  storage_key varchar(500) [not null, unique]
+  url varchar(1000) [not null]
+  width unsignedInteger
+  height unsignedInteger
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table posts {
+  id bigint [pk, increment]
+  author_id bigint [not null]
+  category_id bigint
+  weekly_review_id bigint [unique]
+  thumbnail_media_id bigint
+  title varchar(255) [not null]
+  slug varchar(255) [not null, unique]
+  excerpt varchar(500)
+  markdown_content mediumtext [not null]
+  status post_status [not null, default: 'DRAFT']
+  source_type post_source_type [not null, default: 'MANUAL']
+  seo_title varchar(255)
+  seo_description varchar(320)
+  canonical_url varchar(500)
+  published_at datetime
+  scheduled_at datetime
+  view_count bigint [not null, default: 0]
+  like_count int [not null, default: 0]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+
+  Indexes {
+    (status, deleted_at, published_at)
+    (category_id, status, deleted_at, published_at)
+    (status, scheduled_at)
+    (author_id)
+    (title, excerpt, markdown_content) [type: fulltext]
+  }
+}
+
+Table post_tags {
+  post_id bigint [pk]
+  tag_id bigint [pk]
+  created_at datetime [not null]
+}
+
+Table comments {
+  id bigint [pk, increment]
+  post_id bigint [not null]
+  user_id bigint [not null]
+  parent_id bigint
+  content text [not null]
+  status comment_status [not null, default: 'VISIBLE']
+  moderated_by bigint
+  moderated_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table post_likes {
+  user_id bigint [pk]
+  post_id bigint [pk]
+  created_at datetime [not null]
+}
+
+Table bookmarks {
+  user_id bigint [pk]
+  post_id bigint [pk]
+  created_at datetime [not null]
+}
+
+Table ai_sources {
+  id bigint [pk, increment]
+  name varchar(150) [not null, unique]
+  source_type ai_source_type [not null, default: 'RSS']
+  site_url varchar(500) [not null]
+  feed_url varchar(1000)
+  trust_score int [not null, default: 5]
+  priority int [not null, default: 5]
+  status record_status [not null, default: 'ACTIVE']
+  last_fetched_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table automation_runs {
+  id bigint [pk, increment]
+  run_type run_type [not null]
+  status run_status [not null, default: 'PENDING']
+  trigger_type trigger_type [not null, default: 'SCHEDULED']
+  triggered_by bigint
+  idempotency_key varchar(128) [unique]
+  payload json
+  attempt int [not null, default: 0]
+  max_attempts int [not null, default: 3]
+  locked_at datetime
+  started_at datetime
+  finished_at datetime
+  error_message text
+  created_at datetime [not null]
+}
+
+Table ai_articles {
+  id bigint [pk, increment]
+  source_id bigint [not null]
+  collection_run_id bigint
+  title varchar(500) [not null]
+  url varchar(2048) [not null]
+  canonical_url varchar(2048) [not null]
+  canonical_url_hash char(64) [not null, unique]
+  title_fingerprint char(64)
+  author varchar(255)
+  published_at datetime
+  raw_summary text
+  raw_content mediumtext
+  status ai_article_status [not null, default: 'COLLECTED']
+  collected_at datetime [not null]
+}
+
+Table ai_article_analysis {
+  id bigint [pk, increment]
+  article_id bigint [not null]
+  version int [not null]
+  is_current boolean [not null, default: false]
+  status analysis_status [not null]
+  model_name varchar(100)
+  prompt_version varchar(50)
+  summary text
+  key_points json
+  technologies json
+  companies json
+  opportunities json
+  risks json
+  raw_output json
+  error_message text
+  input_tokens int
+  output_tokens int
+  created_at datetime [not null]
+
+  Indexes {
+    (article_id, version) [unique]
+    (article_id, is_current)
+  }
+}
+
+Table ai_topics {
+  id bigint [pk, increment]
+  name varchar(100) [not null, unique]
+  slug varchar(120) [not null, unique]
+  status record_status [not null, default: 'ACTIVE']
+}
+
+Table ai_article_topics {
+  article_id bigint [pk]
+  topic_id bigint [pk]
+  confidence decimal(4,3)
+}
+
+Table weekly_reviews {
+  id bigint [pk, increment]
+  week_start date [not null, unique]
+  week_end date [not null]
+  title varchar(255) [not null]
+  excerpt varchar(500)
+  markdown_content mediumtext [not null]
+  status weekly_review_status [not null, default: 'DRAFT']
+  quality_warning text
+  suggested_category_id bigint
+  suggested_tags json
+  generation_run_id bigint
+  model_name varchar(100)
+  generated_at datetime
+  reviewed_by bigint
+  reviewed_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table weekly_review_sources {
+  review_id bigint [pk]
+  article_id bigint [pk]
+  topic_id bigint
+  is_representative boolean [not null, default: false]
+  citation_order int
+}
+
+Ref: sessions.user_id > users.id
+Ref: categories.parent_id > categories.id
+Ref: media.uploaded_by > users.id
+Ref: posts.author_id > users.id
+Ref: posts.category_id > categories.id
+Ref: posts.weekly_review_id - weekly_reviews.id
+Ref: posts.thumbnail_media_id > media.id
+Ref: post_tags.post_id > posts.id
+Ref: post_tags.tag_id > tags.id
+Ref: comments.post_id > posts.id
+Ref: comments.user_id > users.id
+Ref: comments.parent_id > comments.id
+Ref: comments.moderated_by > users.id
+Ref: post_likes.user_id > users.id
+Ref: post_likes.post_id > posts.id
+Ref: bookmarks.user_id > users.id
+Ref: bookmarks.post_id > posts.id
+Ref: automation_runs.triggered_by > users.id
+Ref: ai_articles.source_id > ai_sources.id
+Ref: ai_articles.collection_run_id > automation_runs.id
+Ref: ai_article_analysis.article_id > ai_articles.id
+Ref: ai_article_topics.article_id > ai_articles.id
+Ref: ai_article_topics.topic_id > ai_topics.id
+Ref: weekly_reviews.suggested_category_id > categories.id
+Ref: weekly_reviews.generation_run_id > automation_runs.id
+Ref: weekly_reviews.reviewed_by > users.id
+Ref: weekly_review_sources.review_id > weekly_reviews.id
+Ref: weekly_review_sources.article_id > ai_articles.id
+Ref: weekly_review_sources.topic_id > ai_topics.id
