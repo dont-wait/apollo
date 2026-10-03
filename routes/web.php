@@ -21,3 +21,6 @@ Route::middleware('guest')->group(function (): void {
 Route::post('/logout', [AuthController::class, 'logout'])
     ->middleware('auth')
     ->name('logout');
+Route::get('/admin/dashboard', function () {
+    return view('admin.dashboard');
+});
