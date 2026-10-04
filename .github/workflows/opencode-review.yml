@@ -3,6 +3,10 @@ name: OpenCode PR Review PR
 on:
   pull_request:
     types: [labeled]
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
 
 jobs:
   opencode-review:
@@ -20,6 +24,322 @@ jobs:
         uses: actions/checkout@v4
 
       - name: OpenCode Review Action
+        uses: anomalyco/opencode/github@latest
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          model: opencode/mimo-v2.6-flash-free
+          prompt: |
+            You are a precise, balanced pull request reviewer. Review the complete
+            diff in repository context. Read applicable AGENTS.md and project
+            guidance, then inspect related code when needed to verify behavior.
+
+            Look for concrete problems in these areas:
+            - Functional correctness: logic errors, regressions, and missed edge cases
+            - Security and privacy: authorization gaps, injection, unsafe input,
+              secrets, or unintended data exposure
+            - Stability: crashes, unhandled failures, resource leaks, and races
+            - Data integrity and integration: incorrect persistence, schema,
+              transaction, or API boundary behavior
+            - Performance: material regressions on realistic inputs
+            - Maintainability: only violations likely to cause a defect or make
+              this change unsafe to extend; do not flag personal style choices
+
+            Review rules:
+            - Report only issues introduced by this PR and supported by the code.
+            - Verify each issue against its actual triggering scenario and impact.
+              Trace callers, data flow, and existing behavior before concluding.
+            - Do not report hypothetical risks, generic best-practice advice,
+              formatting, or issues that tools already catch unless the PR creates
+              a separate user-visible problem.
+            - Prefer fewer, high-confidence findings over exhaustive speculation.
+            - Do not repeat the same root cause in multiple comments.
+            Do not change code, push commits, or modify the PR branch. Do not
+            write a prose list of findings in the top-level response; the
+            workflow will publish each finding as a separate, resolvable review
+            thread.
+
+            Return every finding in this exact machine-readable block. Output
+            valid JSON only between the markers, with no Markdown fence:
+            <!-- opencode-findings:start -->
+            {"findings":[{"path":"relative/file/path","line":123,"category":"Functional Correctness","severity":"P2","title":"Short actionable title","problem":"Explain the triggering scenario and concrete impact.","suggested_fix":"Describe the smallest safe correction and a relevant regression test.","agent_prompt":"Ready-to-copy prompt naming the file and behavior, preserving contracts and conventions, requesting only this fix, and asking to run relevant existing tests."}]}
+            <!-- opencode-findings:end -->
+
+            Each path and line must identify a changed line in this PR. Never
+            guess a location: if no changed line can anchor the finding, omit
+            it. Use an empty findings array when there are no actionable issues.
+            Keep each finding independent. Do not claim tests were run unless
+            the PR context explicitly confirms that.
+
+            Severity: P1 = critical impact or broad breakage; P2 = significant
+            functional, security, or data issue in a realistic scenario; P3 =
+            limited but concrete defect. Do not assign severity to suggestions.
+            If there are no actionable findings, say: "No actionable findings."
+
+            Also include a concise PR summary after the review findings. It must
+            summarize the purpose and key changes based on the diff, and mention
+            verification only when it is evidenced by the PR context. Do not
+            claim tests passed unless that is explicitly known. Wrap this summary
+            exactly in these markers so the workflow can copy it into the PR
+            description:
+            <!-- opencode-pr-summary:start -->
+            ## OpenCode Summary
+            - Purpose: ...
+            - Key changes: ...
+            - Verification: ...
+            <!-- opencode-pr-summary:end -->
+
+      - name: Publish findings as resolvable review threads
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const findingsStart = '<!-- opencode-findings:start -->';
+            const findingsEnd = '<!-- opencode-findings:end -->';
+            const { owner, repo } = context.repo;
+            const pullNumber = context.payload.pull_request.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: pullNumber,
+              per_page: 100,
+            });
+
+            const reviewComment = comments
+              .reverse()
+              .find((comment) =>
+                comment.user?.type === 'Bot' &&
+                comment.body.includes(findingsStart) &&
+                comment.body.includes(findingsEnd)
+              );
+
+            if (!reviewComment) {
+              core.setFailed('OpenCode finding data was not found in a bot comment.');
+              return;
+            }
+
+            const start = reviewComment.body.indexOf(findingsStart) + findingsStart.length;
+            const end = reviewComment.body.indexOf(findingsEnd, start);
+            let parsedFindings;
+
+            try {
+              parsedFindings = JSON.parse(reviewComment.body.slice(start, end).trim());
+            } catch (error) {
+              core.setFailed(`OpenCode returned invalid finding JSON: ${error.message}`);
+              return;
+            }
+
+            if (!Array.isArray(parsedFindings.findings)) {
+              core.setFailed('OpenCode finding JSON must contain a findings array.');
+              return;
+            }
+
+            if (parsedFindings.findings.length === 0) {
+              core.info('OpenCode found no actionable issues; no review threads to publish.');
+              return;
+            }
+
+            const pullFiles = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: pullNumber,
+              per_page: 100,
+            });
+
+            function changedRightSideLines(patch) {
+              const changedLines = new Set();
+              let currentLine = null;
+
+              for (const diffLine of (patch ?? '').split('\n')) {
+                const hunk = diffLine.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+                if (hunk) {
+                  currentLine = Number(hunk[1]);
+                  continue;
+                }
+
+                if (currentLine === null || diffLine.startsWith('\\')) {
+                  continue;
+                }
+
+                if (diffLine.startsWith('+') && !diffLine.startsWith('+++')) {
+                  changedLines.add(currentLine);
+                  currentLine += 1;
+                } else if (diffLine.startsWith(' ')) {
+                  currentLine += 1;
+                }
+              }
+
+              return changedLines;
+            }
+
+            const changedLinesByPath = new Map(
+              pullFiles.map((file) => [file.filename, changedRightSideLines(file.patch)])
+            );
+
+            const commentsToPublish = [];
+            for (const finding of parsedFindings.findings.slice(0, 50)) {
+              if (!finding || typeof finding !== 'object') {
+                core.warning('Skipping a malformed finding entry.');
+                continue;
+              }
+
+              const changedLines = changedLinesByPath.get(finding.path);
+              if (
+                typeof finding.path !== 'string' ||
+                !changedLines ||
+                !Number.isInteger(finding.line) ||
+                !changedLines.has(finding.line) ||
+                !['P1', 'P2', 'P3'].includes(finding.severity) ||
+                typeof finding.category !== 'string' ||
+                typeof finding.title !== 'string' ||
+                typeof finding.problem !== 'string' ||
+                typeof finding.suggested_fix !== 'string' ||
+                typeof finding.agent_prompt !== 'string'
+              ) {
+                core.warning(`Skipping an invalid or non-diff finding at ${finding.path}:${finding.line}.`);
+                continue;
+              }
+
+              const body = [
+                `**[${finding.category}] [${finding.severity}] ${finding.title}**`,
+                `**Problem:** ${finding.problem}`,
+                `**Suggested fix:** ${finding.suggested_fix}`,
+                `**Prompt for the fixing agent:**\n\`\`\`text\n${finding.agent_prompt}\n\`\`\``,
+              ].join('\n\n');
+
+              commentsToPublish.push({
+                path: finding.path,
+                line: finding.line,
+                side: 'RIGHT',
+                body,
+              });
+            }
+
+            if (commentsToPublish.length === 0) {
+              core.warning('No findings mapped to changed lines; no review threads were created.');
+              return;
+            }
+
+            let tokenResponse;
+            for (let attempt = 0; attempt < 3; attempt += 1) {
+              const oidcToken = await core.getIDToken('opencode-github-action');
+              tokenResponse = await fetch('https://api.opencode.ai/exchange_github_app_token', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${oidcToken}` },
+              });
+
+              if (tokenResponse.ok || tokenResponse.status < 500) {
+                break;
+              }
+
+              if (attempt < 2) {
+                await new Promise((resolve) => setTimeout(resolve, 1000 * (2 ** attempt)));
+              }
+            }
+
+            if (!tokenResponse.ok) {
+              const error = await tokenResponse.text();
+              core.setFailed(`Could not get the OpenCode App token for review comments: ${tokenResponse.status} ${error}`);
+              return;
+            }
+
+            const { token: appToken } = await tokenResponse.json();
+            const reviewResponse = await fetch(
+              `${context.apiUrl}/repos/${owner}/${repo}/pulls/${pullNumber}/reviews`,
+              {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${appToken}`,
+                  Accept: 'application/vnd.github+json',
+                  'X-GitHub-Api-Version': '2022-11-28',
+                },
+                body: JSON.stringify({
+                  commit_id: context.payload.pull_request.head.sha,
+                  event: 'COMMENT',
+                  comments: commentsToPublish,
+                }),
+              }
+            );
+
+            if (!reviewResponse.ok) {
+              const error = await reviewResponse.text();
+              core.setFailed(`Could not publish inline review comments: ${reviewResponse.status} ${error}`);
+              return;
+            }
+
+            core.info(`Published ${commentsToPublish.length} resolvable review thread(s).`);
+
+      - name: Append summary to pull request description
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const startMarker = '<!-- opencode-pr-summary:start -->';
+            const endMarker = '<!-- opencode-pr-summary:end -->';
+            const { owner, repo } = context.repo;
+            const pullNumber = context.payload.pull_request.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: pullNumber,
+              per_page: 100,
+            });
+
+            const summaryComment = comments
+              .reverse()
+              .find((comment) =>
+                comment.user?.type === 'Bot' &&
+                comment.body.includes(startMarker) &&
+                comment.body.includes(endMarker)
+              );
+
+            if (!summaryComment) {
+              core.setFailed('OpenCode summary markers were not found in a bot comment.');
+              return;
+            }
+
+            const start = summaryComment.body.indexOf(startMarker);
+            const end = summaryComment.body.indexOf(endMarker, start) + endMarker.length;
+            const summary = summaryComment.body.slice(start, end).trim();
+            const { data: pullRequest } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: pullNumber,
+            });
+
+            const existingBody = pullRequest.body ?? '';
+            const summaryBlock = /<!-- opencode-pr-summary:start -->[\s\S]*?<!-- opencode-pr-summary:end -->/;
+            const bodyWithoutOldSummary = existingBody.replace(summaryBlock, '').trimEnd();
+            const updatedBody = bodyWithoutOldSummary
+              ? `${bodyWithoutOldSummary}\n\n${summary}`
+              : summary;
+
+            await github.rest.pulls.update({
+              owner,
+              repo,
+              pull_number: pullNumber,
+              body: updatedBody,
+            });
+
+  opencode-interaction:
+    if: >-
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
+        github.event.comment.user.type != 'Bot' &&
+        (contains(github.event.comment.body, '/oc') || contains(github.event.comment.body, '/opencode'))) ||
+      (github.event_name == 'pull_request_review_comment' &&
+        github.event.comment.user.type != 'Bot' &&
+        (contains(github.event.comment.body, '/oc') || contains(github.event.comment.body, '/opencode')))
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Respond to PR comment
         uses: anomalyco/opencode/github@latest
         env:
           GITHUB_TOKEN: ${{ github.token }}
