@@ -3,6 +3,10 @@ name: OpenCode PR Review PR
 on:
   pull_request:
     types: [labeled]
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
 
 jobs:
   opencode-review:
@@ -25,3 +29,151 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         with:
           model: opencode/mimo-v2.6-flash-free
+          use_github_token: true
+          prompt: |
+            You are a precise, balanced pull request reviewer. Review the complete
+            diff in repository context. Read applicable AGENTS.md and project
+            guidance, then inspect related code when needed to verify behavior.
+
+            Look for concrete problems in these areas:
+            - Functional correctness: logic errors, regressions, and missed edge cases
+            - Security and privacy: authorization gaps, injection, unsafe input,
+              secrets, or unintended data exposure
+            - Stability: crashes, unhandled failures, resource leaks, and races
+            - Data integrity and integration: incorrect persistence, schema,
+              transaction, or API boundary behavior
+            - Performance: material regressions on realistic inputs
+            - Maintainability: only violations likely to cause a defect or make
+              this change unsafe to extend; do not flag personal style choices
+
+            Review rules:
+            - Report only issues introduced by this PR and supported by the code.
+            - Verify each issue against its actual triggering scenario and impact.
+              Trace callers, data flow, and existing behavior before concluding.
+            - Do not report hypothetical risks, generic best-practice advice,
+              formatting, or issues that tools already catch unless the PR creates
+              a separate user-visible problem.
+            - Prefer fewer, high-confidence findings over exhaustive speculation.
+            - Do not repeat the same root cause in multiple comments.
+            - Do not make code changes, push commits, or modify the PR.
+
+            For each finding, post an inline comment on the exact changed line
+            that causes the issue. Use this structure:
+
+            **[Category] [Severity] Short title**
+
+            **Problem**: Identify what is wrong and cite the relevant file and
+            line. Explain the concrete impact and the inputs, state, or sequence
+            of actions that trigger it.
+
+            **Suggested fix**: Describe the smallest safe correction. Include a
+            short code snippet when it makes the fix clearer, and mention a
+            regression test or check that would cover the scenario.
+
+            **Prompt for the fixing agent**: End with a ready-to-copy prompt in
+            a fenced text block. Make it specific to this finding: name the file
+            and behavior to fix, preserve the intended contract and project
+            conventions, ask for the smallest change, and ask the agent to run
+            relevant existing tests. Do not ask the fixing agent to address
+            unrelated findings. The prompt must not claim a test was run.
+
+            Keep comments focused and concise. Do not put multiple unrelated
+            findings in one comment. If the line is outside the diff, anchor the
+            comment to the nearest changed line and name the actual location in
+            the comment body.
+
+            Severity: P1 = critical impact or broad breakage; P2 = significant
+            functional, security, or data issue in a realistic scenario; P3 =
+            limited but concrete defect. Do not assign severity to suggestions.
+            If there are no actionable findings, say: "No actionable findings."
+
+            Also include a concise PR summary after the review findings. It must
+            summarize the purpose and key changes based on the diff, and mention
+            verification only when it is evidenced by the PR context. Do not
+            claim tests passed unless that is explicitly known. Wrap this summary
+            exactly in these markers so the workflow can copy it into the PR
+            description:
+            <!-- opencode-pr-summary:start -->
+            ## OpenCode Summary
+            - Purpose: ...
+            - Key changes: ...
+            - Verification: ...
+            <!-- opencode-pr-summary:end -->
+
+      - name: Append summary to pull request description
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const startMarker = '<!-- opencode-pr-summary:start -->';
+            const endMarker = '<!-- opencode-pr-summary:end -->';
+            const { owner, repo } = context.repo;
+            const pullNumber = context.payload.pull_request.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: pullNumber,
+              per_page: 100,
+            });
+
+            const summaryComment = comments
+              .reverse()
+              .find((comment) =>
+                comment.user?.type === 'Bot' &&
+                comment.body.includes(startMarker) &&
+                comment.body.includes(endMarker)
+              );
+
+            if (!summaryComment) {
+              core.setFailed('OpenCode summary markers were not found in a bot comment.');
+              return;
+            }
+
+            const start = summaryComment.body.indexOf(startMarker);
+            const end = summaryComment.body.indexOf(endMarker, start) + endMarker.length;
+            const summary = summaryComment.body.slice(start, end).trim();
+            const { data: pullRequest } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: pullNumber,
+            });
+
+            const existingBody = pullRequest.body ?? '';
+            const summaryBlock = /<!-- opencode-pr-summary:start -->[\s\S]*?<!-- opencode-pr-summary:end -->/;
+            const bodyWithoutOldSummary = existingBody.replace(summaryBlock, '').trimEnd();
+            const updatedBody = bodyWithoutOldSummary
+              ? `${bodyWithoutOldSummary}\n\n${summary}`
+              : summary;
+
+            await github.rest.pulls.update({
+              owner,
+              repo,
+              pull_number: pullNumber,
+              body: updatedBody,
+            });
+
+  opencode-interaction:
+    if: >-
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
+        github.event.comment.user.type != 'Bot' &&
+        (contains(github.event.comment.body, '/oc') || contains(github.event.comment.body, '/opencode'))) ||
+      (github.event_name == 'pull_request_review_comment' &&
+        github.event.comment.user.type != 'Bot' &&
+        (contains(github.event.comment.body, '/oc') || contains(github.event.comment.body, '/opencode')))
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Respond to PR comment
+        uses: anomalyco/opencode/github@latest
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          model: opencode/mimo-v2.6-flash-free
+          use_github_token: true
