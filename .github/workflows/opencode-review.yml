@@ -24,4 +24,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
-          model: mimo-v2.6-flash-free
+          model: opencode/mimo-v2.6-flash-free
