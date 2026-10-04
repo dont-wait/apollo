@@ -54,32 +54,22 @@ jobs:
               a separate user-visible problem.
             - Prefer fewer, high-confidence findings over exhaustive speculation.
             - Do not repeat the same root cause in multiple comments.
-            - Do not make code changes, push commits, or modify the PR.
+            Do not change code, push commits, or modify the PR branch. Do not
+            write a prose list of findings in the top-level response; the
+            workflow will publish each finding as a separate, resolvable review
+            thread.
 
-            For each finding, post an inline comment on the exact changed line
-            that causes the issue. Use this structure:
+            Return every finding in this exact machine-readable block. Output
+            valid JSON only between the markers, with no Markdown fence:
+            <!-- opencode-findings:start -->
+            {"findings":[{"path":"relative/file/path","line":123,"category":"Functional Correctness","severity":"P2","title":"Short actionable title","problem":"Explain the triggering scenario and concrete impact.","suggested_fix":"Describe the smallest safe correction and a relevant regression test.","agent_prompt":"Ready-to-copy prompt naming the file and behavior, preserving contracts and conventions, requesting only this fix, and asking to run relevant existing tests."}]}
+            <!-- opencode-findings:end -->
 
-            **[Category] [Severity] Short title**
-
-            **Problem**: Identify what is wrong and cite the relevant file and
-            line. Explain the concrete impact and the inputs, state, or sequence
-            of actions that trigger it.
-
-            **Suggested fix**: Describe the smallest safe correction. Include a
-            short code snippet when it makes the fix clearer, and mention a
-            regression test or check that would cover the scenario.
-
-            **Prompt for the fixing agent**: End with a ready-to-copy prompt in
-            a fenced text block. Make it specific to this finding: name the file
-            and behavior to fix, preserve the intended contract and project
-            conventions, ask for the smallest change, and ask the agent to run
-            relevant existing tests. Do not ask the fixing agent to address
-            unrelated findings. The prompt must not claim a test was run.
-
-            Keep comments focused and concise. Do not put multiple unrelated
-            findings in one comment. If the line is outside the diff, anchor the
-            comment to the nearest changed line and name the actual location in
-            the comment body.
+            Each path and line must identify a changed line in this PR. Never
+            guess a location: if no changed line can anchor the finding, omit
+            it. Use an empty findings array when there are no actionable issues.
+            Keep each finding independent. Do not claim tests were run unless
+            the PR context explicitly confirms that.
 
             Severity: P1 = critical impact or broad breakage; P2 = significant
             functional, security, or data issue in a realistic scenario; P3 =
@@ -98,6 +88,185 @@ jobs:
             - Key changes: ...
             - Verification: ...
             <!-- opencode-pr-summary:end -->
+
+      - name: Publish findings as resolvable review threads
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const findingsStart = '<!-- opencode-findings:start -->';
+            const findingsEnd = '<!-- opencode-findings:end -->';
+            const { owner, repo } = context.repo;
+            const pullNumber = context.payload.pull_request.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: pullNumber,
+              per_page: 100,
+            });
+
+            const reviewComment = comments
+              .reverse()
+              .find((comment) =>
+                comment.user?.type === 'Bot' &&
+                comment.body.includes(findingsStart) &&
+                comment.body.includes(findingsEnd)
+              );
+
+            if (!reviewComment) {
+              core.setFailed('OpenCode finding data was not found in a bot comment.');
+              return;
+            }
+
+            const start = reviewComment.body.indexOf(findingsStart) + findingsStart.length;
+            const end = reviewComment.body.indexOf(findingsEnd, start);
+            let parsedFindings;
+
+            try {
+              parsedFindings = JSON.parse(reviewComment.body.slice(start, end).trim());
+            } catch (error) {
+              core.setFailed(`OpenCode returned invalid finding JSON: ${error.message}`);
+              return;
+            }
+
+            if (!Array.isArray(parsedFindings.findings)) {
+              core.setFailed('OpenCode finding JSON must contain a findings array.');
+              return;
+            }
+
+            if (parsedFindings.findings.length === 0) {
+              core.info('OpenCode found no actionable issues; no review threads to publish.');
+              return;
+            }
+
+            const pullFiles = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: pullNumber,
+              per_page: 100,
+            });
+
+            function changedRightSideLines(patch) {
+              const changedLines = new Set();
+              let currentLine = null;
+
+              for (const diffLine of (patch ?? '').split('\n')) {
+                const hunk = diffLine.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+                if (hunk) {
+                  currentLine = Number(hunk[1]);
+                  continue;
+                }
+
+                if (currentLine === null || diffLine.startsWith('\\')) {
+                  continue;
+                }
+
+                if (diffLine.startsWith('+') && !diffLine.startsWith('+++')) {
+                  changedLines.add(currentLine);
+                  currentLine += 1;
+                } else if (diffLine.startsWith(' ')) {
+                  currentLine += 1;
+                }
+              }
+
+              return changedLines;
+            }
+
+            const changedLinesByPath = new Map(
+              pullFiles.map((file) => [file.filename, changedRightSideLines(file.patch)])
+            );
+
+            const commentsToPublish = [];
+            for (const finding of parsedFindings.findings.slice(0, 50)) {
+              if (!finding || typeof finding !== 'object') {
+                core.warning('Skipping a malformed finding entry.');
+                continue;
+              }
+
+              const changedLines = changedLinesByPath.get(finding.path);
+              if (
+                typeof finding.path !== 'string' ||
+                !changedLines ||
+                !Number.isInteger(finding.line) ||
+                !changedLines.has(finding.line) ||
+                !['P1', 'P2', 'P3'].includes(finding.severity) ||
+                typeof finding.category !== 'string' ||
+                typeof finding.title !== 'string' ||
+                typeof finding.problem !== 'string' ||
+                typeof finding.suggested_fix !== 'string' ||
+                typeof finding.agent_prompt !== 'string'
+              ) {
+                core.warning(`Skipping an invalid or non-diff finding at ${finding.path}:${finding.line}.`);
+                continue;
+              }
+
+              const body = [
+                `**[${finding.category}] [${finding.severity}] ${finding.title}**`,
+                `**Problem:** ${finding.problem}`,
+                `**Suggested fix:** ${finding.suggested_fix}`,
+                `**Prompt for the fixing agent:**\n\`\`\`text\n${finding.agent_prompt}\n\`\`\``,
+              ].join('\n\n');
+
+              commentsToPublish.push({
+                path: finding.path,
+                line: finding.line,
+                side: 'RIGHT',
+                body,
+              });
+            }
+
+            if (commentsToPublish.length === 0) {
+              core.warning('No findings mapped to changed lines; no review threads were created.');
+              return;
+            }
+
+            let tokenResponse;
+            for (let attempt = 0; attempt < 3; attempt += 1) {
+              const oidcToken = await core.getIDToken('opencode-github-action');
+              tokenResponse = await fetch('https://api.opencode.ai/exchange_github_app_token', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${oidcToken}` },
+              });
+
+              if (tokenResponse.ok || tokenResponse.status < 500) {
+                break;
+              }
+
+              if (attempt < 2) {
+                await new Promise((resolve) => setTimeout(resolve, 1000 * (2 ** attempt)));
+              }
+            }
+
+            if (!tokenResponse.ok) {
+              const error = await tokenResponse.text();
+              core.setFailed(`Could not get the OpenCode App token for review comments: ${tokenResponse.status} ${error}`);
+              return;
+            }
+
+            const { token: appToken } = await tokenResponse.json();
+            const reviewResponse = await fetch(
+              `${context.apiUrl}/repos/${owner}/${repo}/pulls/${pullNumber}/reviews`,
+              {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${appToken}`,
+                  Accept: 'application/vnd.github+json',
+                  'X-GitHub-Api-Version': '2022-11-28',
+                },
+                body: JSON.stringify({
+                  commit_id: context.payload.pull_request.head.sha,
+                  event: 'COMMENT',
+                  comments: commentsToPublish,
+                }),
+              }
+            );
+
+            if (!reviewResponse.ok) {
+              const error = await reviewResponse.text();
+              core.setFailed(`Could not publish inline review comments: ${reviewResponse.status} ${error}`);
+              return;
+            }
+
+            core.info(`Published ${commentsToPublish.length} resolvable review thread(s).`);
 
       - name: Append summary to pull request description
         uses: actions/github-script@v7
