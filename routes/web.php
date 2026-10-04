@@ -1,9 +1,9 @@
 <?php
 
 use App\Http\Controllers\Admin\CategoryController;
-use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\HomeController;
+use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -23,7 +23,6 @@ Route::middleware('guest')->group(function (): void {
 Route::post('/logout', [AuthController::class, 'logout'])
     ->middleware('auth')
     ->name('logout');
-
 
 Route::prefix('admin')
     ->name('admin.')

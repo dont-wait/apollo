@@ -30,7 +30,7 @@ class CategoryController extends Controller
             'name' => $request->input('name'),
             'slug' => $request->input('slug'),
             'description' => $request->input('description'),
-            'status' => $request->input('status', 'ACTIVE'),
+            'status' => $request->input('status') ?? 'ACTIVE',
         ]);
 
         return response()->json([

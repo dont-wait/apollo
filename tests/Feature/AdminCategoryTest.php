@@ -190,4 +190,61 @@ class AdminCategoryTest extends TestCase
             'status' => 'INACTIVE',
         ]);
     }
+
+    public function test_null_status_defaults_to_active_when_creating_category(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'ADMIN',
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->postJson('/admin/categories', [
+                'name' => 'Machine Learning',
+                'slug' => 'machine-learning',
+                'status' => null,
+            ]);
+
+        $response->assertCreated();
+
+        $this->assertDatabaseHas('categories', [
+            'slug' => 'machine-learning',
+            'status' => 'ACTIVE',
+        ]);
+    }
+
+    public function test_category_cannot_use_its_descendant_as_parent(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'ADMIN',
+        ]);
+
+        $parent = Category::create([
+            'name' => 'Parent',
+            'slug' => 'parent',
+            'status' => 'ACTIVE',
+        ]);
+
+        $child = Category::create([
+            'parent_id' => $parent->id,
+            'name' => 'Child',
+            'slug' => 'child',
+            'status' => 'ACTIVE',
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->putJson("/admin/categories/{$parent->id}", [
+                'parent_id' => $child->id,
+                'name' => 'Parent',
+                'slug' => 'parent',
+                'status' => 'ACTIVE',
+            ]);
+
+        $response->assertUnprocessable();
+
+        $response->assertJsonValidationErrors([
+            'parent_id',
+        ]);
+    }
 }
