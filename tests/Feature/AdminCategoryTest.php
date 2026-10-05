@@ -55,6 +55,27 @@ class AdminCategoryTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_open_category_management_page(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'ADMIN',
+        ]);
+
+        Category::create([
+            'name' => 'Artificial Intelligence',
+            'slug' => 'artificial-intelligence',
+            'status' => 'ACTIVE',
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->get('/admin/categories');
+
+        $response->assertOk();
+        $response->assertSee('Artificial Intelligence');
+        $response->assertSee('Categories &amp; Tags', false);
+    }
+
     public function test_admin_can_create_category(): void
     {
         $admin = User::factory()->create([

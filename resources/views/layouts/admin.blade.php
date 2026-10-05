@@ -36,7 +36,11 @@
                     <span class="material-symbols-outlined text-[18px]">article</span>
                     <span>Articles</span>
                 </a>
-                <a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all font-body-sm text-body-sm" data-path="admin-categories" href="#">
+                <a @class([
+                    'flex items-center gap-3 px-3 py-2 rounded transition-all font-body-sm text-body-sm',
+                    'bg-surface-container-high text-primary border-l-2 border-primary font-semibold' => request()->routeIs('admin.categories.*'),
+                    'text-on-surface-variant hover:bg-surface-container hover:text-on-surface' => ! request()->routeIs('admin.categories.*'),
+                ]) @if (request()->routeIs('admin.categories.*')) aria-current="page" @endif data-path="admin-categories" href="{{ route('admin.categories.index') }}">
                     <span class="material-symbols-outlined text-[18px]">label</span>
                     <span>Categories &amp; Tags</span>
                 </a>
