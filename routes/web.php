@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\HomeController;
+use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -21,6 +23,24 @@ Route::middleware('guest')->group(function (): void {
 Route::post('/logout', [AuthController::class, 'logout'])
     ->middleware('auth')
     ->name('logout');
-Route::get('/admin/dashboard', function () {
-    return view('admin.dashboard');
-})->name('admin.dashboard');
+
+Route::prefix('admin')
+    ->name('admin.')
+    ->middleware(['auth', EnsureUserIsAdmin::class])
+    ->group(function (): void {
+        Route::get('/dashboard', function () {
+            return view('admin.dashboard');
+        })->name('dashboard');
+
+        Route::get('/categories', [CategoryController::class, 'index'])
+            ->name('categories.index');
+
+        Route::post('/categories', [CategoryController::class, 'store'])
+            ->name('categories.store');
+
+        Route::get('/categories/{category}', [CategoryController::class, 'show'])
+            ->name('categories.show');
+
+        Route::put('/categories/{category}', [CategoryController::class, 'update'])
+            ->name('categories.update');
+    });
