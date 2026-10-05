@@ -29,6 +29,9 @@ Route::prefix('admin')
     ->name('admin.')
     ->middleware(['auth', EnsureUserIsAdmin::class])
     ->group(function (): void {
+        Route::get('/dashboard', function () {
+            return view('admin.dashboard');
+        })->name('dashboard');
 
         Route::get('/categories', [CategoryController::class, 'index'])
             ->name('categories.index');

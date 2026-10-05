@@ -16,6 +16,7 @@ class UpdateCategoryRequest extends FormRequest
     public function rules(): array
     {
         $category = $this->route('category');
+        $categoryId = $category instanceof Category ? $category->getKey() : $category;
 
         return [
             'parent_id' => [
@@ -23,7 +24,7 @@ class UpdateCategoryRequest extends FormRequest
                 'integer',
                 Rule::exists('categories', 'id'),
 
-                function (string $attribute, mixed $value, \Closure $fail) use ($category): void {
+                function (string $attribute, mixed $value, \Closure $fail) use ($categoryId): void {
                     if ($value === null) {
                         return;
                     }
@@ -32,7 +33,7 @@ class UpdateCategoryRequest extends FormRequest
                     $visited = [];
 
                     while ($parent !== null) {
-                        if ($parent->id === $category->id) {
+                        if ((int) $parent->getKey() === (int) $categoryId) {
                             $fail('Category cha không được là chính nó hoặc category con của nó.');
 
                             return;

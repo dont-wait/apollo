@@ -8,15 +8,23 @@ use App\Http\Requests\Admin\UpdateCategoryRequest;
 use App\Models\Category;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\View\View;
 
 class CategoryController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): JsonResponse|View
     {
         $categories = Category::query()
             ->with('parent:id,name')
+            ->withCount('children')
             ->orderBy('name')
             ->get();
+
+        if (! $request->expectsJson()) {
+            return view('admin.categories.index', [
+                'categories' => $categories,
+            ]);
+        }
 
         return response()->json([
             'data' => $categories,
