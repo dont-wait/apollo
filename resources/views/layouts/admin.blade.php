@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
+    <style>
+        aside, aside * {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        aside::-webkit-scrollbar, aside *::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Apollo Admin')</title>
