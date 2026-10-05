@@ -1,0 +1,59 @@
+@import './app.css';
+
+@theme {
+    --font-body-md: 'Geist', ui-sans-serif, system-ui, sans-serif;
+    --font-body-sm: 'Geist', ui-sans-serif, system-ui, sans-serif;
+    --font-headline-sm: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+    --font-label-md: 'JetBrains Mono', ui-monospace, monospace;
+    --font-label-sm: 'JetBrains Mono', ui-monospace, monospace;
+
+    --text-body-md: 0.9375rem;
+    --text-body-md--line-height: 1.65;
+    --text-body-sm: 0.8125rem;
+    --text-body-sm--line-height: 1.5;
+    --text-headline-sm: 1rem;
+    --text-headline-sm--line-height: 1.5;
+    --text-label-md: 0.8125rem;
+    --text-label-md--line-height: 1.4;
+    --text-label-sm: 0.6875rem;
+    --text-label-sm--line-height: 1.3;
+
+    --spacing-space-sm: 0.5rem;
+    --spacing-space-md: 1rem;
+    --spacing-space-lg: 1.5rem;
+
+    --color-on-background: #e1e2ea;
+    --color-primary-fixed: #c4e7ff;
+    --color-primary-fixed-dim: #7bd0ff;
+    --color-surface-container-lowest: #0b0e13;
+    --color-surface-container-low: #191c21;
+    --color-surface-container: #1d2025;
+    --color-surface-container-high: #272a30;
+    --color-surface-container-highest: #32353b;
+    --color-surface-dim: #111319;
+}
+
+@layer components {
+    .admin-sidebar,
+    .admin-sidebar * {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    .admin-sidebar::-webkit-scrollbar,
+    .admin-sidebar *::-webkit-scrollbar {
+        display: none;
+    }
+
+    .editorial-highlight-quantization {
+        background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBYif8BZZwn7CKV2-ojfAX0IhDeDqOUGFf15BKcutSn-VZar0PD92g9Z8X8B-E0NfAQIGho5K4g3vMOR1I0z6zc984pWzam_kzpnM3Fwad_40FZrwvjzBmJrf66q_9rkLpjlUvP9bW6jC3_cYy8m1-T5QGaeChueV8xuK8xNbjxd2yGq-9hffx2NPyyTaz9VBiBTm-neCbkhh1iX_VmPg9oADl0ajrnrAAVg9l6DVb4R2yxZyVUpU-T');
+    }
+
+    .editorial-highlight-reasoning {
+        background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD1Jg6__tACkm18lpRaOmMd4s1Nec2dqiEPn3Ssv-yB_QqLb4JxBvB_aIxYiJN8vIOIfkGR5l5BTtJXwmcGMLgzNu5zQiljJ0zy0nDR9lQqqv7OTTJhktRfP3JSloMhl_Q8bL_5ZDclRpX7GP-8rFHpz9Bd1VExmMFXsN_JWUcf2-iqTk9fWhTakhX_N2bbOAsr1VAu6v1LHH589IaXiOVKTDq9aqoUTfb-PAdU7O4k6n4BErfvYPjH');
+    }
+
+    .editorial-highlight-voice {
+        background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDpjq_BpeLdwn065KBtpqOUZFnTLGEZWXVZQrAWuWJPePmWcD-eNsSfA_99UsijTP0u9mMFuHiaFe63QlKj_Ah8sdJDtx-G3LeEzCh-vJst5BmjlqkIzcM3yy5jTiCWafXrBEOD_daf-XYDPJlpl8QubTcd5Qoid2ZlizZBpX-hE-mc4FoHNtJcu2AqEcMiiQ1M7nOZz3i3GrOt140ikvNgZDSi9U_-7QnYQxuN9605N2i2I7i_kNHO');
+    }
+}
