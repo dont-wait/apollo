@@ -131,7 +131,7 @@
     </svg>
 </div>
             <div class="flex flex-col">
-                <span class="font-headline-sm text-headline-sm text-on-surface leading-none">NeuralLog</span>
+                <span class="font-headline-sm text-headline-sm text-on-surface leading-none">ApolloBlog</span>
                 <span class="font-label-sm text-label-sm text-primary tracking-widest uppercase mt-0.5">Control Core</span>
             </div>
         </div>
