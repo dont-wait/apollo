@@ -64,7 +64,7 @@
         </section>
 
         <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Key metrics">
-            <article class="flex flex-col justify-between gap-4 rounded-xl bg-[#191c21] p-5 shadow-sm transition-shadow hover:shadow-md">
+            <article class="flex flex-col justify-between gap-4 rounded-xl bg-[#191c21] p-5 shadow-sm transition-shadow hover:shadow-md" x-data="adminTrafficChart()">
                 <div class="flex items-center justify-between text-[#bdc8d1]">
                     <span class="text-[10px] uppercase tracking-wider">Total Readers</span>
                     <i class="fa-solid fa-users text-lg text-[#8ed5ff]" aria-hidden="true"></i>
@@ -80,8 +80,8 @@
                 </div>
                 <div class="h-10 w-full overflow-hidden pt-1">
                     <svg class="h-full w-full text-[#8ed5ff]" fill="none" preserveAspectRatio="none" viewBox="0 0 200 40" aria-label="Readers trend increasing">
-                        <path d="M0 32 Q 25 35, 50 24 T 100 18 T 150 12 T 200 4 L 200 40 L 0 40 Z" fill="currentColor" fill-opacity=".12"></path>
-                        <path d="M0 32 Q 25 35, 50 24 T 100 18 T 150 12 T 200 4" stroke="currentColor" stroke-linecap="round" stroke-width="2"></path>
+                        <path :d="area(readerTrend, 200, 40, 145, 100)" fill="currentColor" fill-opacity=".12"></path>
+                        <path :d="line(readerTrend, 200, 40, 145, 100)" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
                     </svg>
                 </div>
             </article>
@@ -143,7 +143,7 @@
         </section>
 
         <section class="grid grid-cols-1 items-start gap-6 xl:grid-cols-12">
-            <article class="flex flex-col rounded-xl bg-[#191c21] p-5 shadow-sm xl:col-span-8">
+            <article class="flex flex-col rounded-xl bg-[#191c21] p-5 shadow-sm xl:col-span-8" x-data="adminTrafficChart()">
                 <div class="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                     <div>
                         <div class="flex items-center gap-2">
@@ -176,12 +176,10 @@
                                     <stop offset="100%" stop-color="#8ed5ff" stop-opacity="0"></stop>
                                 </linearGradient>
                             </defs>
-                            <path d="M0,170 C60,160 120,130 180,140 C240,150 300,110 360,95 C420,80 480,120 540,85 C570,70 600,60 600,60 L600,200 L0,200 Z" fill="url(#rssArea)"></path>
-                            <path d="M0,170 C60,160 120,130 180,140 C240,150 300,110 360,95 C420,80 480,120 540,85 C570,70 600,60 600,60" fill="none" stroke="#56e5a9" stroke-width="2.5"></path>
-                            <path d="M0,130 C70,110 130,70 200,90 C270,110 330,40 400,30 C470,20 520,60 560,40 C580,30 600,15 600,15 L600,200 L0,200 Z" fill="url(#readersArea)"></path>
-                            <path d="M0,130 C70,110 130,70 200,90 C270,110 330,40 400,30 C470,20 520,60 560,40 C580,30 600,15 600,15" fill="none" stroke="#8ed5ff" stroke-width="2.5"></path>
-                            <circle cx="400" cy="30" r="8" fill="#8ed5ff" fill-opacity=".25"></circle>
-                            <circle cx="400" cy="30" r="4" fill="#8ed5ff"></circle>
+                            <path :d="area(subscribers)" fill="url(#rssArea)"></path>
+                            <path :d="line(subscribers)" fill="none" stroke="#56e5a9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path>
+                            <path :d="area(readers)" fill="url(#readersArea)"></path>
+                            <path :d="line(readers)" fill="none" stroke="#8ed5ff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path>
                         </svg>
                     </div>
                 </div>
@@ -235,7 +233,7 @@
 
         <section class="grid grid-cols-1 gap-4 md:grid-cols-3" aria-label="Editorial highlights">
             <article class="group relative flex h-44 flex-col justify-between overflow-hidden rounded-xl bg-[#191c21] p-4 shadow-sm">
-                <div class="absolute inset-0 bg-cover bg-center opacity-20 transition-all duration-500 group-hover:scale-105 group-hover:opacity-30" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBYif8BZZwn7CKV2-ojfAX0IhDeDqOUGFf15BKcutSn-VZar0PD92g9Z8X8B-E0NfAQIGho5K4g3vMOR1I0z6zc984pWzam_kzpnM3Fwad_40FZrwvjzBmJrf66q_9rkLpjlUvP9bW6jC3_cYy8m1-T5QGaeChueV8xuK8xNbjxd2yGq-9hffx2NPyyTaz9VBiBTm-neCbkhh1iX_VmPg9oADl0ajrnrAAVg9l6DVb4R2yxZyVUpU-T')"></div>
+                <div class="editorial-highlight-quantization absolute inset-0 bg-cover bg-center opacity-20 transition-all duration-500 group-hover:scale-105 group-hover:opacity-30"></div>
                 <div class="relative z-10 flex items-start justify-between">
                     <span class="rounded bg-[#32353b] px-2 py-0.5 text-[10px] text-[#8ed5ff]">Inference Labs</span>
                     <i class="fa-solid fa-microchip text-[#8ed5ff]" aria-hidden="true"></i>
@@ -243,7 +241,7 @@
                 <div class="relative z-10"><h3 class="font-semibold text-[#e1e2ea]">Quantization Benchmarks</h3><p class="text-xs text-[#bdc8d1]">vLLM vs TensorRT-LLM latency report</p></div>
             </article>
             <article class="group relative flex h-44 flex-col justify-between overflow-hidden rounded-xl bg-[#191c21] p-4 shadow-sm">
-                <div class="absolute inset-0 bg-cover bg-center opacity-20 transition-all duration-500 group-hover:scale-105 group-hover:opacity-30" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD1Jg6__tACkm18lpRaOmMd4s1Nec2dqiEPn3Ssv-yB_QqLb4JxBvB_aIxYiJN8vIOIfkGR5l5BTtJXwmcGMLgzNu5zQiljJ0zy0nDR9lQqqv7OTTJhktRfP3JSloMhl_Q8bL_5ZDclRpX7GP-8rFHpz9Bd1VExmMFXsN_JWUcf2-iqTk9fWhTakhX_N2bbOAsr1VAu6v1LHH589IaXiOVKTDq9aqoUTfb-PAdU7O4k6n4BErfvYPjH')"></div>
+                <div class="editorial-highlight-reasoning absolute inset-0 bg-cover bg-center opacity-20 transition-all duration-500 group-hover:scale-105 group-hover:opacity-30"></div>
                 <div class="relative z-10 flex items-start justify-between">
                     <span class="rounded bg-[#32353b] px-2 py-0.5 text-[10px] text-[#56e5a9]">Autonomous Core</span>
                     <i class="fa-solid fa-brain text-[#56e5a9]" aria-hidden="true"></i>
@@ -251,7 +249,7 @@
                 <div class="relative z-10"><h3 class="font-semibold text-[#e1e2ea]">Reasoning Distillation</h3><p class="text-xs text-[#bdc8d1]">DeepSeek-R1 architectural breakdown</p></div>
             </article>
             <article class="group relative flex h-44 flex-col justify-between overflow-hidden rounded-xl bg-[#191c21] p-4 shadow-sm">
-                <div class="absolute inset-0 bg-cover bg-center opacity-20 transition-all duration-500 group-hover:scale-105 group-hover:opacity-30" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDpjq_BpeLdwn065KBtpqOUZFnTLGEZWXVZQrAWuWJPePmWcD-eNsSfA_99UsijTP0u9mMFuHiaFe63QlKj_Ah8sdJDtx-G3LeEzCh-vJst5BmjlqkIzcM3yy5jTiCWafXrBEOD_daf-XYDPJlpl8QubTcd5Qoid2ZlizZBpX-hE-mc4FoHNtJcu2AqEcMiiQ1M7nOZz3i3GrOt140ikvNgZDSi9U_-7QnYQxuN9605N2i2I7i_kNHO')"></div>
+                <div class="editorial-highlight-voice absolute inset-0 bg-cover bg-center opacity-20 transition-all duration-500 group-hover:scale-105 group-hover:opacity-30"></div>
                 <div class="relative z-10 flex items-start justify-between">
                     <span class="rounded bg-[#32353b] px-2 py-0.5 text-[10px] text-[#c0c1ff]">Audio &amp; RTC</span>
                     <i class="fa-solid fa-wave-square text-[#c0c1ff]" aria-hidden="true"></i>
