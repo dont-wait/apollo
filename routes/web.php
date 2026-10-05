@@ -41,3 +41,6 @@ Route::prefix('admin')
         Route::put('/categories/{category}', [CategoryController::class, 'update'])
             ->name('categories.update');
     });
+Route::get('/admin/dashboard', function () {
+    return view('admin.dashboard');
+})->name('admin.dashboard');

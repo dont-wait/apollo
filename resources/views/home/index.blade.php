@@ -154,18 +154,16 @@
                         </div>
                     </div>
 
-                    <div class="rounded-lg border border-outline-variant/40 bg-surface p-4 lg:col-span-4">
+                    <div class="rounded-lg border border-outline-variant/40 bg-surface p-4 lg:col-span-4" x-data="editorialSignalChart()">
                         <div class="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.12em]">
                             <span class="text-primary">Signal map</span>
                             <span class="text-tertiary">Human verified</span>
                         </div>
                         <svg class="mt-5 h-28 w-full" fill="none" viewBox="0 0 240 100" xmlns="http://www.w3.org/2000/svg" aria-label="Editorial signal map">
                             <path d="M10 78H230M10 50H230M10 22H230" stroke="#32353b" stroke-dasharray="2 2"></path>
-                            <path d="M12 76C44 28 67 68 101 53C131 40 140 12 163 28C181 40 201 10 228 22V88H12V76Z" fill="url(#signal-fill)"></path>
-                            <path d="M12 76C44 28 67 68 101 53C131 40 140 12 163 28C181 40 201 10 228 22" stroke="#38bdf8" stroke-width="2"></path>
-                            <path d="M12 83C55 74 86 78 120 66C158 52 183 62 228 36" stroke="#30c88f" stroke-dasharray="3 3" stroke-width="1.5"></path>
-                            <circle cx="163" cy="28" r="3" fill="#8ed5ff"></circle>
-                            <circle cx="228" cy="22" r="3" fill="#56e5a9"></circle>
+                            <path :d="area(editorialSignals)" fill="url(#signal-fill)"></path>
+                            <path :d="line(editorialSignals)" stroke="#38bdf8" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            <path :d="line(verifiedSignals)" stroke="#30c88f" stroke-dasharray="3 3" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"></path>
                             <defs>
                                 <linearGradient id="signal-fill" x1="0" x2="0" y1="0" y2="1">
                                     <stop offset="0" stop-color="#38bdf8" stop-opacity=".3"></stop>
@@ -402,7 +400,7 @@
         </section>
 
         <footer class="border-t border-outline-variant/30 bg-surface-lowest">
-            <div class="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-12 lg:px-8">
+            <div class="grid w-full gap-8 px-4 py-10 sm:px-6 md:grid-cols-12 lg:px-8">
                 <div class="md:col-span-6">
                     <a class="flex items-center gap-2.5 font-display font-semibold text-on-surface" href="{{ route('home') }}">
                         <span class="flex size-7 items-center justify-center rounded border border-primary/30 bg-primary/10 text-sm text-primary">A</span>
@@ -428,7 +426,7 @@
                     </div>
                 </div>
             </div>
-            <div class="mx-auto max-w-7xl border-t border-outline-variant/20 px-4 py-4 font-mono text-[10px] text-outline sm:px-6 lg:px-8">© {{ date('Y') }} Apollo Blog. Notes from the edge of the stack.</div>
+            <div class="w-full border-t border-outline-variant/20 px-4 py-4 font-mono text-[10px] text-outline sm:px-6 lg:px-8">© {{ date('Y') }} Apollo Blog. Notes from the edge of the stack.</div>
         </footer>
 
         <div x-cloak x-show="bookmarkNotice" x-transition class="fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-md items-center justify-between gap-4 rounded-lg border border-primary/30 bg-surface-high px-4 py-3 shadow-2xl shadow-black/30" role="status">
