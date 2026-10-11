@@ -9,25 +9,32 @@ use App\Models\Category;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use App\Models\Tag;
 
 class CategoryController extends Controller
 {
     public function index(Request $request): JsonResponse|View
     {
         $categories = Category::query()
-            ->with('parent:id,name')
+            ->with('parent')
             ->withCount('children')
             ->orderBy('name')
             ->get();
 
-        if (! $request->expectsJson()) {
-            return view('admin.categories.index', [
-                'categories' => $categories,
+        if ($request->expectsJson()) {
+            return response()->json([
+                'data' => $categories,
             ]);
         }
 
-        return response()->json([
-            'data' => $categories,
+        $tags = Tag::query()
+            ->withCount('posts')
+            ->orderBy('name')
+            ->get();
+
+        return view('admin.categories.index', [
+            'categories' => $categories,
+            'tags' => $tags,
         ]);
     }
 
