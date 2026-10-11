@@ -21,15 +21,133 @@ function slugifyVietnamese(value = '') {
 
 document.addEventListener('DOMContentLoaded', () => {
     /*
-     * Script này được load chung qua app.js.
-     * Nếu không phải trang Categories & Tags thì dừng luôn.
-     */
+    * Script này được load chung qua app.js.
+    * Nếu không phải trang Categories & Tags thì dừng luôn.
+    */
     const taxonomyManager = document.getElementById('taxonomyManager');
 
     if (!taxonomyManager) {
         return;
     }
 
+    // =====================================================
+    // SHARED CONFIRM MODAL
+    // =====================================================
+
+    const confirmModal =
+        document.getElementById('confirmModal');
+
+    const confirmModalTitle =
+        document.getElementById('confirmModalTitle');
+
+    const confirmModalMessage =
+        document.getElementById('confirmModalMessage');
+
+    const confirmModalCancel =
+        document.getElementById('confirmModalCancel');
+
+    const confirmModalConfirm =
+        document.getElementById('confirmModalConfirm');
+
+
+    function showConfirmModal({
+        title = 'Confirm Action',
+        message,
+        confirmText = 'Confirm',
+    }) {
+        return new Promise((resolve) => {
+            if (!confirmModal) {
+                resolve(false);
+                return;
+            }
+
+            confirmModalTitle.textContent = title;
+            confirmModalMessage.textContent = message;
+            confirmModalConfirm.textContent = confirmText;
+
+            confirmModal.classList.remove('hidden');
+            confirmModal.classList.add('flex');
+
+            confirmModal.setAttribute(
+                'aria-hidden',
+                'false'
+            );
+
+            const closeModal = (result) => {
+                confirmModal.classList.add('hidden');
+                confirmModal.classList.remove('flex');
+
+                confirmModal.setAttribute(
+                    'aria-hidden',
+                    'true'
+                );
+
+                confirmModalCancel.removeEventListener(
+                    'click',
+                    handleCancel
+                );
+
+                confirmModalConfirm.removeEventListener(
+                    'click',
+                    handleConfirm
+                );
+
+                confirmModal.removeEventListener(
+                    'click',
+                    handleBackdrop
+                );
+
+                document.removeEventListener(
+                    'keydown',
+                    handleEscape
+                );
+
+                resolve(result);
+            };
+
+            const handleCancel = () => {
+                closeModal(false);
+            };
+
+            const handleConfirm = () => {
+                closeModal(true);
+            };
+
+            const handleBackdrop = (event) => {
+                if (event.target === confirmModal) {
+                    closeModal(false);
+                }
+            };
+
+            const handleEscape = (event) => {
+                if (event.key === 'Escape') {
+                    closeModal(false);
+                }
+            };
+
+            confirmModalCancel.addEventListener(
+                'click',
+                handleCancel
+            );
+
+            confirmModalConfirm.addEventListener(
+                'click',
+                handleConfirm
+            );
+
+            confirmModal.addEventListener(
+                'click',
+                handleBackdrop
+            );
+
+            document.addEventListener(
+                'keydown',
+                handleEscape
+            );
+
+            confirmModalConfirm.focus();
+        });
+    }
     // =====================================================
     // TAB SWITCHING
     // =====================================================
@@ -46,11 +164,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const tagsTab =
         document.getElementById('tagsTab');
 
-    const openCreateCategoryButton =
-        document.getElementById('openCreateCategory');
-
-    const openCreateTagButton =
-        document.getElementById('openCreateTag');
 
 
     function setActiveTab(activeButton, inactiveButton) {
@@ -83,8 +196,6 @@ document.addEventListener('DOMContentLoaded', () => {
         categoriesTab.classList.remove('hidden');
         tagsTab.classList.add('hidden');
 
-        openCreateCategoryButton.hidden = false;
-        openCreateTagButton.hidden = true;
 
         setActiveTab(
             categoryTabButton,
@@ -96,9 +207,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function showTagTab() {
         tagsTab.classList.remove('hidden');
         categoriesTab.classList.add('hidden');
-
-        openCreateCategoryButton.hidden = true;
-        openCreateTagButton.hidden = false;
 
         setActiveTab(
             tagTabButton,
@@ -250,6 +358,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const statusInput =
         document.getElementById('categoryStatus');
+    
+    const colorInput =
+        document.getElementById('categoryColor');
+
+    const iconInput =
+        document.getElementById('categoryIcon');
 
 
     let editingUrl = null;
@@ -341,6 +455,13 @@ document.addEventListener('DOMContentLoaded', () => {
         editingUrl = null;
 
         categoryForm?.reset();
+        if (colorInput) {
+            colorInput.value = '#38bdf8';
+        }
+
+        if (iconInput) {
+            iconInput.value = '';
+        }
         resetParentOptions();
 
         if (statusInput) {
@@ -376,27 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
-    // =====================================================
-    // OPEN NEW CATEGORY
-    // =====================================================
-
-    openCreateCategoryButton?.addEventListener(
-        'click',
-        () => {
-            showCategoryTab();
-
-            resetCategoryEditor();
-
-            nameInput?.focus();
-        }
-    );
-
-
-    // =====================================================
     // EDIT CATEGORY
-    // =====================================================
-
     document
         .querySelectorAll('.edit-category')
         .forEach((button) => {
@@ -439,6 +540,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     descriptionInput.value =
                         button.dataset.description ?? '';
+                        
+                    colorInput.value =
+                        button.dataset.color || '#38bdf8';
+
+                    iconInput.value =
+                        button.dataset.icon ?? '';
 
                     statusInput.value =
                         button.dataset.status ?? 'ACTIVE';
@@ -505,9 +612,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                 /*
-                 * Laravel Method Spoofing:
-                 * POST + _method PUT
-                 */
+                * Laravel Method Spoofing:
+                * POST + _method PUT
+                */
                 if (editingUrl) {
                     formData.append(
                         '_method',
@@ -610,9 +717,20 @@ document.addEventListener('DOMContentLoaded', () => {
                             : 'kích hoạt';
 
                     const confirmed =
-                        confirm(
-                            `Bạn có chắc muốn ${actionText} category này?`
-                        );
+                        await showConfirmModal({
+                            title:
+                                nextStatus === 'INACTIVE'
+                                    ? 'Deactivate Category'
+                                    : 'Activate Category',
+
+                            message:
+                                `Bạn có chắc muốn ${actionText} category này?`,
+
+                            confirmText:
+                                nextStatus === 'INACTIVE'
+                                    ? 'Deactivate'
+                                    : 'Activate',
+                        });
 
                     if (!confirmed) {
                         return;
@@ -708,6 +826,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const tagRows =
             document.querySelectorAll('.tag-row');
+            document
+                .querySelectorAll('.tag-color')
+                .forEach((tag) => {
+                    const color =
+                        tag.dataset.color || '#8b5cf6';
+
+                    tag.style.color = color;
+                    tag.style.borderColor = color;
+                });
 
 
         const tagForm =
@@ -719,6 +846,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const tagSlugInput =
             document.getElementById('tagSlug');
 
+        const tagColorInput =
+            document.getElementById('tagColor');
 
         const tagEditorTitle =
             document.getElementById('tagEditorTitle');
@@ -778,7 +907,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // =====================================================
         // AUTO TAG SLUG
         // =====================================================
-
+        tagSlugInput?.addEventListener(
+            'input',
+            () => {
+                tagSlugWasEdited = true;
+            }
+        );
         tagNameInput?.addEventListener(
             'input',
             () => {
@@ -799,7 +933,9 @@ document.addEventListener('DOMContentLoaded', () => {
             editingTagUrl = null;
 
             tagForm?.reset();
-
+            if (tagColorInput) {
+                tagColorInput.value = '#8b5cf6';
+            }
             tagSlugWasEdited = false;
 
 
@@ -831,27 +967,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-
-        // =====================================================
-        // NEW TAG BUTTON
-        // =====================================================
-
-        openCreateTagButton?.addEventListener(
-            'click',
-            () => {
-                showTagTab();
-
-                resetTagEditor();
-
-                tagNameInput?.focus();
-            }
-        );
-
-
-        // =====================================================
         // EDIT TAG
-        // =====================================================
-
         document
             .querySelectorAll('.edit-tag')
             .forEach((button) => {
@@ -868,6 +984,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         tagSlugInput.value =
                             button.dataset.slug ?? '';
 
+                        tagColorInput.value =
+                            button.dataset.color || '#8b5cf6';
 
                         tagSlugWasEdited = true;
 
@@ -1068,33 +1186,34 @@ document.addEventListener('DOMContentLoaded', () => {
                             );
 
 
-                        /*
-                        * UI chặn trước.
-                        * Backend vẫn kiểm tra lại và trả 409.
-                        */
                         if (postsCount > 0) {
-                            alert(
-                                'Không thể xóa tag vì tag đang được sử dụng bởi bài viết.'
-                            );
+                            await showConfirmModal({
+                                title: 'Cannot Delete Tag',
+                                message:
+                                    'Tag này đang được sử dụng bởi bài viết nên không thể xóa.',
+                                confirmText: 'OK',
+                            });
 
                             return;
                         }
-
 
                         const tagName =
                             button.dataset.name ?? '';
 
 
                         const confirmed =
-                            confirm(
-                                `Bạn có chắc muốn xóa tag "${tagName}"?`
-                            );
+                            await showConfirmModal({
+                                title: 'Delete Tag',
 
+                                message:
+                                    `Bạn có chắc muốn xóa tag "${tagName}"? Hành động này không thể hoàn tác.`,
+
+                                confirmText: 'Delete',
+                            });
 
                         if (!confirmed) {
                             return;
                         }
-
 
                         const formData =
                             new FormData();

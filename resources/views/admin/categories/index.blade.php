@@ -22,33 +22,6 @@
                 Quản lý category phân cấp và taxonomy tags cho nội dung của Apollo Blog.
             </p>
         </div>
-
-        {{-- CATEGORY ACTION --}}
-        <button
-            type="button"
-            id="openCreateCategory"
-            class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#80d4ff] px-4 py-2.5 text-sm font-semibold text-[#071017] transition hover:bg-[#a2e0ff]"
-        >
-            <span class="material-symbols-outlined text-[18px]">
-                add
-            </span>
-
-            New Category
-        </button>
-
-        {{-- TAG ACTION - sẽ dùng khi làm UC05 --}}
-        <button
-            type="button"
-            id="openCreateTag"
-            hidden
-            class="items-center justify-center gap-2 rounded-lg bg-[#80d4ff] px-4 py-2.5 text-sm font-semibold text-[#071017] transition hover:bg-[#a2e0ff]"
-        >
-            <span class="material-symbols-outlined text-[18px]">
-                add
-            </span>
-
-            New Tag
-        </button>
     </header>
 
 
@@ -87,4 +60,5 @@
         @include('admin.categories.partials.tags-tab')
     </div>
 </div>
+<x-confirm-modal />
 @endsection

@@ -200,29 +200,18 @@
 
                                         {{-- NAME --}}
                                         <td class="px-5 py-4">
-
-                                            <div class="flex items-center gap-3">
-
-                                                <span class="material-symbols-outlined text-[19px] text-[#c5a7ff]">
-                                                    sell
+                                            <div class="flex flex-col items-start gap-1">
+                                                <span
+                                                    class="tag-color inline-flex items-center rounded-md border bg-[#1c1f26] px-2 py-1 text-xs font-medium"
+                                                    data-color="{{ $tag->color ?? '#8b5cf6' }}"
+                                                >
+                                                    {{ $tag->name }}
                                                 </span>
-
-                                                <div>
-
-                                                    <p class="font-semibold">
-                                                        {{ $tag->name }}
-                                                    </p>
-
-                                                    <p class="mt-0.5 text-xs text-[#626a72]">
-                                                        #{{ $tag->id }}
-                                                    </p>
-
-                                                </div>
-
+                                                <span class="text-[11px] text-[#69717a]">
+                                                    ID #{{ $tag->id }}
+                                                </span>
                                             </div>
-
                                         </td>
-
 
                                         {{-- SLUG --}}
                                         <td class="px-4 py-4 font-mono text-xs text-[#bdc8d1]">
@@ -268,6 +257,7 @@
 
                                                     data-name="{{ $tag->name }}"
                                                     data-slug="{{ $tag->slug }}"
+                                                    data-color="{{ $tag->color }}"
                                                     data-update-url="{{ route('admin.tags.update', $tag) }}"
                                                 >
                                                     <span class="material-symbols-outlined text-[18px]">
@@ -395,7 +385,22 @@
 
                     </div>
 
+                    <div>
+                        <label
+                            for="tagColor"
+                            class="mb-2 block text-xs font-medium text-[#aeb4bd]"
+                        >
+                            Color Accent
+                        </label>
 
+                        <input
+                            id="tagColor"
+                            name="color"
+                            type="color"
+                            value="#8b5cf6"
+                            class="h-10 w-full cursor-pointer rounded-lg border border-[#30343b] bg-[#111319] p-1"
+                        >
+                    </div>
                     {{-- HELP --}}
                     <div class="rounded-lg border border-[#252930] bg-[#111319] p-3">
 
