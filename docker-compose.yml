@@ -1,6 +1,6 @@
 services:
   mysql:
-    image: mysql:8.4
+    image: mysql:8.4@sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242
     restart: no
     environment:
       MYSQL_DATABASE: ${DB_DATABASE:-apollo}
@@ -20,7 +20,7 @@ services:
       retries: 20
 
   phpmyadmin:
-    image: phpmyadmin:5.2-apache
+    image: phpmyadmin:5.2-apache@sha256:e1d42a6985a9622e1e2461d31d2cea82fb069ee05194dbe2a6c758f86c9ef6b8
     restart: unless-stopped
     depends_on:
       mysql:
@@ -33,5 +33,60 @@ services:
     ports:
       - "${PHPMYADMIN_PORT:-8080}:80"
 
+  rustfs-permissions:
+    image: alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8
+    restart: no
+    volumes:
+      - rustfs_data:/data
+      - rustfs_logs:/logs
+    command: ["sh", "-c", "chown -R 10001:10001 /data /logs"]
+
+  rustfs:
+    image: ${RUSTFS_IMAGE:-rustfs/rustfs@sha256:41fe89380f4120a337790c02af192c3fe7bb55c3edc2e6e9357b487b47c6ab21}
+    restart: unless-stopped
+    depends_on:
+      rustfs-permissions:
+        condition: service_completed_successfully
+    environment:
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
+      RUSTFS_OBS_LOG_DIRECTORY: /logs
+    ports:
+      - "127.0.0.1:${RUSTFS_PORT:-9000}:9000"
+      - "127.0.0.1:${RUSTFS_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - rustfs_data:/data
+      - rustfs_logs:/logs
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  rustfs-init:
+    image: amazon/aws-cli:2.27.49@sha256:1b7003e3ecb737b7533d8e16a547b4bc36e912508c3532ae51003aad8d0cd41d
+    restart: no
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      AWS_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_EC2_METADATA_DISABLED: "true"
+      MEDIA_BUCKET: ${RUSTFS_BUCKET:-apollo-media}
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        aws --endpoint-url http://rustfs:9000 s3api head-bucket --bucket "$$MEDIA_BUCKET" 2>/dev/null || aws --endpoint-url http://rustfs:9000 s3api create-bucket --bucket "$$MEDIA_BUCKET"
+        aws --endpoint-url http://rustfs:9000 s3api put-bucket-policy --bucket "$$MEDIA_BUCKET" --policy "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":[\"s3:GetObject\"],\"Resource\":[\"arn:aws:s3:::$$MEDIA_BUCKET/*\"]}]}"
+
 volumes:
+  rustfs_data:
+  rustfs_logs:
   mysql_data:
