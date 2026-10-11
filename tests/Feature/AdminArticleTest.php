@@ -9,6 +9,7 @@ use App\Models\Tag;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -167,9 +168,10 @@ class AdminArticleTest extends TestCase
         ]);
     }
 
-    public function test_admin_can_upload_article_thumbnail_to_public_storage(): void
+    public function test_admin_can_upload_article_thumbnail_to_rustfs(): void
     {
-        Storage::fake('public');
+        config(['filesystems.media_disk' => 'rustfs']);
+        $disk = Storage::fake('rustfs');
         $admin = User::factory()->admin()->create();
 
         $this->actingAs($admin)
@@ -182,11 +184,99 @@ class AdminArticleTest extends TestCase
             ->assertRedirect();
 
         $media = Media::query()->firstOrFail();
-        Storage::disk('public')->assertExists($media->storage_key);
+        $disk->assertExists($media->storage_key);
         $this->assertDatabaseHas('posts', [
             'slug' => 'article-with-image',
             'thumbnail_media_id' => $media->id,
         ]);
+    }
+
+    public function test_admin_upload_is_removed_when_article_database_transaction_fails(): void
+    {
+        config(['filesystems.media_disk' => 'rustfs']);
+        $disk = Storage::fake('rustfs');
+        $admin = User::factory()->admin()->create();
+        Post::created(function (Post $post): void {
+            DB::table('missing_article_table')->insert(['id' => $post->id]);
+        });
+
+        $this->actingAs($admin)
+            ->post(route('admin.articles.store'), [
+                'title' => 'Article with rolled back upload',
+                'markdown_content' => 'Content',
+                'status' => 'DRAFT',
+                'thumbnail' => UploadedFile::fake()->image('cover.png'),
+            ])
+            ->assertInternalServerError();
+
+        $this->assertSame([], $disk->allFiles('articles'));
+        $this->assertDatabaseCount('posts', 0);
+        $this->assertDatabaseCount('media', 0);
+    }
+
+    public function test_admin_replaces_thumbnail_and_removes_unreferenced_old_file(): void
+    {
+        config(['filesystems.media_disk' => 'rustfs']);
+        $disk = Storage::fake('rustfs');
+        $admin = User::factory()->admin()->create();
+        $disk->put('articles/old-cover.png', 'old image');
+        $oldMedia = Media::factory()->create([
+            'uploaded_by' => $admin->id,
+            'storage_key' => 'articles/old-cover.png',
+        ]);
+        $article = Post::factory()->create([
+            'thumbnail_media_id' => $oldMedia->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->put(route('admin.articles.update', $article), [
+                'title' => 'Article with replacement thumbnail',
+                'markdown_content' => 'Updated content',
+                'status' => 'DRAFT',
+                'thumbnail' => UploadedFile::fake()->image('new-cover.png'),
+            ])
+            ->assertRedirect();
+
+        $article->refresh();
+        $this->assertNotSame($oldMedia->id, $article->thumbnail_media_id);
+        $this->assertDatabaseMissing('media', ['id' => $oldMedia->id]);
+        $disk->assertMissing('articles/old-cover.png');
+        $disk->assertExists($article->thumbnail->storage_key);
+    }
+
+    public function test_admin_keeps_old_thumbnail_file_referenced_by_a_soft_deleted_article(): void
+    {
+        config(['filesystems.media_disk' => 'rustfs']);
+        $disk = Storage::fake('rustfs');
+        $admin = User::factory()->admin()->create();
+        $disk->put('articles/shared-cover.png', 'shared image');
+        $oldMedia = Media::factory()->create([
+            'uploaded_by' => $admin->id,
+            'storage_key' => 'articles/shared-cover.png',
+        ]);
+        $article = Post::factory()->create([
+            'thumbnail_media_id' => $oldMedia->id,
+        ]);
+        $trashedArticle = Post::factory()->create([
+            'thumbnail_media_id' => $oldMedia->id,
+        ]);
+        $trashedArticle->delete();
+
+        $this->actingAs($admin)
+            ->put(route('admin.articles.update', $article), [
+                'title' => 'Article with replacement thumbnail',
+                'markdown_content' => 'Updated content',
+                'status' => 'DRAFT',
+                'thumbnail' => UploadedFile::fake()->image('new-cover.png'),
+            ])
+            ->assertRedirect();
+
+        $article->refresh();
+        $this->assertNotSame($oldMedia->id, $article->thumbnail_media_id);
+        $this->assertDatabaseHas('media', ['id' => $oldMedia->id]);
+        $disk->assertExists('articles/shared-cover.png');
+        $disk->assertExists($article->thumbnail->storage_key);
+        $this->assertSoftDeleted('posts', ['id' => $trashedArticle->id]);
     }
 
     public function test_admin_can_update_article_and_sync_tags(): void

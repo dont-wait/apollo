@@ -6,6 +6,7 @@ use App\Enums\PostStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreArticleRequest;
 use App\Http\Requests\Admin\UpdateArticleRequest;
+use App\MediaStorage;
 use App\Models\Category;
 use App\Models\Media;
 use App\Models\Post;
@@ -15,15 +16,15 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
-use RuntimeException;
 use Throwable;
 
 class ArticleController extends Controller
 {
+    public function __construct(private MediaStorage $mediaStorage) {}
+
     public function index(Request $request): View
     {
         $filters = $request->validate([
@@ -99,8 +100,7 @@ class ArticleController extends Controller
                 return $article;
             });
         } catch (Throwable $exception) {
-            $this->deleteStoredThumbnail($storedThumbnailPath);
-
+            $this->cleanupStoredThumbnail($storedThumbnailPath);
             throw $exception;
         }
 
@@ -150,8 +150,7 @@ class ArticleController extends Controller
                 $article->tags()->sync($this->resolveTagIds($tagIds, $newTagNames));
             });
         } catch (Throwable $exception) {
-            $this->deleteStoredThumbnail($storedThumbnailPath);
-
+            $this->cleanupStoredThumbnail($storedThumbnailPath);
             throw $exception;
         }
 
@@ -162,10 +161,7 @@ class ArticleController extends Controller
                 ->exists();
 
             if (! $mediaIsStillInUse) {
-                if (! Storage::disk('public')->delete($previousMedia->storage_key)) {
-                    throw new RuntimeException('Không thể xóa ảnh thumbnail cũ khỏi public storage.');
-                }
-
+                $this->mediaStorage->delete($previousMedia->storage_key);
                 $previousMedia->delete();
             }
         }
@@ -186,28 +182,22 @@ class ArticleController extends Controller
 
     private function storeThumbnail(UploadedFile $thumbnail, int $uploadedBy, ?string &$storedPath): Media
     {
-        $path = $thumbnail->storePublicly('articles', 'public');
+        $attributes = $this->mediaStorage->store($thumbnail, 'articles');
+        $storedPath = $attributes['storage_key'];
 
-        if (! is_string($path)) {
-            throw new RuntimeException('Không thể lưu ảnh thumbnail vào public storage.');
-        }
-
-        $storedPath = $path;
-
-        return Media::create([
-            'uploaded_by' => $uploadedBy,
-            'file_name' => basename($path),
-            'mime_type' => $thumbnail->getMimeType() ?? 'application/octet-stream',
-            'size_bytes' => $thumbnail->getSize(),
-            'storage_key' => $path,
-            'url' => Storage::disk('public')->url($path),
-        ]);
+        return Media::create([...$attributes, 'uploaded_by' => $uploadedBy]);
     }
 
-    private function deleteStoredThumbnail(?string $storedPath): void
+    private function cleanupStoredThumbnail(?string $storedPath): void
     {
-        if ($storedPath !== null) {
-            Storage::disk('public')->delete($storedPath);
+        if ($storedPath === null) {
+            return;
+        }
+
+        try {
+            $this->mediaStorage->delete($storedPath);
+        } catch (Throwable $cleanupException) {
+            report($cleanupException);
         }
     }
 
