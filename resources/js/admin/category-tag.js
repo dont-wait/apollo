@@ -1,3 +1,24 @@
+function normalizeVietnameseText(value = '') {
+    return value
+        .toLocaleLowerCase('vi-VN')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .trim();
+}
+
+function slugifyVietnamese(value = '') {
+    return value
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     /*
      * Script này được load chung qua app.js.
@@ -149,32 +170,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function filterCategories() {
         const keyword =
-            searchInput?.value.toLowerCase().trim() ?? '';
+            normalizeVietnameseText(searchInput?.value ?? '');
 
         const status =
             statusFilter?.value ?? 'ALL';
 
-
         categoryRows.forEach((row) => {
             const name =
-                row.dataset.name ?? '';
+                normalizeVietnameseText(row.dataset.name ?? '');
 
             const slug =
-                row.dataset.slug ?? '';
+                normalizeVietnameseText(row.dataset.slug ?? '');
 
             const rowStatus =
                 row.dataset.status ?? '';
-
 
             const matchesKeyword =
                 name.includes(keyword) ||
                 slug.includes(keyword);
 
-
             const matchesStatus =
                 status === 'ALL' ||
                 rowStatus === status;
-
 
             row.classList.toggle(
                 'hidden',
@@ -239,6 +256,63 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let slugWasEdited = false;
 
+    function resetParentOptions() {
+        if (!parentInput) {
+            return;
+        }
+
+        Array.from(parentInput.options)
+            .forEach((option) => {
+                option.disabled = false;
+            });
+    }
+
+
+    function getDescendantIds(categoryId) {
+        if (!parentInput) {
+            return new Set();
+        }
+
+        const options =
+            Array.from(parentInput.options);
+
+        const descendants =
+            new Set();
+
+        let changed = true;
+
+        while (changed) {
+            changed = false;
+
+            options.forEach((option) => {
+                if (!option.value) {
+                    return;
+                }
+
+                const parentId =
+                    option.dataset.parentId ?? '';
+
+                const isDirectChild =
+                    parentId === categoryId;
+
+                const isChildOfDescendant =
+                    descendants.has(parentId);
+
+                if (
+                    (isDirectChild || isChildOfDescendant) &&
+                    !descendants.has(option.value)
+                ) {
+                    descendants.add(
+                        option.value
+                    );
+
+                    changed = true;
+                }
+            });
+        }
+
+        return descendants;
+    }
 
     // =====================================================
     // AUTO GENERATE SLUG
@@ -254,14 +328,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-
-        slugInput.value = nameInput.value
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .toLowerCase()
-            .trim()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-+|-+$/g, '');
+        slugInput.value =
+            slugifyVietnamese(nameInput.value);
     });
 
 
@@ -273,6 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
         editingUrl = null;
 
         categoryForm?.reset();
+        resetParentOptions();
 
         if (statusInput) {
             statusInput.value = 'ACTIVE';
@@ -337,6 +406,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     editingUrl =
                         button.dataset.updateUrl;
 
+                    const currentCategoryId =
+                        button.dataset.id;
+
+                    resetParentOptions();
+
+                    const descendantIds =
+                        getDescendantIds(currentCategoryId);
+
+                    Array.from(parentInput.options)
+                        .forEach((option) => {
+                            if (!option.value) {
+                                return;
+                            }
+
+                            if (
+                                option.value === currentCategoryId ||
+                                descendantIds.has(option.value)
+                            ) {
+                                option.disabled = true;
+                            }
+                        });
 
                     nameInput.value =
                         button.dataset.name ?? '';
@@ -496,7 +586,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     );
 
-
     // =====================================================
     // ACTIVATE / DEACTIVATE CATEGORY
     // =====================================================
@@ -510,82 +599,47 @@ document.addEventListener('DOMContentLoaded', () => {
                     const currentStatus =
                         button.dataset.status;
 
-
                     const nextStatus =
                         currentStatus === 'ACTIVE'
                             ? 'INACTIVE'
                             : 'ACTIVE';
-
 
                     const actionText =
                         nextStatus === 'INACTIVE'
                             ? 'vô hiệu hóa'
                             : 'kích hoạt';
 
-
                     const confirmed =
                         confirm(
                             `Bạn có chắc muốn ${actionText} category này?`
                         );
 
-
                     if (!confirmed) {
                         return;
                     }
 
-
                     const formData =
                         new FormData();
-
 
                     formData.append(
                         '_token',
                         csrfToken
                     );
 
-
                     formData.append(
                         '_method',
-                        'PUT'
+                        'PATCH'
                     );
-
-
-                    formData.append(
-                        'name',
-                        button.dataset.name ?? ''
-                    );
-
-
-                    formData.append(
-                        'slug',
-                        button.dataset.slug ?? ''
-                    );
-
-
-                    formData.append(
-                        'description',
-                        button.dataset.description ?? ''
-                    );
-
 
                     formData.append(
                         'status',
                         nextStatus
                     );
 
-
-                    if (button.dataset.parentId) {
-                        formData.append(
-                            'parent_id',
-                            button.dataset.parentId
-                        );
-                    }
-
-
                     try {
                         const response =
                             await fetch(
-                                button.dataset.updateUrl,
+                                button.dataset.statusUrl,
                                 {
                                     method: 'POST',
 
@@ -601,10 +655,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }
                             );
 
-
                         const data =
                             await response.json();
-
 
                         if (!response.ok) {
                             if (data.errors) {
@@ -616,13 +668,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                 );
                             }
 
-
                             throw new Error(
                                 data.message ??
                                 'Không thể cập nhật trạng thái category.'
                             );
                         }
-
 
                         window.location.reload();
                     }
@@ -634,7 +684,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             );
         });
-
     // =====================================================
     // TAG MANAGER
     // =====================================================
@@ -704,23 +753,18 @@ document.addEventListener('DOMContentLoaded', () => {
             'input',
             () => {
                 const keyword =
-                    tagSearch.value
-                        .toLowerCase()
-                        .trim();
-
+                    normalizeVietnameseText(tagSearch.value);
 
                 tagRows.forEach((row) => {
                     const name =
-                        row.dataset.name ?? '';
+                        normalizeVietnameseText(row.dataset.name ?? '');
 
                     const slug =
-                        row.dataset.slug ?? '';
-
+                        normalizeVietnameseText(row.dataset.slug ?? '');
 
                     const matched =
                         name.includes(keyword) ||
                         slug.includes(keyword);
-
 
                     row.classList.toggle(
                         'hidden',
@@ -735,14 +779,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // AUTO TAG SLUG
         // =====================================================
 
-        tagSlugInput?.addEventListener(
-            'input',
-            () => {
-                tagSlugWasEdited = true;
-            }
-        );
-
-
         tagNameInput?.addEventListener(
             'input',
             () => {
@@ -750,18 +786,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
-
                 tagSlugInput.value =
-                    tagNameInput.value
-                        .normalize('NFD')
-                        .replace(/[\u0300-\u036f]/g, '')
-                        .toLowerCase()
-                        .trim()
-                        .replace(/[^a-z0-9]+/g, '-')
-                        .replace(/^-+|-+$/g, '');
+                    slugifyVietnamese(tagNameInput.value);
             }
         );
-
 
         // =====================================================
         // RESET TAG EDITOR

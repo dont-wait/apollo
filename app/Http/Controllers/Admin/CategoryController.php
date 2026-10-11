@@ -5,11 +5,12 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreCategoryRequest;
 use App\Http\Requests\Admin\UpdateCategoryRequest;
+use App\Http\Requests\Admin\UpdateCategoryStatusRequest;
 use App\Models\Category;
+use App\Models\Tag;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
-use App\Models\Tag;
 
 class CategoryController extends Controller
 {
@@ -74,6 +75,20 @@ class CategoryController extends Controller
 
         return response()->json([
             'message' => 'Cập nhật category thành công.',
+            'data' => $category->fresh(),
+        ]);
+    }
+
+    public function updateStatus(
+        UpdateCategoryStatusRequest $request,
+        Category $category
+    ): JsonResponse {
+        $category->update([
+            'status' => $request->validated()['status'],
+        ]);
+
+        return response()->json([
+            'message' => 'Cập nhật trạng thái category thành công.',
             'data' => $category->fresh(),
         ]);
     }

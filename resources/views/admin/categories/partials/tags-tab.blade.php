@@ -194,8 +194,8 @@
 
                                     <tr
                                         class="tag-row transition-colors hover:bg-[#1d2025]"
-                                        data-name="{{ strtolower($tag->name) }}"
-                                        data-slug="{{ strtolower($tag->slug) }}"
+                                        data-name="{{ $tag->name }}"
+                                        data-slug="{{ $tag->slug }}"
                                     >
 
                                         {{-- NAME --}}

@@ -218,8 +218,8 @@
 
                                     <tr
                                         class="category-row transition-colors hover:bg-[#1d2025]"
-                                        data-name="{{ strtolower($category->name) }}"
-                                        data-slug="{{ strtolower($category->slug) }}"
+                                        data-name="{{ $category->name }}"
+                                        data-slug="{{ $category->slug }}"
                                         data-status="{{ $category->status }}"
                                     >
 
@@ -300,6 +300,7 @@
                                                     class="edit-category rounded-md p-2 text-[#80d4ff] transition hover:bg-[#252930]"
                                                     title="Edit category"
 
+                                                    data-id="{{ $category->id }}"
                                                     data-name="{{ $category->name }}"
                                                     data-slug="{{ $category->slug }}"
                                                     data-parent-id="{{ $category->parent_id }}"
@@ -321,18 +322,12 @@
                                                         ? 'Deactivate category'
                                                         : 'Activate category' }}"
 
-                                                    data-name="{{ $category->name }}"
-                                                    data-slug="{{ $category->slug }}"
-                                                    data-parent-id="{{ $category->parent_id }}"
-                                                    data-description="{{ $category->description }}"
                                                     data-status="{{ $category->status }}"
-                                                    data-update-url="{{ route('admin.categories.update', $category) }}"
+                                                    data-status-url="{{ route('admin.categories.update-status', $category) }}"
                                                 >
-
                                                     <span class="material-symbols-outlined text-[18px]">
                                                         power_settings_new
                                                     </span>
-
                                                 </button>
 
                                             </div>
@@ -455,12 +450,13 @@
                                 None — Root Category
                             </option>
 
-                            @foreach ($categories as $category)
-
-                                <option value="{{ $category->id }}">
+                           @foreach ($categories as $category)
+                                <option
+                                    value="{{ $category->id }}"
+                                    data-parent-id="{{ $category->parent_id }}"
+                                >
                                     {{ $category->name }}
                                 </option>
-
                             @endforeach
 
                         </select>
