@@ -7,7 +7,9 @@ help:
 	  'make shell   # vao dev shell Nix' \
 	  'make install # cai dependency PHP va JavaScript' \
 	  'make dev     # chay Laravel dev server' \
-	  'make test    # chay PHPUnit tests'
+	  'make test    # chay PHPUnit tests' \
+	  'make storage-up # chay RustFS va tao bucket media public' \
+	  'make storage-down # dung RustFS, giu nguyen du lieu'
 
 shell:
 	nix develop
@@ -21,3 +23,12 @@ dev:
 
 test:
 	$(NIX_DEVELOP) php artisan test --compact
+
+.PHONY: storage-up storage-down
+
+storage-up:
+	docker compose up -d rustfs
+	docker compose run --rm rustfs-init
+
+storage-down:
+	docker compose stop rustfs
