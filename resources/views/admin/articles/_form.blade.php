@@ -1,5 +1,8 @@
 @php
-    $selectedTags = collect(old('tags', $article?->tags->modelKeys() ?? []))
+    $selectedTagIds = old('tags_submitted')
+        ? old('tags', [])
+        : old('tags', $article?->tags->modelKeys() ?? []);
+    $selectedTags = collect($selectedTagIds)
         ->map(fn ($tagId) => (int) $tagId)
         ->all();
     $selectedStatus = old('status', $article?->status ?? 'DRAFT');
@@ -16,7 +19,6 @@
             {{ session('status') }}
         </div>
     @endif
-
     @if ($errors->any())
         <div role="alert" class="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
             Vui lòng kiểm tra lại các trường được đánh dấu bên dưới.
@@ -52,11 +54,12 @@
             <div>
                 <label for="status" class="mb-2 block text-sm font-medium">Trạng thái <span class="text-red-300">*</span></label>
                 <select id="status" name="status" required class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] focus:border-sky-400 focus:outline-none">
-                    @if (! in_array($selectedStatus, ['DRAFT', 'PUBLISHED'], true))
+                    @if (! array_key_exists($selectedStatus, $statusOptions))
                         <option value="{{ $selectedStatus }}" selected>{{ ucfirst(strtolower($selectedStatus)) }} (hiện tại)</option>
                     @endif
-                    <option value="DRAFT" @selected($selectedStatus === 'DRAFT')>Draft</option>
-                    <option value="PUBLISHED" @selected($selectedStatus === 'PUBLISHED')>Published</option>
+                    @foreach ($statusOptions as $value => $label)
+                        <option value="{{ $value }}" @selected($selectedStatus === $value)>{{ $label }}</option>
+                    @endforeach
                 </select>
                 @error('status') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
             </div>
@@ -64,8 +67,9 @@
 
         <fieldset>
             <legend class="mb-2 block text-sm font-medium">Thẻ</legend>
+            <input type="hidden" name="tags_submitted" value="1">
             @if ($tags->isEmpty())
-                <p class="rounded-lg border border-dashed border-[#32353b] px-3 py-4 text-sm text-[#87929a]">Chưa có thẻ nào. Tạo thẻ trong mục Categories &amp; Tags.</p>
+                <p class="mb-3 rounded-lg border border-dashed border-[#32353b] px-3 py-4 text-sm text-[#87929a]">Chưa có thẻ nào được tạo.</p>
             @else
                 <div class="grid gap-2 rounded-lg border border-[#32353b] bg-[#0b0e13] p-3 sm:grid-cols-2 lg:grid-cols-3">
                     @foreach ($tags as $tag)
@@ -76,8 +80,24 @@
                     @endforeach
                 </div>
             @endif
+            <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+                <label class="sr-only" for="new-tag-name">Tên tag mới</label>
+                <input id="new-tag-name" type="text" maxlength="60" placeholder="Nhập tên tag mới" data-new-tag-input class="min-w-0 flex-1 rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">
+                <button type="button" data-add-new-tag class="rounded-lg bg-[#272a30] px-4 py-2.5 text-sm font-medium text-[#e1e2ea] transition hover:bg-[#32353b]">+ Thêm tag</button>
+            </div>
+            <ul data-new-tags-list class="mt-2 flex flex-wrap gap-2">
+                @foreach (old('new_tags', []) as $newTagName)
+                    <li class="inline-flex items-center gap-2 rounded-full bg-sky-500/10 px-3 py-1.5 text-sm text-sky-200">
+                        <input type="hidden" name="new_tags[]" value="{{ $newTagName }}">
+                        <span>{{ $newTagName }}</span>
+                        <button type="button" data-remove-new-tag aria-label="Xóa tag {{ $newTagName }}" class="text-sky-200 hover:text-white">&times;</button>
+                    </li>
+                @endforeach
+            </ul>
             @error('tags') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
             @error('tags.*') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
+            @error('new_tags') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
+            @error('new_tags.*') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
         </fieldset>
 
         <div>
@@ -88,14 +108,14 @@
                     <span class="text-xs text-[#87929a]">Chọn ảnh mới để thay thế ảnh hiện tại.</span>
                 </div>
             @endif
-            <input id="thumbnail" name="thumbnail" type="file" accept="image/jpeg,image/png,image/webp" class="block w-full rounded-lg border border-[#32353b] bg-[#0b0e13] text-sm text-[#bdc8d1] file:mr-4 file:border-0 file:bg-[#272a30] file:px-4 file:py-2.5 file:text-sm file:font-medium file:text-[#e1e2ea] hover:file:bg-[#32353b]">
-            <p class="mt-1.5 text-xs text-[#87929a]">JPG, PNG hoặc WebP; tối đa 5 MB.</p>
+            <input id="thumbnail" name="thumbnail" type="file" accept="{{ implode(',', array_map(fn ($mime) => '.'.$mime, $allowedImageMimes)) }}" class="block w-full rounded-lg border border-[#32353b] bg-[#0b0e13] text-sm text-[#bdc8d1] file:mr-4 file:border-0 file:bg-[#272a30] file:px-4 file:py-2.5 file:text-sm file:font-medium file:text-[#e1e2ea] hover:file:bg-[#32353b]">
+            <p class="mt-1.5 text-xs text-[#87929a]">{{ strtoupper(implode(', ', $allowedImageMimes)) }}; tối đa {{ $maxThumbnailKb / 1024 }} MB.</p>
             @error('thumbnail') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
         </div>
 
         <div>
             <label for="excerpt" class="mb-2 block text-sm font-medium">Tóm tắt</label>
-            <textarea id="excerpt" name="excerpt" rows="3" maxlength="500" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">{{ old('excerpt', $article?->excerpt) }}</textarea>
+            <textarea id="excerpt" name="excerpt" rows="3" maxlength="{{ $maxExcerptLength }}" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">{{ old('excerpt', $article?->excerpt) }}</textarea>
             @error('excerpt') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
         </div>
 
@@ -114,3 +134,58 @@
         </button>
     </div>
 </form>
+
+<script>
+    (() => {
+        const tagInput = document.querySelector('[data-new-tag-input]');
+        const addTagButton = document.querySelector('[data-add-new-tag]');
+        const newTagsList = document.querySelector('[data-new-tags-list]');
+
+        if (!tagInput || !addTagButton || !newTagsList) {
+            return;
+        }
+
+        const addTag = () => {
+            const tagName = tagInput.value.trim();
+
+            if (!tagName) {
+                return;
+            }
+
+            const tagItem = document.createElement('li');
+            tagItem.className = 'inline-flex items-center gap-2 rounded-full bg-sky-500/10 px-3 py-1.5 text-sm text-sky-200';
+
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = 'new_tags[]';
+            hiddenInput.value = tagName;
+
+            const tagLabel = document.createElement('span');
+            tagLabel.textContent = tagName;
+
+            const removeButton = document.createElement('button');
+            removeButton.type = 'button';
+            removeButton.dataset.removeNewTag = '';
+            removeButton.setAttribute('aria-label', `Xóa tag ${tagName}`);
+            removeButton.className = 'text-sky-200 hover:text-white';
+            removeButton.innerHTML = '&times;';
+
+            tagItem.append(hiddenInput, tagLabel, removeButton);
+            newTagsList.append(tagItem);
+            tagInput.value = '';
+        };
+
+        addTagButton.addEventListener('click', addTag);
+        tagInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                addTag();
+            }
+        });
+        newTagsList.addEventListener('click', (event) => {
+            if (event.target instanceof Element && event.target.closest('[data-remove-new-tag]')) {
+                event.target.closest('li').remove();
+            }
+        });
+    })();
+</script>

@@ -13,6 +13,12 @@ class Post extends Model
 {
     use HasFactory, SoftDeletes;
 
+    public const int MAX_THUMBNAIL_KB = 5120;
+
+    public const array ALLOWED_IMAGE_MIMES = ['jpg', 'jpeg', 'png', 'webp'];
+
+    public const int MAX_EXCERPT_LENGTH = 500;
+
     protected $fillable = ['author_id', 'category_id', 'weekly_review_id', 'thumbnail_media_id', 'title', 'slug', 'excerpt', 'markdown_content', 'status', 'source_type', 'seo_title', 'seo_description', 'canonical_url', 'published_at', 'scheduled_at', 'view_count', 'like_count'];
 
     public function author(): BelongsTo

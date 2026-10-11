@@ -100,6 +100,73 @@ class AdminArticleTest extends TestCase
         );
     }
 
+    public function test_admin_can_create_article_with_a_new_tag(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)
+            ->post(route('admin.articles.store'), [
+                'title' => 'Article with a new tag',
+                'markdown_content' => '# Article content',
+                'status' => 'DRAFT',
+                'new_tags' => ['Editorial'],
+            ])
+            ->assertRedirect();
+
+        $article = Post::query()->where('slug', 'article-with-a-new-tag')->firstOrFail();
+        $tag = Tag::query()->where('slug', 'editorial')->firstOrFail();
+
+        $this->assertDatabaseHas('tags', [
+            'id' => $tag->id,
+            'name' => 'Editorial',
+            'slug' => 'editorial',
+        ]);
+        $this->assertSame([$tag->id], $article->tags()->get()->modelKeys());
+    }
+
+    public function test_admin_reuses_a_tag_with_a_matching_slug_when_creating_an_article(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $existingTag = Tag::factory()->create([
+            'name' => 'Editorial',
+            'slug' => 'editorial',
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.articles.store'), [
+                'title' => 'Article with an existing tag',
+                'markdown_content' => '# Article content',
+                'status' => 'DRAFT',
+                'new_tags' => ['Editorial!'],
+            ])
+            ->assertRedirect();
+
+        $article = Post::query()->where('slug', 'article-with-an-existing-tag')->firstOrFail();
+
+        $this->assertSame(1, Tag::query()->where('slug', 'editorial')->count());
+        $this->assertSame([$existingTag->id], $article->tags()->get()->modelKeys());
+    }
+
+    public function test_admin_does_not_create_a_new_tag_when_article_validation_fails(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)
+            ->from(route('admin.articles.create'))
+            ->post(route('admin.articles.store'), [
+                'title' => 'Invalid article',
+                'status' => 'DRAFT',
+                'new_tags' => ['Not persisted'],
+            ])
+            ->assertRedirect(route('admin.articles.create'))
+            ->assertSessionHasErrors('markdown_content');
+
+        $this->assertDatabaseMissing('tags', [
+            'name' => 'Not persisted',
+            'slug' => 'not-persisted',
+        ]);
+    }
+
     public function test_admin_can_upload_article_thumbnail_to_public_storage(): void
     {
         Storage::fake('public');
@@ -147,6 +214,35 @@ class AdminArticleTest extends TestCase
         $this->assertDatabaseMissing('post_tags', [
             'post_id' => $article->id,
             'tag_id' => $originalTag->id,
+        ]);
+    }
+
+    public function test_admin_form_keeps_all_tags_unselected_after_failed_update(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $tag = Tag::factory()->create();
+        $article = Post::factory()->create();
+        $article->tags()->attach($tag);
+
+        $this->actingAs($admin)
+            ->from(route('admin.articles.edit', $article))
+            ->put(route('admin.articles.update', $article), [
+                'title' => '',
+                'slug' => $article->slug,
+                'markdown_content' => '# Content',
+                'status' => 'DRAFT',
+                'tags_submitted' => '1',
+            ])
+            ->assertRedirect(route('admin.articles.edit', $article))
+            ->assertSessionHasErrors('title');
+
+        $this->get(route('admin.articles.edit', $article))
+            ->assertOk()
+            ->assertDontSee('name="tags[]" value="'.$tag->id.'" checked', false);
+
+        $this->assertDatabaseHas('post_tags', [
+            'post_id' => $article->id,
+            'tag_id' => $tag->id,
         ]);
     }
 

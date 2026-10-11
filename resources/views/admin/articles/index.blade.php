@@ -36,7 +36,7 @@
                 <label class="sr-only" for="status-filter">Lọc theo trạng thái</label>
                 <select id="status-filter" name="status" class="rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2 text-sm text-[#e1e2ea] focus:border-sky-400 focus:outline-none">
                     <option value="">Tất cả trạng thái</option>
-                    @foreach (['DRAFT' => 'Draft', 'REVIEW' => 'Review', 'SCHEDULED' => 'Scheduled', 'PUBLISHED' => 'Published', 'ARCHIVED' => 'Archived'] as $value => $label)
+                    @foreach ($statusFilterOptions as $value => $label)
                         <option value="{{ $value }}" @selected(($filters['status'] ?? '') === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
