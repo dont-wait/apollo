@@ -28,6 +28,8 @@ return [
     |
     */
 
+    'media_disk' => env('MEDIA_DISK', 'rustfs'),
+
     'disks' => [
 
         'local' => [
@@ -45,6 +47,18 @@ return [
             'visibility' => 'public',
             'throw' => false,
             'report' => false,
+        ],
+
+        'rustfs' => [
+            'driver' => 's3',
+            'key' => env('RUSTFS_ACCESS_KEY', 'rustfsadmin'),
+            'secret' => env('RUSTFS_SECRET_KEY', 'rustfsadmin'),
+            'region' => env('RUSTFS_REGION', 'us-east-1'),
+            'bucket' => env('RUSTFS_BUCKET', 'apollo-media'),
+            'endpoint' => env('RUSTFS_ENDPOINT', 'http://127.0.0.1:9000'),
+            'url' => env('RUSTFS_URL', 'http://127.0.0.1:9000/apollo-media'),
+            'use_path_style_endpoint' => true,
+            'throw' => true,
         ],
 
         's3' => [
