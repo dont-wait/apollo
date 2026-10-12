@@ -48,6 +48,9 @@ Route::prefix('admin')
         Route::put('/categories/{category}', [CategoryController::class, 'update'])
             ->name('categories.update');
 
+        Route::patch('/categories/{category}/status', [CategoryController::class, 'updateStatus'])
+            ->name('categories.update-status');
+
         Route::get('/tags', [TagController::class, 'index'])
             ->name('tags.index');
 

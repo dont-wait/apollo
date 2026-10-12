@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\PostStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreArticleRequest;
 use App\Http\Requests\Admin\UpdateArticleRequest;
+use App\MediaStorage;
 use App\Models\Category;
 use App\Models\Media;
 use App\Models\Post;
@@ -14,18 +16,20 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
-use RuntimeException;
 use Throwable;
 
 class ArticleController extends Controller
 {
+    public function __construct(private MediaStorage $mediaStorage) {}
+
     public function index(Request $request): View
     {
         $filters = $request->validate([
             'category_id' => ['nullable', 'integer', 'exists:categories,id'],
-            'status' => ['nullable', 'in:DRAFT,REVIEW,SCHEDULED,PUBLISHED,ARCHIVED'],
+            'status' => ['nullable', Rule::in(array_keys(PostStatus::filterOptions()))],
             'q' => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -52,6 +56,7 @@ class ArticleController extends Controller
             'articles' => $articles,
             'categories' => Category::query()->orderBy('name')->get(['id', 'name']),
             'filters' => $filters,
+            'statusFilterOptions' => PostStatus::filterOptions(),
         ]);
     }
 
@@ -61,6 +66,10 @@ class ArticleController extends Controller
             'article' => null,
             'categories' => Category::query()->orderBy('name')->get(['id', 'name']),
             'tags' => Tag::query()->orderBy('name')->get(['id', 'name']),
+            'statusOptions' => PostStatus::selectableOptions(),
+            'maxThumbnailKb' => Post::MAX_THUMBNAIL_KB,
+            'allowedImageMimes' => Post::ALLOWED_IMAGE_MIMES,
+            'maxExcerptLength' => Post::MAX_EXCERPT_LENGTH,
         ]);
     }
 
@@ -68,13 +77,14 @@ class ArticleController extends Controller
     {
         $data = $request->validated();
         $tagIds = $data['tags'] ?? [];
+        $newTagNames = $data['new_tags'] ?? [];
         $thumbnail = $data['thumbnail'] ?? null;
-        unset($data['tags'], $data['thumbnail']);
+        unset($data['tags'], $data['new_tags'], $data['thumbnail']);
 
         $storedThumbnailPath = null;
 
         try {
-            $article = DB::transaction(function () use ($data, $tagIds, $thumbnail, $request, &$storedThumbnailPath): Post {
+            $article = DB::transaction(function () use ($data, $tagIds, $newTagNames, $thumbnail, $request, &$storedThumbnailPath): Post {
                 if ($thumbnail instanceof UploadedFile) {
                     $media = $this->storeThumbnail($thumbnail, $request->user()->id, $storedThumbnailPath);
                     $data['thumbnail_media_id'] = $media->id;
@@ -85,19 +95,18 @@ class ArticleController extends Controller
                     'author_id' => $request->user()->id,
                     'published_at' => $data['status'] === 'PUBLISHED' ? now() : null,
                 ]);
-                $article->tags()->sync($tagIds);
+                $article->tags()->sync($this->resolveTagIds($tagIds, $newTagNames));
 
                 return $article;
             });
         } catch (Throwable $exception) {
-            $this->deleteStoredThumbnail($storedThumbnailPath);
-
+            $this->cleanupStoredThumbnail($storedThumbnailPath);
             throw $exception;
         }
 
         return redirect()
-            ->route('admin.articles.edit', $article)
-            ->with('status', 'Bài viết đã được tạo.');
+            ->route('admin.articles.index')
+            ->with('status', 'Bài viết đã được tạo thành công');
     }
 
     public function edit(Post $article): View
@@ -108,6 +117,10 @@ class ArticleController extends Controller
             'article' => $article,
             'categories' => Category::query()->orderBy('name')->get(['id', 'name']),
             'tags' => Tag::query()->orderBy('name')->get(['id', 'name']),
+            'statusOptions' => PostStatus::selectableOptions(),
+            'maxThumbnailKb' => Post::MAX_THUMBNAIL_KB,
+            'allowedImageMimes' => Post::ALLOWED_IMAGE_MIMES,
+            'maxExcerptLength' => Post::MAX_EXCERPT_LENGTH,
         ]);
     }
 
@@ -115,14 +128,15 @@ class ArticleController extends Controller
     {
         $data = $request->validated();
         $tagIds = $data['tags'] ?? [];
+        $newTagNames = $data['new_tags'] ?? [];
         $thumbnail = $data['thumbnail'] ?? null;
-        unset($data['tags'], $data['thumbnail']);
+        unset($data['tags'], $data['new_tags'], $data['thumbnail']);
 
         $previousMedia = $article->thumbnail;
         $storedThumbnailPath = null;
 
         try {
-            DB::transaction(function () use ($article, $data, $tagIds, $thumbnail, $request, &$storedThumbnailPath): void {
+            DB::transaction(function () use ($article, $data, $tagIds, $newTagNames, $thumbnail, $request, &$storedThumbnailPath): void {
                 if ($thumbnail instanceof UploadedFile) {
                     $media = $this->storeThumbnail($thumbnail, $request->user()->id, $storedThumbnailPath);
                     $data['thumbnail_media_id'] = $media->id;
@@ -133,11 +147,10 @@ class ArticleController extends Controller
                     : null;
 
                 $article->update($data);
-                $article->tags()->sync($tagIds);
+                $article->tags()->sync($this->resolveTagIds($tagIds, $newTagNames));
             });
         } catch (Throwable $exception) {
-            $this->deleteStoredThumbnail($storedThumbnailPath);
-
+            $this->cleanupStoredThumbnail($storedThumbnailPath);
             throw $exception;
         }
 
@@ -148,10 +161,7 @@ class ArticleController extends Controller
                 ->exists();
 
             if (! $mediaIsStillInUse) {
-                if (! Storage::disk('public')->delete($previousMedia->storage_key)) {
-                    throw new RuntimeException('Không thể xóa ảnh thumbnail cũ khỏi public storage.');
-                }
-
+                $this->mediaStorage->delete($previousMedia->storage_key);
                 $previousMedia->delete();
             }
         }
@@ -172,28 +182,49 @@ class ArticleController extends Controller
 
     private function storeThumbnail(UploadedFile $thumbnail, int $uploadedBy, ?string &$storedPath): Media
     {
-        $path = $thumbnail->storePublicly('articles', 'public');
+        $attributes = $this->mediaStorage->store($thumbnail, 'articles');
+        $storedPath = $attributes['storage_key'];
 
-        if (! is_string($path)) {
-            throw new RuntimeException('Không thể lưu ảnh thumbnail vào public storage.');
-        }
-
-        $storedPath = $path;
-
-        return Media::create([
-            'uploaded_by' => $uploadedBy,
-            'file_name' => basename($path),
-            'mime_type' => $thumbnail->getMimeType() ?? 'application/octet-stream',
-            'size_bytes' => $thumbnail->getSize(),
-            'storage_key' => $path,
-            'url' => Storage::disk('public')->url($path),
-        ]);
+        return Media::create([...$attributes, 'uploaded_by' => $uploadedBy]);
     }
 
-    private function deleteStoredThumbnail(?string $storedPath): void
+    private function cleanupStoredThumbnail(?string $storedPath): void
     {
-        if ($storedPath !== null) {
-            Storage::disk('public')->delete($storedPath);
+        if ($storedPath === null) {
+            return;
         }
+
+        try {
+            $this->mediaStorage->delete($storedPath);
+        } catch (Throwable $cleanupException) {
+            report($cleanupException);
+        }
+    }
+
+    /**
+     * @param  array<int, int|string>  $tagIds
+     * @param  array<int, string>  $newTagNames
+     * @return list<int>
+     */
+    private function resolveTagIds(array $tagIds, array $newTagNames): array
+    {
+        foreach ($newTagNames as $newTagName) {
+            $name = trim($newTagName);
+            $slug = Str::slug($name);
+
+            $tag = Tag::query()->where('name', $name)->first()
+                ?? Tag::query()->where('slug', $slug)->first();
+
+            if ($tag === null) {
+                $tag = Tag::create([
+                    'name' => $name,
+                    'slug' => $slug,
+                ]);
+            }
+
+            $tagIds[] = $tag->id;
+        }
+
+        return array_values(array_unique(array_map('intval', $tagIds)));
     }
 }

@@ -80,7 +80,7 @@
 
             <div class="flex items-center justify-between gap-3 pt-1">
                 <label class="flex cursor-pointer items-center gap-2 text-xs text-on-surface-variant">
-                    <input class="size-4 rounded border-outline-variant bg-surface text-primary focus:ring-primary" name="remember" type="checkbox" value="1" @checked(old('remember', true))>
+                    <input class="size-4 rounded border-outline-variant bg-surface text-primary focus:ring-primary" name="remember" type="checkbox" value="1" @checked(old('remember', false))>
                     <span>Remember this device</span>
                 </label>
                 <span class="font-mono text-[10px] text-on-surface-variant/60">SESSION SECURE</span>

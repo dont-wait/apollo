@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Enums\PostStatus;
 use App\Models\Post;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
@@ -28,7 +29,7 @@ class UpdateArticleRequest extends FormRequest
     public function rules(): array
     {
         $article = $this->route('article');
-        $statuses = ['DRAFT', 'PUBLISHED'];
+        $statuses = PostStatus::selectableValues();
 
         if ($article instanceof Post && ! in_array($article->status, $statuses, true)) {
             $statuses[] = $article->status;
@@ -45,8 +46,10 @@ class UpdateArticleRequest extends FormRequest
             'category_id' => ['nullable', 'integer', Rule::exists('categories', 'id')],
             'tags' => ['nullable', 'array'],
             'tags.*' => ['integer', 'distinct', Rule::exists('tags', 'id')],
-            'thumbnail' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'excerpt' => ['nullable', 'string', 'max:500'],
+            'new_tags' => ['nullable', 'array'],
+            'new_tags.*' => ['required', 'string', 'max:60', 'distinct:ignore_case'],
+            'thumbnail' => ['nullable', 'image', 'mimes:'.implode(',', Post::ALLOWED_IMAGE_MIMES), 'max:'.Post::MAX_THUMBNAIL_KB],
+            'excerpt' => ['nullable', 'string', 'max:'.Post::MAX_EXCERPT_LENGTH],
             'markdown_content' => ['required', 'string'],
             'status' => ['required', Rule::in($statuses)],
         ];

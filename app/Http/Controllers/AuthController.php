@@ -21,14 +21,22 @@ class AuthController extends Controller
     public function login(LoginRequest $request): RedirectResponse
     {
         $credentials = $request->validated();
+        $remember = $request->boolean('remember');
 
         if (! Auth::attempt([
             'email' => $credentials['email'],
             'password' => $credentials['password'],
-        ], $request->boolean('remember'))) {
+        ], $remember)) {
             throw ValidationException::withMessages([
                 'email' => 'Login failed. Please check your email and password and try again.',
             ]);
+        }
+
+        $guard = Auth::guard();
+        $recallerName = $guard->getRecallerName();
+
+        if (! $remember && ! is_null($request->cookies->get($recallerName))) {
+            $guard->getCookieJar()->queue($guard->getCookieJar()->forget($recallerName));
         }
 
         $request->session()->regenerate();
