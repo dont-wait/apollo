@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -20,7 +21,8 @@ class AuthTest extends TestCase
             ->assertSeeText('Welcome back to Apollo Blog')
             ->assertSeeText('Continue with GitHub')
             ->assertSeeText('Continue with Google')
-            ->assertSeeText('Sign In to Account');
+            ->assertSeeText('Sign In to Account')
+            ->assertDontSee('checked');
     }
 
     public function test_register_page_renders_the_account_creation_screen(): void
@@ -98,6 +100,25 @@ class AuthTest extends TestCase
         ]);
 
         $response->assertRedirect(route('home'));
+        $this->assertAuthenticatedAs($user);
+        $response->assertCookieMissing(Auth::guard()->getRecallerName());
+    }
+
+    public function test_login_remembers_a_user_only_when_requested(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'ada@example.com',
+            'password' => Hash::make('correct-password'),
+        ]);
+
+        $response = $this->post(route('login.store'), [
+            'email' => 'ada@example.com',
+            'password' => 'correct-password',
+            'remember' => true,
+        ]);
+
+        $response->assertRedirect(route('home'))
+            ->assertCookieNotExpired(Auth::guard()->getRecallerName());
         $this->assertAuthenticatedAs($user);
     }
 
