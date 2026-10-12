@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -126,6 +127,43 @@ class AuthTest extends TestCase
 
         $response->assertRedirect(route('home'))
             ->assertCookieNotExpired(Auth::guard()->getRecallerName());
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_login_without_remember_expires_a_previously_issued_recaller_cookie(): void
+    {
+        $password = fake()->password(minLength: 12);
+
+        $user = User::factory()->create([
+            'email' => 'ada@example.com',
+            'password' => Hash::make($password),
+        ]);
+
+        $recallerName = Auth::guard()->getRecallerName();
+
+        $remembered = $this->post(route('login.store'), [
+            'email' => 'ada@example.com',
+            'password' => $password,
+            'remember' => true,
+        ]);
+
+        $remembered->assertRedirect(route('home'))
+            ->assertCookieNotExpired($recallerName);
+
+        $recaller = $remembered->getCookie($recallerName);
+
+        $this->flushSession();
+        Auth::forgetGuards();
+
+        $response = $this->withoutMiddleware(RedirectIfAuthenticated::class)
+            ->withCookie($recallerName, $recaller->getValue())
+            ->post(route('login.store'), [
+                'email' => 'ada@example.com',
+                'password' => $password,
+            ]);
+
+        $response->assertRedirect(route('home'))
+            ->assertCookieExpired($recallerName);
         $this->assertAuthenticatedAs($user);
     }
 
