@@ -105,8 +105,8 @@ class ArticleController extends Controller
         }
 
         return redirect()
-            ->route('admin.articles.edit', $article)
-            ->with('status', 'Bài viết đã được tạo.');
+            ->route('admin.articles.index')
+            ->with('status', 'Bài viết đã được tạo thành công');
     }
 
     public function edit(Post $article): View

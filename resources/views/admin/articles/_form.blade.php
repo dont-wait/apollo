@@ -80,10 +80,10 @@
                     @endforeach
                 </div>
             @endif
-            <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+            <div class="mt-3 flex max-w-md gap-2">
                 <label class="sr-only" for="new-tag-name">Tên tag mới</label>
                 <input id="new-tag-name" type="text" maxlength="60" placeholder="Nhập tên tag mới" data-new-tag-input class="min-w-0 flex-1 rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">
-                <button type="button" data-add-new-tag class="rounded-lg bg-[#272a30] px-4 py-2.5 text-sm font-medium text-[#e1e2ea] transition hover:bg-[#32353b]">+ Thêm tag</button>
+                <button type="button" data-add-new-tag class="shrink-0 whitespace-nowrap rounded-lg bg-[#272a30] px-4 py-2.5 text-sm font-medium text-[#e1e2ea] transition hover:bg-[#32353b]">+ Thêm tag</button>
             </div>
             <ul data-new-tags-list class="mt-2 flex flex-wrap gap-2">
                 @foreach (old('new_tags', []) as $newTagName)
@@ -121,7 +121,17 @@
 
         <div>
             <label for="markdown_content" class="mb-2 block text-sm font-medium">Nội dung Markdown <span class="text-red-300">*</span></label>
-            <textarea id="markdown_content" name="markdown_content" rows="18" required class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-3 font-mono text-sm leading-6 text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none" placeholder="# Tiêu đề bài viết">{{ old('markdown_content', $article?->markdown_content) }}</textarea>
+            <div role="tablist" aria-label="Chế độ nội dung Markdown" class="flex border-b border-[#32353b]">
+                <button type="button" role="tab" id="markdown-write-tab" aria-controls="markdown-write-panel" aria-selected="true" data-markdown-tab="write" class="rounded-t-lg border-b-2 border-transparent px-4 py-2 text-sm font-medium text-[#87929a] transition hover:text-[#e1e2ea] aria-selected:border-sky-400 aria-selected:text-[#e1e2ea]">Write</button>
+                <button type="button" role="tab" id="markdown-preview-tab" aria-controls="markdown-preview-panel" aria-selected="false" data-markdown-tab="preview" class="rounded-t-lg border-b-2 border-transparent px-4 py-2 text-sm font-medium text-[#87929a] transition hover:text-[#e1e2ea] aria-selected:border-sky-400 aria-selected:text-[#e1e2ea]">Preview</button>
+            </div>
+            <div id="markdown-write-panel" role="tabpanel" aria-labelledby="markdown-write-tab" data-markdown-panel="write">
+                <textarea id="markdown_content" name="markdown_content" rows="18" required class="w-full rounded-b-lg border border-[#32353b] bg-[#0b0e13] px-3 py-3 font-mono text-sm leading-6 text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none" placeholder="# Tiêu đề bài viết">{{ old('markdown_content', $article?->markdown_content) }}</textarea>
+            </div>
+            <div id="markdown-preview-panel" role="tabpanel" aria-labelledby="markdown-preview-tab" data-markdown-panel="preview" hidden>
+                <p data-markdown-preview-empty class="min-h-[27rem] rounded-b-lg border border-[#32353b] bg-[#0b0e13] px-4 py-3 text-sm text-[#87929a]">Chưa có nội dung để xem trước</p>
+                <div data-markdown-preview-content hidden class="markdown-preview min-h-[27rem] rounded-b-lg border border-[#32353b] bg-[#0b0e13] px-4 py-3 text-sm leading-7 text-[#bdc8d1] [&_a]:text-sky-300 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-[#4b5059] [&_blockquote]:pl-4 [&_h1]:mb-4 [&_h1]:text-3xl [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-xl [&_h3]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-4 [&_pre]:my-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-[#191c21] [&_pre]:p-4 [&_ul]:list-disc"></div>
+            </div>
             @error('markdown_content') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
         </div>
     </section>
@@ -135,8 +145,63 @@
     </div>
 </form>
 
+<script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/lib/marked.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
 <script>
     (() => {
+        const markdownInput = document.querySelector('#markdown_content');
+        const markdownTabs = document.querySelectorAll('[data-markdown-tab]');
+        const markdownPanels = document.querySelectorAll('[data-markdown-panel]');
+        const markdownPreviewEmpty = document.querySelector('[data-markdown-preview-empty]');
+        const markdownPreviewContent = document.querySelector('[data-markdown-preview-content]');
+
+        if (!markdownInput || !markdownPreviewEmpty || !markdownPreviewContent) {
+            return;
+        }
+
+        const renderMarkdownPreview = () => {
+            const markdown = markdownInput.value.trim();
+            const hasMarkdown = markdown.length > 0;
+
+            markdownPreviewEmpty.hidden = hasMarkdown;
+            markdownPreviewContent.hidden = !hasMarkdown;
+            markdownPreviewContent.innerHTML = hasMarkdown
+                ? DOMPurify.sanitize(marked.parse(markdown))
+                : '';
+        };
+
+        const selectMarkdownTab = (selectedTab) => {
+            markdownTabs.forEach((tab) => {
+                const isSelected = tab.dataset.markdownTab === selectedTab;
+                tab.setAttribute('aria-selected', String(isSelected));
+            });
+
+            markdownPanels.forEach((panel) => {
+                panel.hidden = panel.dataset.markdownPanel !== selectedTab;
+            });
+
+            markdownInput.required = selectedTab === 'write';
+
+            if (selectedTab === 'preview') {
+                renderMarkdownPreview();
+            }
+        };
+
+        markdownTabs.forEach((tab, index) => {
+            tab.addEventListener('click', () => {
+                selectMarkdownTab(tab.dataset.markdownTab);
+            });
+            tab.addEventListener('keydown', (event) => {
+                if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                    event.preventDefault();
+                    const direction = event.key === 'ArrowRight' ? 1 : -1;
+                    const nextIndex = (index + direction + markdownTabs.length) % markdownTabs.length;
+                    markdownTabs[nextIndex].focus();
+                    markdownTabs[nextIndex].click();
+                }
+            });
+        });
+
         const tagInput = document.querySelector('[data-new-tag-input]');
         const addTagButton = document.querySelector('[data-add-new-tag]');
         const newTagsList = document.querySelector('[data-new-tags-list]');

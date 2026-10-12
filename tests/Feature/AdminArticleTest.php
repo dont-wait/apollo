@@ -64,7 +64,10 @@ class AdminArticleTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.articles.create'))
             ->assertOk()
-            ->assertSee('name="markdown_content"', false);
+            ->assertSee('name="markdown_content"', false)
+            ->assertSee('Write')
+            ->assertSee('Preview')
+            ->assertSeeText('Chưa có nội dung để xem trước');
 
         $this->get(route('admin.articles.edit', $article))
             ->assertOk()
@@ -78,7 +81,7 @@ class AdminArticleTest extends TestCase
         $category = Category::factory()->create();
         $tags = Tag::factory()->count(2)->create();
 
-        $response = $this->actingAs($admin)
+        $this->actingAs($admin)
             ->post(route('admin.articles.store'), [
                 'title' => 'A New Article',
                 'slug' => '',
@@ -88,10 +91,13 @@ class AdminArticleTest extends TestCase
                 'markdown_content' => '# Article content',
                 'status' => 'PUBLISHED',
             ])
-            ->assertRedirect();
+            ->assertRedirect(route('admin.articles.index'))
+            ->assertSessionHas('status', 'Bài viết đã được tạo thành công');
 
         $article = Post::query()->where('slug', 'a-new-article')->firstOrFail();
-        $response->assertRedirect(route('admin.articles.edit', $article));
+        $this->get(route('admin.articles.index'))
+            ->assertOk()
+            ->assertSeeText('Bài viết đã được tạo thành công');
         $this->assertSame($admin->id, $article->author_id);
         $this->assertSame('PUBLISHED', $article->status);
         $this->assertNotNull($article->published_at);
