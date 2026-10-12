@@ -45,7 +45,7 @@ class AdminCategoryTest extends TestCase
 
         $response = $this
             ->actingAs($admin)
-            ->get('/admin/categories');
+            ->getJson('/admin/categories');
 
         $response->assertOk();
 

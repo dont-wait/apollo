@@ -1,5 +1,5 @@
 import Alpine from 'alpinejs';
-
+import './admin/category-tag.js';
 window.Alpine = Alpine;
 
 window.homeFeed = (posts, authenticated, loginUrl) => ({

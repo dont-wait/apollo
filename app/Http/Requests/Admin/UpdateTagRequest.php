@@ -30,6 +30,10 @@ class UpdateTagRequest extends FormRequest
                 'max:80',
                 Rule::unique('tags', 'slug')->ignore($tag->id),
             ],
+            'color' => [
+                'nullable',
+                'regex:/^#[0-9A-Fa-f]{6}$/',
+            ],
         ];
     }
 }
