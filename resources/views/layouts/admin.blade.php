@@ -28,7 +28,14 @@
         <div class="flex-1 overflow-y-auto px-3 py-4 space-y-6">
             <nav class="space-y-1" data-active-classes="bg-surface-container-high text-primary border-l-2 border-primary font-semibold">
                 <div class="px-3 pb-1 font-label-sm text-label-sm text-outline tracking-wider uppercase">Content</div>
-                <a aria-current="page" class="flex items-center gap-3 px-3 py-2 rounded transition-all bg-surface-container-high text-primary border-l-2 border-primary font-semibold" data-path="admin-dashboard" href="{{ route('admin.dashboard') }}">
+                <a @class([
+                        'flex items-center gap-3 px-3 py-2 rounded transition-all font-body-sm text-body-sm',
+                        'bg-surface-container-high text-primary border-l-2 border-primary font-semibold' => request()->routeIs('admin.dashboard'),
+                        'text-on-surface-variant hover:bg-surface-container hover:text-on-surface' => ! request()->routeIs('admin.dashboard'),
+                    ])
+                    @if (request()->routeIs('admin.dashboard')) aria-current="page" @endif
+                    data-path="admin-dashboard"
+                    href="{{ route('admin.dashboard') }}">
                     <span class="material-symbols-outlined text-[18px]">dashboard</span>
                     <span>Dashboard</span>
                 </a>
@@ -44,7 +51,14 @@
                     <span class="material-symbols-outlined text-[18px]">label</span>
                     <span>Categories &amp; Tags</span>
                 </a>
-                <a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all font-body-sm text-body-sm" data-path="media-library" href="#">
+                <a @class([
+                    'flex items-center gap-3 px-3 py-2 rounded transition-all font-body-sm text-body-sm',
+                    'bg-surface-container-high text-primary border-l-2 border-primary font-semibold' => request()->routeIs('admin.media.*'),
+                    'text-on-surface-variant hover:bg-surface-container hover:text-on-surface' => ! request()->routeIs('admin.media.*'),
+                ])
+                @if (request()->routeIs('admin.media.*')) aria-current="page" @endif
+                data-path="media-library"
+                href="{{ route('admin.media.index') }}">
                     <span class="material-symbols-outlined text-[18px]">perm_media</span>
                     <span>Media Library</span>
                 </a>
