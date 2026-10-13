@@ -2,13 +2,16 @@ import Alpine from 'alpinejs';
 import './admin/category-tag.js';
 window.Alpine = Alpine;
 
-window.homeFeed = (posts, authenticated, loginUrl) => ({
+window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}) => ({
     posts,
     authenticated,
     loginUrl,
-    search: '',
-    activeCategory: 'All Posts',
-    sort: 'latest',
+    search: filters.q ?? '',
+    activeCategory: filters.category ?? 'All Posts',
+    sort: filters.sort ?? 'latest',
+    pagination,
+    loading: false,
+    loadError: false,
     sortMenuOpen: false,
     sortOptions: [
         { value: 'latest', label: 'Latest' },
@@ -20,26 +23,35 @@ window.homeFeed = (posts, authenticated, loginUrl) => ({
     bookmarkNotice: false,
     newsletterSubmitted: false,
 
-    matchesPost(post) {
-        const query = this.search.trim().toLowerCase();
-        const matchesCategory = this.activeCategory === 'All Posts' || post.category === this.activeCategory;
-        const searchableText = `${post.title} ${post.excerpt} ${post.category} ${post.tags.join(' ')}`.toLowerCase();
-
-        return matchesCategory && (!query || searchableText.includes(query));
+    visiblePosts() {
+        return this.posts;
     },
 
-    visiblePosts() {
-        const visiblePosts = this.posts.filter((post) => this.matchesPost(post));
+    paginationPages() {
+        const lastPage = this.pagination.last_page ?? 1;
+        const currentPage = this.pagination.current_page ?? 1;
 
-        if (this.sort === 'popular') {
-            return visiblePosts.sort((a, b) => b.bookmarks - a.bookmarks);
+        if (lastPage <= 7) {
+            return Array.from({ length: lastPage }, (_, index) => index + 1);
         }
 
-        if (this.sort === 'reading') {
-            return visiblePosts.sort((a, b) => b.readMinutes - a.readMinutes);
+        const pages = [1];
+
+        if (currentPage > 4) {
+            pages.push('...');
         }
 
-        return visiblePosts.sort((a, b) => b.publishedOrder - a.publishedOrder);
+        for (let page = Math.max(2, currentPage - 1); page <= Math.min(lastPage - 1, currentPage + 1); page += 1) {
+            pages.push(page);
+        }
+
+        if (currentPage < lastPage - 3) {
+            pages.push('...');
+        }
+
+        pages.push(lastPage);
+
+        return pages;
     },
 
     sortLabel() {
@@ -49,6 +61,97 @@ window.homeFeed = (posts, authenticated, loginUrl) => ({
     setSort(value) {
         this.sort = value;
         this.sortMenuOpen = false;
+        this.updateQuery('sort', value === 'latest' ? '' : value, { scroll: false });
+    },
+
+    setCategory(category) {
+        this.activeCategory = category;
+        this.updateQuery('category', category === 'All Posts' ? '' : category, { scroll: false });
+    },
+
+    applyFilters() {
+        this.updateQuery('q', this.search.trim(), { scroll: false });
+    },
+
+    resetFilters() {
+        const url = new URL(window.location.href);
+
+        ['category', 'q', 'sort', 'page'].forEach((key) => url.searchParams.delete(key));
+        this.search = '';
+        this.activeCategory = 'All Posts';
+        this.sort = 'latest';
+        this.load(url);
+    },
+
+    goToPage(page) {
+        if (page === '...' || page === this.pagination.current_page) {
+            return;
+        }
+
+        const url = new URL(window.location.href);
+        url.searchParams.set('page', page);
+        this.load(url);
+    },
+
+    updateQuery(key, value, { scroll = false } = {}) {
+        const url = new URL(window.location.href);
+
+        if (value) {
+            url.searchParams.set(key, value);
+        } else {
+            url.searchParams.delete(key);
+        }
+
+        url.searchParams.delete('page');
+        this.load(url, { scroll });
+    },
+
+    async load(url, { push = true, scroll = true } = {}) {
+        this.loading = true;
+        this.loadError = false;
+
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`Request failed with status ${response.status}`);
+            }
+
+            const payload = await response.json();
+            this.posts = payload.data;
+            this.pagination = payload.pagination;
+
+            const nextUrl = `${url.pathname}${url.search}`;
+
+            if (push) {
+                window.history.pushState({}, '', nextUrl);
+            }
+
+            if (scroll) {
+                document.getElementById('articles')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        } catch (error) {
+            this.loadError = true;
+            console.error('Unable to load articles:', error);
+        } finally {
+            this.loading = false;
+        }
+    },
+
+    init() {
+        window.addEventListener('popstate', () => {
+            const url = new URL(window.location.href);
+
+            this.search = url.searchParams.get('q') ?? '';
+            this.activeCategory = url.searchParams.get('category') ?? 'All Posts';
+            this.sort = url.searchParams.get('sort') ?? 'latest';
+            this.load(url, { push: false, scroll: false });
+        });
     },
 
     isBookmarked(postId) {
