@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\ArticleController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\TagController;
 use App\Http\Controllers\AuthController;
@@ -32,6 +33,8 @@ Route::prefix('admin')
         Route::get('/dashboard', function () {
             return view('admin.dashboard');
         })->name('dashboard');
+
+        Route::resource('articles', ArticleController::class)->except(['show']);
 
         Route::get('/categories', [CategoryController::class, 'index'])
             ->name('categories.index');
