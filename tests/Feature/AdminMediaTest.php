@@ -159,4 +159,80 @@ class AdminMediaTest extends TestCase
 
         $this->assertDatabaseCount('media', 0);
     }
+
+    public function test_upload_rejects_filename_longer_than_255_characters(): void
+    {
+        config([
+            'filesystems.media_disk' => 'media-test',
+        ]);
+
+        $disk = Storage::fake('media-test');
+
+        $admin = User::factory()->create([
+            'role' => 'ADMIN',
+        ]);
+
+        // 252 ký tự + ".jpg" = 256 ký tự
+        $fileName = str_repeat('a', 252).'.jpg';
+
+        $file = UploadedFile::fake()->image(
+            $fileName,
+            100,
+            100
+        );
+
+        $response = $this
+            ->actingAs($admin)
+            ->post('/admin/media', [
+                'file' => $file,
+            ], [
+                'Accept' => 'application/json',
+            ]);
+
+        $response->assertUnprocessable();
+
+        $response->assertJsonValidationErrors([
+            'file',
+        ]);
+
+        $this->assertDatabaseCount('media', 0);
+        $this->assertEmpty($disk->allFiles());
+    }
+
+    public function test_upload_rejects_malformed_image(): void
+    {
+        config([
+            'filesystems.media_disk' => 'media-test',
+        ]);
+
+        $disk = Storage::fake('media-test');
+
+        $admin = User::factory()->create([
+            'role' => 'ADMIN',
+        ]);
+
+        $brokenJpeg = "\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00";
+
+        $file = UploadedFile::fake()->createWithContent(
+            'broken.jpg',
+            $brokenJpeg
+        );
+
+        $response = $this
+            ->actingAs($admin)
+            ->post('/admin/media', [
+                'file' => $file,
+            ], [
+                'Accept' => 'application/json',
+            ]);
+
+        $response->assertUnprocessable();
+
+        $response->assertJsonValidationErrors([
+            'file',
+        ]);
+
+        $this->assertDatabaseCount('media', 0);
+        $this->assertEmpty($disk->allFiles());
+    }
 }

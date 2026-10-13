@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\UploadedFile;
 
 class StoreMediaRequest extends FormRequest
 {
@@ -19,6 +20,17 @@ class StoreMediaRequest extends FormRequest
                 'file',
                 'mimes:jpg,jpeg,png,webp,gif,pdf',
                 'max:10240',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (! $value instanceof UploadedFile) {
+                        return;
+                    }
+
+                    $fileName = basename($value->getClientOriginalName());
+
+                    if (mb_strlen($fileName) > 255) {
+                        $fail('Tên file không được vượt quá 255 ký tự.');
+                    }
+                },
             ],
         ];
     }

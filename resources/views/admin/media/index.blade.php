@@ -67,7 +67,7 @@
                                bg-tertiary-container/10
                                px-2 py-0.5 rounded"
                     >
-                        LOCAL STORAGE ACTIVE
+                        {{ $storageLabel }} STORAGE ACTIVE
                     </span>
                 </div>
 
@@ -791,7 +791,7 @@
                                bg-tertiary-container/10
                                px-2 py-0.5 rounded"
                     >
-                        LOCAL
+                        {{ $storageLabel }}
                     </span>
                 </div>
 
@@ -1151,10 +1151,13 @@
                 }
             );
 
-            fileInput?.addEventListener(
+            fileInput.addEventListener(
                 'change',
                 () => {
                     const file = fileInput.files?.[0];
+
+                    // Reset input để có thể chọn lại chính file này nếu upload thất bại.
+                    fileInput.value = '';
 
                     if (file) {
                         uploadFile(file);

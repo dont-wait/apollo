@@ -8,6 +8,7 @@ use App\MediaStorage;
 use App\Models\Media;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class MediaController extends Controller
@@ -40,12 +41,15 @@ class MediaController extends Controller
         $height = null;
 
         if (str_starts_with($file->getMimeType() ?? '', 'image/')) {
-            $dimensions = getimagesize($file->getRealPath());
+            $dimensions = @getimagesize($file->getRealPath());
 
-            if ($dimensions !== false) {
-                $width = $dimensions[0];
-                $height = $dimensions[1];
+            if ($dimensions === false) {
+                throw ValidationException::withMessages([
+                    'file' => 'File ảnh không hợp lệ hoặc đã bị hỏng.',
+                ]);
             }
+
+            [$width, $height] = $dimensions;
         }
 
         $attributes = $mediaStorage->store($file);
