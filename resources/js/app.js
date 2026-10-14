@@ -2,13 +2,20 @@ import Alpine from 'alpinejs';
 import './admin/category-tag.js';
 window.Alpine = Alpine;
 
-window.homeFeed = (posts, authenticated, loginUrl) => ({
+window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}) => ({
     posts,
     authenticated,
     loginUrl,
-    search: '',
-    activeCategory: 'All Posts',
-    sort: 'latest',
+    search: filters.q ?? '',
+    activeCategory: filters.category ?? '',
+    sort: filters.sort ?? 'latest',
+    pagination,
+    loading: false,
+    loadError: false,
+    requestId: 0,
+    requestController: null,
+    pendingUrl: null,
+    committedUrl: null,
     sortMenuOpen: false,
     sortOptions: [
         { value: 'latest', label: 'Latest' },
@@ -20,26 +27,35 @@ window.homeFeed = (posts, authenticated, loginUrl) => ({
     bookmarkNotice: false,
     newsletterSubmitted: false,
 
-    matchesPost(post) {
-        const query = this.search.trim().toLowerCase();
-        const matchesCategory = this.activeCategory === 'All Posts' || post.category === this.activeCategory;
-        const searchableText = `${post.title} ${post.excerpt} ${post.category} ${post.tags.join(' ')}`.toLowerCase();
-
-        return matchesCategory && (!query || searchableText.includes(query));
+    visiblePosts() {
+        return this.posts;
     },
 
-    visiblePosts() {
-        const visiblePosts = this.posts.filter((post) => this.matchesPost(post));
+    paginationPages() {
+        const lastPage = this.pagination.last_page ?? 1;
+        const currentPage = this.pagination.current_page ?? 1;
 
-        if (this.sort === 'popular') {
-            return visiblePosts.sort((a, b) => b.bookmarks - a.bookmarks);
+        if (lastPage <= 7) {
+            return Array.from({ length: lastPage }, (_, index) => index + 1);
         }
 
-        if (this.sort === 'reading') {
-            return visiblePosts.sort((a, b) => b.readMinutes - a.readMinutes);
+        const pages = [1];
+
+        if (currentPage > 3) {
+            pages.push('...');
         }
 
-        return visiblePosts.sort((a, b) => b.publishedOrder - a.publishedOrder);
+        for (let page = Math.max(2, currentPage - 1); page <= Math.min(lastPage - 1, currentPage + 1); page += 1) {
+            pages.push(page);
+        }
+
+        if (currentPage < lastPage - 2) {
+            pages.push('...');
+        }
+
+        pages.push(lastPage);
+
+        return pages;
     },
 
     sortLabel() {
@@ -49,6 +65,134 @@ window.homeFeed = (posts, authenticated, loginUrl) => ({
     setSort(value) {
         this.sort = value;
         this.sortMenuOpen = false;
+        this.updateQuery('sort', value === 'latest' ? '' : value, { scroll: false });
+    },
+
+    setCategory(category) {
+        this.activeCategory = category;
+        this.updateQuery('category', category, { scroll: false });
+    },
+
+    applyFilters() {
+        this.updateQuery('q', this.search.trim(), { scroll: false });
+    },
+
+    resetFilters() {
+        const url = new URL(window.location.href);
+
+        ['category', 'q', 'sort', 'page'].forEach((key) => url.searchParams.delete(key));
+        this.search = '';
+        this.activeCategory = '';
+        this.sort = 'latest';
+        this.load(url, { scroll: false });
+    },
+
+    goToPage(page) {
+        if (page === '...' || page === this.pagination.current_page) {
+            return;
+        }
+
+        const url = new URL(this.pendingUrl ?? window.location.href);
+        url.searchParams.set('page', page);
+        this.load(url);
+    },
+
+    updateQuery(key, value, { scroll = false } = {}) {
+        const url = new URL(this.pendingUrl ?? window.location.href);
+
+        if (value) {
+            url.searchParams.set(key, value);
+        } else {
+            url.searchParams.delete(key);
+        }
+
+        url.searchParams.delete('page');
+        this.load(url, { scroll });
+    },
+
+    async load(url, { push = true, scroll = true } = {}) {
+        if (this.loading && this.pendingUrl === url.href) {
+            return;
+        }
+
+        this.requestController?.abort();
+        const controller = new AbortController();
+        const requestId = ++this.requestId;
+        this.requestController = controller;
+        this.pendingUrl = url.href;
+        this.loading = true;
+        this.loadError = false;
+        const timeout = window.setTimeout(() => controller.abort(), 15000);
+
+        try {
+            const response = await fetch(url, {
+                signal: controller.signal,
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`Request failed with status ${response.status}`);
+            }
+
+            const payload = await response.json();
+            if (requestId !== this.requestId) {
+                return;
+            }
+            if (controller.signal.aborted) {
+                throw new Error('Request timed out');
+            }
+            this.posts = payload.data;
+            this.pagination = payload.pagination;
+            this.committedUrl = url.href;
+            this.syncFilters(url);
+
+            const nextUrl = `${url.pathname}${url.search}`;
+
+            if (push && window.location.href !== url.href) {
+                window.history.pushState({}, '', nextUrl);
+            }
+
+            if (scroll) {
+                document.getElementById('articles')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        } catch (error) {
+            if (requestId !== this.requestId) {
+                return;
+            }
+            this.loadError = true;
+            const previousUrl = new URL(this.committedUrl ?? window.location.href);
+            this.syncFilters(previousUrl);
+            if (!push) {
+                window.history.replaceState({}, '', previousUrl);
+            }
+            console.error('Unable to load articles:', error);
+        } finally {
+            window.clearTimeout(timeout);
+            if (requestId === this.requestId) {
+                this.loading = false;
+                this.pendingUrl = null;
+                this.requestController = null;
+            }
+        }
+    },
+
+    syncFilters(url) {
+        this.search = url.searchParams.get('q') ?? '';
+        this.activeCategory = url.searchParams.get('category') ?? '';
+        this.sort = url.searchParams.get('sort') ?? 'latest';
+    },
+
+    init() {
+        this.committedUrl = window.location.href;
+        window.addEventListener('popstate', () => {
+            const url = new URL(window.location.href);
+
+            this.syncFilters(url);
+            this.load(url, { push: false, scroll: false });
+        });
     },
 
     isBookmarked(postId) {
