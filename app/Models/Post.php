@@ -19,6 +19,8 @@ class Post extends Model
 
     public const int MAX_EXCERPT_LENGTH = 500;
 
+    public const int MAX_CONTENT_LENGTH = 200000;
+
     protected $fillable = ['author_id', 'category_id', 'weekly_review_id', 'thumbnail_media_id', 'title', 'slug', 'excerpt', 'markdown_content', 'status', 'source_type', 'seo_title', 'seo_description', 'canonical_url', 'published_at', 'scheduled_at', 'view_count', 'like_count'];
 
     public function author(): BelongsTo
