@@ -86,8 +86,17 @@ test('timeout clears loading and allows retry', async () => {
     assert.equal(feed.loadError, true);
 });
 
-test('pagination includes gaps and unique positions for both ellipses', () => {
-    const { feed } = createFeed(async () => result('unused'));
-    feed.pagination = { current_page: 5, last_page: 10 };
-    assert.deepEqual(Array.from(feed.paginationPages()), [1, '...', 4, 5, 6, '...', 10]);
+test('filter changes discard the cursor and pagination follows server URLs', async () => {
+    const urls = [];
+    const { feed, window } = createFeed(async (url) => {
+        urls.push(url.href);
+        return result('next');
+    });
+    window.location.href = 'https://apollo.test/?cursor=old';
+    feed.setCategory('systems');
+    await new Promise(setImmediate);
+    assert.equal(new URL(urls[0]).searchParams.has('cursor'), false);
+    feed.goToPage('https://apollo.test/?category=systems&cursor=next');
+    await new Promise(setImmediate);
+    assert.equal(new URL(urls[1]).searchParams.get('cursor'), 'next');
 });

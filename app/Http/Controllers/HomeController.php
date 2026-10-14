@@ -9,6 +9,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class HomeController extends Controller
@@ -19,6 +20,7 @@ class HomeController extends Controller
             'category' => ['nullable', 'string', 'max:120'],
             'q' => ['nullable', 'string', 'max:255'],
             'sort' => ['nullable', Rule::in(['latest', 'popular', 'reading'])],
+            'cursor' => ['nullable', 'string', 'max:2048'],
         ]);
         $sort = $filters['sort'] ?? 'latest';
 
@@ -35,17 +37,20 @@ class HomeController extends Controller
             })
             ->when(isset($filters['q']) && $filters['q'] !== '', function (Builder $query) use ($filters): void {
                 $search = $filters['q'];
-                $query->where(function (Builder $query) use ($search): void {
-                    $query->where('title', 'like', "%{$search}%")
-                        ->orWhere('slug', 'like', "%{$search}%")
-                        ->orWhere('excerpt', 'like', "%{$search}%")
-                        ->orWhereHas('category', function (Builder $query) use ($search): void {
-                            $query->where('name', 'like', "%{$search}%");
-                        })
-                        ->orWhereHas('tags', function (Builder $query) use ($search): void {
-                            $query->where('name', 'like', "%{$search}%");
-                        });
-                });
+                $prefix = addcslashes($search, '\\%_').'%';
+                preg_match_all('/[\p{L}\p{N}]+/u', $search, $words);
+                $terms = implode(' ', array_map(fn (string $word): string => '+'.$word.'*', $words[0]));
+                $matches = DB::table('posts')->select('id')
+                    ->whereFullText(['title', 'excerpt', 'markdown_content'], $terms, ['mode' => 'boolean'])
+                    ->union(DB::table('posts')->select('id')->where('title', 'like', $prefix))
+                    ->union(DB::table('posts')->select('id')->where('slug', 'like', $prefix));
+                $categories = DB::table('categories')->select('id')->whereFullText('name', $terms, ['mode' => 'boolean'])
+                    ->union(DB::table('categories')->select('id')->where('name', 'like', $prefix));
+                $tags = DB::table('tags')->select('id')->whereFullText('name', $terms, ['mode' => 'boolean'])
+                    ->union(DB::table('tags')->select('id')->where('name', 'like', $prefix));
+                $matches->union(DB::table('posts')->select('id')->whereIn('category_id', $categories))
+                    ->union(DB::table('post_tags')->select('post_id')->whereIn('tag_id', $tags));
+                $query->whereIn('id', $matches);
             });
 
         $this->applyPublishedScope($posts);
@@ -56,7 +61,15 @@ class HomeController extends Controller
             default => $posts->orderByDesc('published_at')->orderByDesc('id'),
         };
 
-        $posts = $posts->paginate(10)->withQueryString();
+        $total = (clone $posts)->reorder()->count();
+        $posts = $posts->cursorPaginate(10)->withQueryString();
+        $pagination = [
+            'previous_url' => $posts->previousPageUrl(),
+            'next_url' => $posts->nextPageUrl(),
+            'per_page' => $posts->perPage(),
+            'total' => $total,
+            'count' => $posts->count(),
+        ];
         $posts->setCollection($posts->getCollection()->map(fn (Post $post): array => $this->formatPost($post)));
 
         $categoryOptions = Category::query()
@@ -82,14 +95,7 @@ class HomeController extends Controller
         if ($request->expectsJson()) {
             return response()->json([
                 'data' => $posts->getCollection()->values()->all(),
-                'pagination' => [
-                    'current_page' => $posts->currentPage(),
-                    'last_page' => $posts->lastPage(),
-                    'per_page' => $posts->perPage(),
-                    'total' => $posts->total(),
-                    'from' => $posts->firstItem(),
-                    'to' => $posts->lastItem(),
-                ],
+                'pagination' => $pagination,
             ]);
         }
 
@@ -97,6 +103,7 @@ class HomeController extends Controller
             'posts' => $posts,
             'categories' => $categories,
             'filters' => $filters,
+            'pagination' => $pagination,
         ]);
     }
 

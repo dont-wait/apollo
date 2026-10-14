@@ -31,33 +31,6 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
         return this.posts;
     },
 
-    paginationPages() {
-        const lastPage = this.pagination.last_page ?? 1;
-        const currentPage = this.pagination.current_page ?? 1;
-
-        if (lastPage <= 7) {
-            return Array.from({ length: lastPage }, (_, index) => index + 1);
-        }
-
-        const pages = [1];
-
-        if (currentPage > 3) {
-            pages.push('...');
-        }
-
-        for (let page = Math.max(2, currentPage - 1); page <= Math.min(lastPage - 1, currentPage + 1); page += 1) {
-            pages.push(page);
-        }
-
-        if (currentPage < lastPage - 2) {
-            pages.push('...');
-        }
-
-        pages.push(lastPage);
-
-        return pages;
-    },
-
     sortLabel() {
         return this.sortOptions.find((option) => option.value === this.sort)?.label ?? 'Latest';
     },
@@ -80,21 +53,18 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
     resetFilters() {
         const url = new URL(window.location.href);
 
-        ['category', 'q', 'sort', 'page'].forEach((key) => url.searchParams.delete(key));
+        ['category', 'q', 'sort', 'page', 'cursor'].forEach((key) => url.searchParams.delete(key));
         this.search = '';
         this.activeCategory = '';
         this.sort = 'latest';
         this.load(url, { scroll: false });
     },
 
-    goToPage(page) {
-        if (page === '...' || page === this.pagination.current_page) {
+    goToPage(pageUrl) {
+        if (!pageUrl || this.loading) {
             return;
         }
-
-        const url = new URL(this.pendingUrl ?? window.location.href);
-        url.searchParams.set('page', page);
-        this.load(url);
+        this.load(new URL(pageUrl, window.location.href));
     },
 
     updateQuery(key, value, { scroll = false } = {}) {
@@ -107,6 +77,7 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
         }
 
         url.searchParams.delete('page');
+        url.searchParams.delete('cursor');
         this.load(url, { scroll });
     },
 
