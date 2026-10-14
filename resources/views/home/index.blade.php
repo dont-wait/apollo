@@ -5,14 +5,7 @@
 @section('content')
     <div
         class="relative -mx-4 -my-10 overflow-hidden sm:-mx-6 sm:-my-14 lg:-mx-8"
-        x-data="homeFeed(@js($posts->getCollection()), @js(auth()->check()), @js(route('login')), @js($filters), @js([
-            'current_page' => $posts->currentPage(),
-            'last_page' => $posts->lastPage(),
-            'per_page' => $posts->perPage(),
-            'total' => $posts->total(),
-            'from' => $posts->firstItem(),
-            'to' => $posts->lastItem(),
-        ]))"
+        x-data="homeFeed(@js($posts->getCollection()), @js(auth()->check()), @js(route('login')), @js($filters), @js($pagination))"
         @keydown.window="if (($event.metaKey || $event.ctrlKey) && $event.key.toLowerCase() === 'k') { $event.preventDefault(); focusSearch(); }"
     >
         <div class="pointer-events-none absolute left-1/2 top-0 h-80 w-[42rem] -translate-x-1/2 rounded-full bg-primary-container/10 blur-[120px]" aria-hidden="true"></div>
@@ -204,7 +197,7 @@
                             <p class="font-mono text-[10px] uppercase tracking-[0.16em] text-primary">The archive</p>
                             <h2 class="mt-1 font-display text-2xl font-semibold tracking-tight text-on-surface">Recent dispatches</h2>
                         </div>
-                        <span class="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-outline sm:inline" x-text="`${pagination.total} published posts`">{{ $posts->total() }} published posts</span>
+                        <span class="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-outline sm:inline" x-text="`${pagination.total} published posts`">{{ $pagination['total'] }} published posts</span>
                     </div>
 
                     <div class="grid gap-4" :class="view === 'grid' ? 'md:grid-cols-2' : ''">
@@ -279,41 +272,23 @@
                         <button class="mt-4 rounded bg-primary px-3 py-2 font-mono text-xs uppercase tracking-[0.1em] text-on-primary" type="button" @click="resetFilters()">Reset filters</button>
                     </div>
 
-                    <div x-cloak x-show="pagination.last_page > 1" class="mt-5 border-t border-outline-variant/25 pt-5">
+                    <div x-cloak x-show="pagination.previous_url || pagination.next_url" class="mt-5 border-t border-outline-variant/25 pt-5">
                         <div class="flex flex-wrap items-center justify-between gap-3" aria-label="Pagination">
                             <button
                                 class="inline-flex items-center gap-1.5 rounded bg-surface-low px-3.5 py-2 font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant transition-colors hover:bg-surface-high hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-40"
                                 type="button"
-                                :disabled="pagination.current_page <= 1 || loading"
-                                @click="goToPage(pagination.current_page - 1)"
+                                :disabled="!pagination.previous_url || loading"
+                                @click="goToPage(pagination.previous_url)"
                             >
                                 <span class="material-symbols-outlined text-[16px]" aria-hidden="true">arrow_back</span>
                                 Previous
                             </button>
 
-                            <div class="flex items-center gap-1">
-                                <template x-for="(page, index) in paginationPages()" :key="`page-${index}`">
-                                    <span>
-                                        <span x-show="page === '...'" class="px-1 font-mono text-xs text-outline">...</span>
-                                        <button
-                                            x-show="page !== '...'"
-                                            class="flex size-8 items-center justify-center rounded font-mono text-xs transition-colors"
-                                            :class="pagination.current_page === page ? 'bg-primary font-semibold text-on-primary' : 'bg-surface-low text-on-surface-variant hover:bg-surface-high hover:text-on-surface'"
-                                            type="button"
-                                            :aria-current="pagination.current_page === page ? 'page' : null"
-                                            :disabled="loading"
-                                            @click="goToPage(page)"
-                                            x-text="page"
-                                        ></button>
-                                    </span>
-                                </template>
-                            </div>
-
                             <button
                                 class="inline-flex items-center gap-1.5 rounded bg-surface-low px-3.5 py-2 font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant transition-colors hover:bg-surface-high hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-40"
                                 type="button"
-                                :disabled="pagination.current_page >= pagination.last_page || loading"
-                                @click="goToPage(pagination.current_page + 1)"
+                                :disabled="!pagination.next_url || loading"
+                                @click="goToPage(pagination.next_url)"
                             >
                                 Next
                                 <span class="material-symbols-outlined text-[16px]" aria-hidden="true">arrow_forward</span>
@@ -321,7 +296,7 @@
                         </div>
 
                     </div>
-                    <p class="mt-3 text-center font-mono text-[10px] uppercase tracking-[0.1em] text-outline" role="status" x-text="loading ? 'Loading articles...' : `${pagination.from ?? 0}-${pagination.to ?? 0} of ${pagination.total ?? 0}`"></p>
+                    <p class="mt-3 text-center font-mono text-[10px] uppercase tracking-[0.1em] text-outline" role="status" x-text="loading ? 'Loading articles...' : `${pagination.count ?? 0} articles on this page · ${pagination.total ?? 0} total`"></p>
                     <p x-cloak x-show="loadError" class="mt-3 text-center text-xs text-error" role="alert">Unable to load articles. Please try again.</p>
                 </div>
 
