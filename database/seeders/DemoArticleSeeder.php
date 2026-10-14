@@ -73,7 +73,7 @@ class DemoArticleSeeder extends Seeder
             $secondaryTag = $tagNames[($index + 3) % count($tagNames)];
             $tertiaryTag = $tagNames[($index + 8) % count($tagNames)];
 
-            $post = Post::query()->updateOrCreate(
+            $post = Post::withTrashed()->updateOrCreate(
                 ['slug' => 'demo-article-'.str_pad((string) $index, 2, '0', STR_PAD_LEFT)],
                 [
                     'author_id' => $admin->id,
