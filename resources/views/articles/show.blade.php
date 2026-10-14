@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', $article->title.' · Apollo Blog')
+@section('title', e($article->title).' · Apollo Blog')
 
 @section('content')
     <article class="mx-auto max-w-4xl">

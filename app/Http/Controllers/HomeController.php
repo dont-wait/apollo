@@ -16,21 +16,25 @@ class HomeController extends Controller
     public function index(Request $request): View|JsonResponse
     {
         $filters = $request->validate([
-            'category' => ['nullable', 'string', 'max:100'],
+            'category' => ['nullable', 'string', 'max:120'],
             'q' => ['nullable', 'string', 'max:255'],
             'sort' => ['nullable', Rule::in(['latest', 'popular', 'reading'])],
         ]);
         $sort = $filters['sort'] ?? 'latest';
 
         $posts = Post::query()
+            ->select(['id', 'author_id', 'category_id', 'thumbnail_media_id', 'title', 'slug', 'excerpt', 'published_at', 'view_count'])
+            ->selectRaw("GREATEST(1, CEIL(CHAR_LENGTH(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(markdown_content, '<[^>]*>', ''), '[[:alnum:]]+', '1'), '[^1]', '')) / 200)) AS reading_minutes")
             ->with(['author:id,name', 'category:id,name', 'tags:id,name', 'thumbnail:id,url'])
             ->withCount('bookmarks')
-            ->when($filters['category'] ?? null, function (Builder $query, string $category): void {
+            ->when(isset($filters['category']) && $filters['category'] !== '', function (Builder $query) use ($filters): void {
+                $category = $filters['category'];
                 $query->whereHas('category', function (Builder $query) use ($category): void {
-                    $query->where('name', $category);
+                    $query->where('slug', $category);
                 });
             })
-            ->when($filters['q'] ?? null, function (Builder $query, string $search): void {
+            ->when(isset($filters['q']) && $filters['q'] !== '', function (Builder $query) use ($filters): void {
+                $search = $filters['q'];
                 $query->where(function (Builder $query) use ($search): void {
                     $query->where('title', 'like', "%{$search}%")
                         ->orWhere('slug', 'like', "%{$search}%")
@@ -47,8 +51,8 @@ class HomeController extends Controller
         $this->applyPublishedScope($posts);
 
         match ($sort) {
-            'popular' => $posts->orderByDesc('bookmarks_count'),
-            'reading' => $posts->orderByRaw('CHAR_LENGTH(markdown_content) DESC'),
+            'popular' => $posts->orderByDesc('bookmarks_count')->orderByDesc('id'),
+            'reading' => $posts->orderByDesc('reading_minutes')->orderByDesc('id'),
             default => $posts->orderByDesc('published_at')->orderByDesc('id'),
         };
 
@@ -56,6 +60,7 @@ class HomeController extends Controller
         $posts->setCollection($posts->getCollection()->map(fn (Post $post): array => $this->formatPost($post)));
 
         $categoryOptions = Category::query()
+            ->where('status', 'ACTIVE')
             ->whereHas('posts', function (Builder $query): void {
                 $this->applyPublishedScope($query);
             })
@@ -63,11 +68,15 @@ class HomeController extends Controller
                 $this->applyPublishedScope($query);
             }])
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'slug']);
 
         $categories = [
-            'All Posts',
-            ...$categoryOptions->pluck('name')->all(),
+            ['slug' => '', 'name' => 'All Posts'],
+            ...$categoryOptions->map(fn (Category $category): array => [
+                'slug' => $category->slug,
+                'name' => $category->name,
+                'count' => $category->published_posts_count,
+            ])->all(),
         ];
 
         if ($request->expectsJson()) {
@@ -87,9 +96,6 @@ class HomeController extends Controller
         return view('home.index', [
             'posts' => $posts,
             'categories' => $categories,
-            'categoryCounts' => $categoryOptions->mapWithKeys(fn (Category $category): array => [
-                $category->name => $category->published_posts_count,
-            ])->all(),
             'filters' => $filters,
         ]);
     }
@@ -99,7 +105,11 @@ class HomeController extends Controller
         $query
             ->where('status', PostStatus::Published->value)
             ->whereNotNull('published_at')
-            ->where('published_at', '<=', now());
+            ->where('published_at', '<=', now())
+            ->where(function (Builder $query): void {
+                $query->whereNull('category_id')
+                    ->orWhereHas('category', fn (Builder $query): Builder => $query->where('status', 'ACTIVE'));
+            });
     }
 
     /**
@@ -115,7 +125,7 @@ class HomeController extends Controller
             'excerpt' => $post->excerpt ?? '',
             'author' => $post->author?->name ?? 'Apollo Editorial',
             'date' => $post->published_at?->diffForHumans() ?? '',
-            'readMinutes' => $this->readingMinutes($post->markdown_content),
+            'readMinutes' => (int) $post->reading_minutes,
             'views' => $this->formatCount((int) $post->view_count),
             'bookmarks' => (int) $post->bookmarks_count,
             'publishedOrder' => $post->published_at?->timestamp ?? 0,
@@ -123,13 +133,6 @@ class HomeController extends Controller
             'image' => $post->thumbnail?->url,
             'url' => route('articles.show', ['article' => $post->slug]),
         ];
-    }
-
-    private function readingMinutes(string $markdown): int
-    {
-        preg_match_all('/[\p{L}\p{N}]+/u', strip_tags($markdown), $matches);
-
-        return max(1, (int) ceil(count($matches[0]) / 200));
     }
 
     private function formatCount(int $count): string

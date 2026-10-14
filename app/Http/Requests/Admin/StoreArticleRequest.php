@@ -38,7 +38,7 @@ class StoreArticleRequest extends FormRequest
             'new_tags.*' => ['required', 'string', 'max:60', 'distinct:ignore_case'],
             'thumbnail' => ['nullable', 'image', 'mimes:'.implode(',', Post::ALLOWED_IMAGE_MIMES), 'max:'.Post::MAX_THUMBNAIL_KB],
             'excerpt' => ['nullable', 'string', 'max:'.Post::MAX_EXCERPT_LENGTH],
-            'markdown_content' => ['required', 'string'],
+            'markdown_content' => ['required', 'string', 'max:'.Post::MAX_CONTENT_LENGTH],
             'status' => ['required', Rule::in(PostStatus::selectableValues())],
         ];
     }

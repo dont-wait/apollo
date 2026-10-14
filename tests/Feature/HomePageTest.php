@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Category;
 use App\Models\Post;
 use App\Models\User;
+use Database\Seeders\DemoArticleSeeder;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
@@ -71,18 +72,19 @@ class HomePageTest extends TestCase
             'title' => 'Distributed systems in production',
         ]);
         Post::factory()->published()->create([
-            'title' => 'Unrelated article',
+            'category_id' => Category::factory()->create(['name' => 'Systems'])->id,
+            'title' => 'Unrelated production article',
         ]);
 
         $response = $this->get(route('home', [
-            'category' => $category->name,
+            'category' => $category->slug,
             'q' => 'production',
         ]));
         $posts = $response->viewData('posts');
 
         $response->assertOk()
             ->assertSee($matchingArticle->title, false)
-            ->assertDontSee('Unrelated article', false);
+            ->assertDontSee('Unrelated production article', false);
         $this->assertSame(1, $posts->total());
     }
 
@@ -105,10 +107,11 @@ class HomePageTest extends TestCase
 
     public function test_published_article_page_renders_markdown_and_increments_views(): void
     {
+        $this->freezeTime();
         $article = Post::factory()->published()->create([
             'title' => 'A published article',
             'slug' => 'a-published-article',
-            'markdown_content' => '# Article body\n\nPublished content. <script>alert("xss")</script>',
+            'markdown_content' => "# Article body\n\nPublished content. <script>alert(\"xss\")</script>\n\n[Unsafe](javascript:alert(1))",
         ]);
 
         $response = $this->get(route('articles.show', ['article' => $article->slug]));
@@ -116,9 +119,10 @@ class HomePageTest extends TestCase
         $response->assertOk()
             ->assertViewIs('articles.show')
             ->assertSeeText('A published article')
-            ->assertSeeText('Article body')
+            ->assertSee('<h1>Article body</h1>', false)
             ->assertSeeText('Published content.')
-            ->assertDontSee('<script>', false);
+            ->assertDontSee('<script>', false)
+            ->assertDontSee('href="javascript:', false);
         $this->assertDatabaseHas('posts', [
             'id' => $article->id,
             'view_count' => 1,
@@ -133,5 +137,103 @@ class HomePageTest extends TestCase
 
         $this->get(route('articles.show', ['article' => $article->slug]))
             ->assertNotFound();
+    }
+
+    public function test_zero_search_is_not_ignored(): void
+    {
+        Post::factory()->published()->create(['title' => 'Version 0', 'slug' => 'version-zero', 'excerpt' => 'Initial version']);
+        Post::factory()->published()->create(['title' => 'Another version', 'slug' => 'another-version', 'excerpt' => 'Later version']);
+
+        $this->getJson(route('home', ['q' => '0']))
+            ->assertOk()
+            ->assertJsonPath('pagination.total', 1)
+            ->assertJsonPath('data.0.title', 'Version 0');
+    }
+
+    public function test_inactive_category_is_hidden_from_feed_and_article_detail(): void
+    {
+        $category = Category::factory()->create(['status' => 'INACTIVE']);
+        $article = Post::factory()->published()->create(['category_id' => $category->id]);
+
+        $this->getJson(route('home'))->assertJsonPath('pagination.total', 0);
+        $this->get(route('articles.show', $article->slug))->assertNotFound();
+    }
+
+    public function test_reading_sort_matches_displayed_minutes(): void
+    {
+        $longRead = Post::factory()->published()->create(['markdown_content' => str_repeat('a ', 401)]);
+        Post::factory()->published()->create(['markdown_content' => str_repeat('extraordinarilylongword ', 10)]);
+
+        $this->getJson(route('home', ['sort' => 'reading']))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $longRead->id)
+            ->assertJsonPath('data.0.readMinutes', 3);
+    }
+
+    public function test_popular_sort_has_stable_tie_breaker_across_pages(): void
+    {
+        $articles = Post::factory()->published()->count(11)->create();
+
+        $this->getJson(route('home', ['sort' => 'popular']))
+            ->assertOk()->assertJsonPath('data.0.id', $articles->last()->id);
+        $this->getJson(route('home', ['sort' => 'popular', 'page' => 2]))
+            ->assertOk()->assertJsonPath('data.0.id', $articles->first()->id);
+    }
+
+    public function test_repeated_article_requests_only_count_one_view(): void
+    {
+        $article = Post::factory()->published()->create();
+
+        $this->get(route('articles.show', $article->slug))->assertOk();
+        $this->get(route('articles.show', $article->slug))->assertOk();
+
+        $this->assertDatabaseHas('posts', ['id' => $article->id, 'view_count' => 1]);
+    }
+
+    public function test_future_and_deleted_articles_return_not_found(): void
+    {
+        $future = Post::factory()->published()->create(['published_at' => now()->addDay()]);
+        $deleted = Post::factory()->published()->create();
+        $deleted->delete();
+
+        $this->get(route('articles.show', $future->slug))->assertNotFound();
+        $this->get(route('articles.show', $deleted->slug))->assertNotFound();
+    }
+
+    public function test_demo_seeder_keeps_deleted_posts_without_duplicate_slugs(): void
+    {
+        User::factory()->admin()->create();
+        $deleted = Post::factory()->published()->create(['slug' => 'demo-article-01']);
+        $deleted->delete();
+
+        $this->seed(DemoArticleSeeder::class);
+
+        $this->assertSame(50, Post::withTrashed()->where('slug', 'like', 'demo-article-%')->count());
+        $this->assertSoftDeleted($deleted);
+    }
+
+    public function test_admin_cannot_create_article_exceeding_content_limit(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)->postJson(route('admin.articles.store'), [
+            'title' => 'Oversized article',
+            'status' => 'DRAFT',
+            'markdown_content' => str_repeat('a', Post::MAX_CONTENT_LENGTH + 1),
+        ])->assertUnprocessable()->assertJsonValidationErrors('markdown_content');
+
+        $this->assertDatabaseMissing('posts', ['title' => 'Oversized article']);
+    }
+
+    public function test_article_title_is_escaped_in_document_title(): void
+    {
+        $article = Post::factory()->published()->create([
+            'title' => '</title><script>alert(1)</script>',
+        ]);
+
+        $this->get(route('articles.show', $article->slug))
+            ->assertOk()
+            ->assertSee(e($article->title), false)
+            ->assertDontSee($article->title, false);
     }
 }
