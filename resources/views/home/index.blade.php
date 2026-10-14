@@ -51,12 +51,12 @@
 
                 <div class="mt-4 flex flex-wrap items-center gap-2">
                     <span class="font-mono text-[10px] uppercase tracking-[0.14em] text-outline">Active topics:</span>
-                        <template x-for="topic in @js(array_slice($categories, 1))" :key="topic">
+                    <template x-for="topic in @js(array_slice($categories, 1))" :key="topic.slug">
                         <button
                             class="rounded bg-surface-low px-2.5 py-1 font-mono text-[10px] text-on-surface-variant transition-colors hover:bg-surface-high hover:text-primary"
                             type="button"
-                            @click="setCategory(topic)"
-                            x-text="`#${topic.replaceAll(' ', '')}`"
+                            @click="setCategory(topic.slug)"
+                            x-text="`#${topic.name.replaceAll(' ', '')}`"
                         ></button>
                     </template>
                 </div>
@@ -133,14 +133,14 @@
                     @foreach ($categories as $category)
                         <button
                             class="shrink-0 rounded px-3.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em] transition-colors"
-                            :class="activeCategory === @js($category) ? 'bg-surface-high text-primary' : 'text-on-surface-variant hover:bg-surface hover:text-on-surface'"
+                            :class="activeCategory === @js($category['slug']) ? 'bg-surface-high text-primary' : 'text-on-surface-variant hover:bg-surface hover:text-on-surface'"
                             type="button"
                             role="tab"
                             aria-controls="articles"
-                            :aria-selected="activeCategory === @js($category)"
-                            @click="setCategory(@js($category))"
+                            :aria-selected="activeCategory === @js($category['slug'])"
+                            @click="setCategory(@js($category['slug']))"
                         >
-                            {{ $category }}
+                            {{ $category['name'] }}
                         </button>
                     @endforeach
                 </div>
@@ -204,7 +204,7 @@
                             <p class="font-mono text-[10px] uppercase tracking-[0.16em] text-primary">The archive</p>
                             <h2 class="mt-1 font-display text-2xl font-semibold tracking-tight text-on-surface">Recent dispatches</h2>
                         </div>
-                        <span class="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-outline sm:inline">{{ $posts->total() }} published posts</span>
+                        <span class="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-outline sm:inline" x-text="`${pagination.total} published posts`">{{ $posts->total() }} published posts</span>
                     </div>
 
                     <div class="grid gap-4" :class="view === 'grid' ? 'md:grid-cols-2' : ''">
@@ -292,7 +292,7 @@
                             </button>
 
                             <div class="flex items-center gap-1">
-                                <template x-for="page in paginationPages()" :key="`page-${page}`">
+                                <template x-for="(page, index) in paginationPages()" :key="`page-${index}`">
                                     <span>
                                         <span x-show="page === '...'" class="px-1 font-mono text-xs text-outline">...</span>
                                         <button
@@ -320,9 +320,9 @@
                             </button>
                         </div>
 
-                        <p class="mt-3 text-center font-mono text-[10px] uppercase tracking-[0.1em] text-outline" x-text="loading ? 'Loading articles...' : `${pagination.from ?? 0}-${pagination.to ?? 0} of ${pagination.total ?? 0}`"></p>
-                        <p x-cloak x-show="loadError" class="mt-3 text-center text-xs text-error" role="alert">Unable to load articles. Please try again.</p>
                     </div>
+                    <p class="mt-3 text-center font-mono text-[10px] uppercase tracking-[0.1em] text-outline" role="status" x-text="loading ? 'Loading articles...' : `${pagination.from ?? 0}-${pagination.to ?? 0} of ${pagination.total ?? 0}`"></p>
+                    <p x-cloak x-show="loadError" class="mt-3 text-center text-xs text-error" role="alert">Unable to load articles. Please try again.</p>
                 </div>
 
                 <aside class="flex flex-col gap-5 lg:col-span-4">
@@ -359,13 +359,13 @@
                     <section class="rounded-lg border border-outline-variant/30 bg-surface-low p-5 shadow-md">
                         <div class="flex items-center justify-between">
                             <span class="font-mono text-[10px] uppercase tracking-[0.15em] text-on-surface">Systems index</span>
-                            <span class="font-mono text-[10px] text-outline">{{ count($categoryCounts) }} domains</span>
+                            <span class="font-mono text-[10px] text-outline">{{ count($categories) - 1 }} domains</span>
                         </div>
                         <div class="mt-3 flex flex-col gap-1.5">
-                            @foreach ($categoryCounts as $topic => $count)
-                                <button class="flex items-center justify-between rounded bg-surface/50 p-2.5 text-left text-sm text-on-surface-variant transition-colors hover:bg-surface-high hover:text-primary" type="button" @click="setCategory(@js($topic))">
-                                    <span>{{ $topic }}</span>
-                                    <span class="rounded bg-surface-high px-2 py-0.5 font-mono text-[10px] text-outline">{{ $count }}</span>
+                            @foreach (array_slice($categories, 1) as $category)
+                                <button class="flex items-center justify-between rounded bg-surface/50 p-2.5 text-left text-sm text-on-surface-variant transition-colors hover:bg-surface-high hover:text-primary" type="button" @click="setCategory(@js($category['slug']))">
+                                    <span>{{ $category['name'] }}</span>
+                                    <span class="rounded bg-surface-high px-2 py-0.5 font-mono text-[10px] text-outline">{{ $category['count'] }}</span>
                                 </button>
                             @endforeach
                         </div>

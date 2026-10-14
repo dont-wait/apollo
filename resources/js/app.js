@@ -7,11 +7,15 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
     authenticated,
     loginUrl,
     search: filters.q ?? '',
-    activeCategory: filters.category ?? 'All Posts',
+    activeCategory: filters.category ?? '',
     sort: filters.sort ?? 'latest',
     pagination,
     loading: false,
     loadError: false,
+    requestId: 0,
+    requestController: null,
+    pendingUrl: null,
+    committedUrl: null,
     sortMenuOpen: false,
     sortOptions: [
         { value: 'latest', label: 'Latest' },
@@ -37,7 +41,7 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
 
         const pages = [1];
 
-        if (currentPage > 4) {
+        if (currentPage > 3) {
             pages.push('...');
         }
 
@@ -45,7 +49,7 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
             pages.push(page);
         }
 
-        if (currentPage < lastPage - 3) {
+        if (currentPage < lastPage - 2) {
             pages.push('...');
         }
 
@@ -66,7 +70,7 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
 
     setCategory(category) {
         this.activeCategory = category;
-        this.updateQuery('category', category === 'All Posts' ? '' : category, { scroll: false });
+        this.updateQuery('category', category, { scroll: false });
     },
 
     applyFilters() {
@@ -78,9 +82,9 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
 
         ['category', 'q', 'sort', 'page'].forEach((key) => url.searchParams.delete(key));
         this.search = '';
-        this.activeCategory = 'All Posts';
+        this.activeCategory = '';
         this.sort = 'latest';
-        this.load(url);
+        this.load(url, { scroll: false });
     },
 
     goToPage(page) {
@@ -88,13 +92,13 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
             return;
         }
 
-        const url = new URL(window.location.href);
+        const url = new URL(this.pendingUrl ?? window.location.href);
         url.searchParams.set('page', page);
         this.load(url);
     },
 
     updateQuery(key, value, { scroll = false } = {}) {
-        const url = new URL(window.location.href);
+        const url = new URL(this.pendingUrl ?? window.location.href);
 
         if (value) {
             url.searchParams.set(key, value);
@@ -107,11 +111,22 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
     },
 
     async load(url, { push = true, scroll = true } = {}) {
+        if (this.loading && this.pendingUrl === url.href) {
+            return;
+        }
+
+        this.requestController?.abort();
+        const controller = new AbortController();
+        const requestId = ++this.requestId;
+        this.requestController = controller;
+        this.pendingUrl = url.href;
         this.loading = true;
         this.loadError = false;
+        const timeout = window.setTimeout(() => controller.abort(), 15000);
 
         try {
             const response = await fetch(url, {
+                signal: controller.signal,
                 headers: {
                     Accept: 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
@@ -123,12 +138,20 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
             }
 
             const payload = await response.json();
+            if (requestId !== this.requestId) {
+                return;
+            }
+            if (controller.signal.aborted) {
+                throw new Error('Request timed out');
+            }
             this.posts = payload.data;
             this.pagination = payload.pagination;
+            this.committedUrl = url.href;
+            this.syncFilters(url);
 
             const nextUrl = `${url.pathname}${url.search}`;
 
-            if (push) {
+            if (push && window.location.href !== url.href) {
                 window.history.pushState({}, '', nextUrl);
             }
 
@@ -136,20 +159,38 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
                 document.getElementById('articles')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         } catch (error) {
+            if (requestId !== this.requestId) {
+                return;
+            }
             this.loadError = true;
+            const previousUrl = new URL(this.committedUrl ?? window.location.href);
+            this.syncFilters(previousUrl);
+            if (!push) {
+                window.history.replaceState({}, '', previousUrl);
+            }
             console.error('Unable to load articles:', error);
         } finally {
-            this.loading = false;
+            window.clearTimeout(timeout);
+            if (requestId === this.requestId) {
+                this.loading = false;
+                this.pendingUrl = null;
+                this.requestController = null;
+            }
         }
     },
 
+    syncFilters(url) {
+        this.search = url.searchParams.get('q') ?? '';
+        this.activeCategory = url.searchParams.get('category') ?? '';
+        this.sort = url.searchParams.get('sort') ?? 'latest';
+    },
+
     init() {
+        this.committedUrl = window.location.href;
         window.addEventListener('popstate', () => {
             const url = new URL(window.location.href);
 
-            this.search = url.searchParams.get('q') ?? '';
-            this.activeCategory = url.searchParams.get('category') ?? 'All Posts';
-            this.sort = url.searchParams.get('sort') ?? 'latest';
+            this.syncFilters(url);
             this.load(url, { push: false, scroll: false });
         });
     },
