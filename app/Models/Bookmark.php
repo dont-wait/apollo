@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Jobs\SyncPostSearch;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 
 class Bookmark extends Pivot
@@ -16,7 +15,7 @@ class Bookmark extends Pivot
 
     protected static function booted(): void
     {
-        static::saved(fn (Bookmark $pivot) => SyncPostSearch::dispatch((int) $pivot->post_id)->afterCommit());
-        static::deleted(fn (Bookmark $pivot) => SyncPostSearch::dispatch((int) $pivot->post_id)->afterCommit());
+        static::saved(fn (Bookmark $pivot) => SearchIndexOutbox::enqueuePost((int) $pivot->post_id));
+        static::deleted(fn (Bookmark $pivot) => SearchIndexOutbox::enqueuePost((int) $pivot->post_id));
     }
 }

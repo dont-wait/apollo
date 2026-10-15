@@ -7,6 +7,7 @@ use App\Models\Post;
 use App\Models\Tag;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTruncation;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Meilisearch\Client;
@@ -159,6 +160,47 @@ class PostSearchIntegrationTest extends TestCase
         $this->getJson(route('home', ['q' => 'Obsoletecategory']))->assertOk()->assertJsonPath('pagination.total', 0);
         $this->getJson(route('home', ['q' => 'Obsoletetag']))->assertOk()->assertJsonPath('pagination.total', 0);
         $this->getJson(route('home', ['q' => 'Preservedpost']))->assertOk()->assertJsonPath('data.0.id', $post->id);
+    }
+
+    public function test_rebuild_command_syncs_settings_and_imports_existing_posts(): void
+    {
+        $post = Post::factory()->published()->create(['title' => 'Rebuildable search post']);
+        $this->waitForIndex();
+
+        $client = app(Client::class);
+        $task = $client->deleteIndex($this->indexName);
+        $this->assertSame('succeeded', $client->waitForTask($task['taskUid'])['status']);
+
+        Artisan::call('search:rebuild');
+        $this->waitForIndex();
+
+        $this->getJson(route('home', ['q' => 'Rebuildable']))
+            ->assertOk()->assertJsonPath('data.0.id', $post->id);
+    }
+
+    public function test_outbox_processor_recovers_an_update_without_a_queued_job(): void
+    {
+        $post = Post::factory()->published()->create(['title' => 'Recoverable search post']);
+        $this->waitForIndex();
+
+        $client = app(Client::class);
+        $task = $client->index($this->indexName)->deleteAllDocuments();
+        $this->assertSame('succeeded', $client->waitForTask($task['taskUid'])['status']);
+
+        DB::table('search_index_outbox')->insert([
+            'post_id' => $post->id,
+            'version' => 1,
+            'available_at' => now(),
+            'attempts' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Artisan::call('search:process-outbox');
+        $this->waitForIndex();
+
+        $this->getJson(route('home', ['q' => 'Recoverable']))
+            ->assertOk()->assertJsonPath('data.0.id', $post->id);
     }
 
     private function waitForIndex(): void

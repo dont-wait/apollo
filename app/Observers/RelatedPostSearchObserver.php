@@ -2,8 +2,8 @@
 
 namespace App\Observers;
 
-use App\Jobs\SyncPostSearch;
 use App\Models\Category;
+use App\Models\SearchIndexOutbox;
 use App\Models\Tag;
 use Illuminate\Database\Eloquent\Collection;
 use WeakMap;
@@ -29,7 +29,7 @@ class RelatedPostSearchObserver
     public function deleted(Category|Tag $model): void
     {
         foreach ($this->deletingPosts[$model] ?? [] as $postId) {
-            SyncPostSearch::dispatch($postId)->afterCommit();
+            SearchIndexOutbox::enqueuePost($postId);
         }
         unset($this->deletingPosts[$model]);
     }
@@ -38,7 +38,7 @@ class RelatedPostSearchObserver
     {
         $model->posts()->select('posts.id')->chunkById(100, function (Collection $posts): void {
             foreach ($posts as $post) {
-                SyncPostSearch::dispatch($post->id)->afterCommit();
+                SearchIndexOutbox::enqueuePost($post->id);
             }
         }, 'posts.id', 'id');
     }

@@ -13,7 +13,7 @@ return [
     'integration_tests' => env('MEILISEARCH_INTEGRATION_TESTS', false),
     'meilisearch' => [
         'host' => env('MEILISEARCH_HOST', 'http://127.0.0.1:7700'),
-        'key' => env('MEILISEARCH_KEY'),
+        'key' => env('MEILISEARCH_KEY', 'apollo-local-search-key'),
         'index-settings' => [
             Post::class => [
                 'searchableAttributes' => ['title', 'tags', 'category', 'excerpt', 'content', 'slug'],

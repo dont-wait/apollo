@@ -3,12 +3,14 @@
 namespace App\Models;
 
 use App\Enums\PostStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Laravel\Scout\ModelObserver;
 use Laravel\Scout\Searchable;
 
 class Post extends Model
@@ -25,11 +27,42 @@ class Post extends Model
 
     protected $fillable = ['author_id', 'category_id', 'weekly_review_id', 'thumbnail_media_id', 'title', 'slug', 'excerpt', 'markdown_content', 'status', 'source_type', 'seo_title', 'seo_description', 'canonical_url', 'published_at', 'scheduled_at', 'view_count', 'like_count'];
 
+    protected static function booted(): void
+    {
+        ModelObserver::disableSyncingFor(static::class);
+
+        static::saved(function (Post $post): void {
+            if ($post->searchIndexShouldBeUpdated()) {
+                SearchIndexOutbox::enqueuePost((int) $post->id);
+            }
+        });
+
+        static::deleted(function (Post $post): void {
+            SearchIndexOutbox::enqueuePost((int) $post->id);
+        });
+
+        static::restored(function (Post $post): void {
+            SearchIndexOutbox::enqueuePost((int) $post->id);
+        });
+    }
+
     public function shouldBeSearchable(): bool
     {
         return ! $this->trashed()
             && $this->status === PostStatus::Published->value
             && $this->published_at !== null;
+    }
+
+    public static function makeAllSearchableQuery(): Builder
+    {
+        $post = new static;
+
+        return $post->newQuery()
+            ->when(true, function (Builder $query) use ($post): void {
+                $post->makeAllSearchableUsing($query);
+            })
+            ->where('status', PostStatus::Published->value)
+            ->whereNotNull('published_at');
     }
 
     public function searchIndexShouldBeUpdated(): bool
