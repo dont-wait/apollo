@@ -5,24 +5,29 @@ namespace App\Http\Controllers;
 use App\Enums\PostStatus;
 use App\Models\Category;
 use App\Models\Post;
+use App\PostSearch;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Meilisearch\Exceptions\ApiException;
+use Meilisearch\Exceptions\CommunicationException;
 
 class HomeController extends Controller
 {
-    public function index(Request $request): View|JsonResponse
+    public function index(Request $request, PostSearch $postSearch): View|JsonResponse
     {
         $filters = $request->validate([
             'category' => ['nullable', 'string', 'max:120'],
             'q' => ['nullable', 'string', 'max:255'],
-            'sort' => ['nullable', Rule::in(['latest', 'popular', 'reading'])],
+            'sort' => ['nullable', Rule::in(['relevance', 'latest', 'popular', 'reading'])],
             'cursor' => ['nullable', 'string', 'max:2048'],
+            'search_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
-        $sort = $filters['sort'] ?? 'latest';
+        $search = trim($filters['q'] ?? '');
+        $sort = $filters['sort'] ?? ($search !== '' ? 'relevance' : 'latest');
+        $filters['sort'] = $sort;
 
         $posts = Post::query()
             ->select(['id', 'author_id', 'category_id', 'thumbnail_media_id', 'title', 'slug', 'excerpt', 'published_at', 'view_count'])
@@ -34,35 +39,27 @@ class HomeController extends Controller
                 $query->whereHas('category', function (Builder $query) use ($category): void {
                     $query->where('slug', $category);
                 });
-            })
-            ->when(isset($filters['q']) && $filters['q'] !== '', function (Builder $query) use ($filters): void {
-                $search = $filters['q'];
-                $prefix = addcslashes($search, '\\%_').'%';
-                preg_match_all('/[\p{L}\p{N}]+/u', $search, $words);
-                $terms = implode(' ', array_map(fn (string $word): string => '+'.$word.'*', $words[0]));
-                $matches = DB::table('posts')->select('id')
-                    ->whereFullText(['title', 'excerpt', 'markdown_content'], $terms, ['mode' => 'boolean'])
-                    ->union(DB::table('posts')->select('id')->where('title', 'like', $prefix))
-                    ->union(DB::table('posts')->select('id')->where('slug', 'like', $prefix));
-                $categories = DB::table('categories')->select('id')->whereFullText('name', $terms, ['mode' => 'boolean'])
-                    ->union(DB::table('categories')->select('id')->where('name', 'like', $prefix));
-                $tags = DB::table('tags')->select('id')->whereFullText('name', $terms, ['mode' => 'boolean'])
-                    ->union(DB::table('tags')->select('id')->where('name', 'like', $prefix));
-                $matches->union(DB::table('posts')->select('id')->whereIn('category_id', $categories))
-                    ->union(DB::table('post_tags')->select('post_id')->whereIn('tag_id', $tags));
-                $query->whereIn('id', $matches);
             });
 
         $this->applyPublishedScope($posts);
 
-        match ($sort) {
-            'popular' => $posts->orderByDesc('bookmarks_count')->orderByDesc('id'),
-            'reading' => $posts->orderByDesc('reading_minutes')->orderByDesc('id'),
-            default => $posts->orderByDesc('published_at')->orderByDesc('id'),
-        };
-
-        $total = (clone $posts)->reorder()->count();
-        $posts = $posts->cursorPaginate(10)->withQueryString();
+        if ($search !== '') {
+            try {
+                $posts = $postSearch->search($search, $filters['category'] ?? null, $sort, (int) ($filters['search_page'] ?? 1), $posts);
+            } catch (ApiException|CommunicationException $exception) {
+                report($exception);
+                abort(503, 'Article search is temporarily unavailable. Please try again.');
+            }
+            $total = $posts->total();
+        } else {
+            match ($sort) {
+                'popular' => $posts->orderByDesc('bookmarks_count')->orderByDesc('id'),
+                'reading' => $posts->orderByDesc('reading_minutes')->orderByDesc('id'),
+                default => $posts->orderByDesc('published_at')->orderByDesc('id'),
+            };
+            $total = (clone $posts)->reorder()->count();
+            $posts = $posts->cursorPaginate(10)->withQueryString();
+        }
         $pagination = [
             'previous_url' => $posts->previousPageUrl(),
             'next_url' => $posts->nextPageUrl(),
