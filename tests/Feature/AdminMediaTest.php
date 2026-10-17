@@ -62,6 +62,25 @@ class AdminMediaTest extends TestCase
         ]);
     }
 
+    public function test_media_page_shows_the_configured_storage_label(): void
+    {
+        config([
+            'filesystems.media_disk' => 'rustfs',
+        ]);
+
+        $admin = User::factory()->create([
+            'role' => 'ADMIN',
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->get('/admin/media');
+
+        $response->assertOk();
+
+        $response->assertSeeText('RUSTFS STORAGE ACTIVE');
+    }
+
     public function test_admin_can_upload_image(): void
     {
         config([

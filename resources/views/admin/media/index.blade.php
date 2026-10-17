@@ -7,6 +7,8 @@
         $totalAssets = $media->count();
         $totalBytes = $media->sum('size_bytes');
 
+        $storageLabel = strtoupper((string) config('filesystems.media_disk', 'local'));
+
         $formatBytes = function ($bytes) {
             return match (true) {
                 $bytes >= 1073741824 => number_format($bytes / 1073741824, 2) . ' GB',
