@@ -23,7 +23,10 @@ class MediaStorageTest extends TestCase
         $this->assertSame('https://media.example.test/apollo-media/'.$attributes['storage_key'], $attributes['url']);
         $this->assertSame('text/plain', $attributes['mime_type']);
         $this->assertSame(14, $attributes['size_bytes']);
-        $this->assertSame(basename($attributes['storage_key']), $attributes['file_name']);
+        $this->assertSame(
+            'example.txt',
+            $attributes['file_name']
+        );
         $this->assertStringStartsWith('articles/', $attributes['storage_key']);
     }
 

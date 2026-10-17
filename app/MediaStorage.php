@@ -4,6 +4,7 @@ namespace App;
 
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Filesystem\Factory;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
 use RuntimeException;
 
@@ -18,7 +19,10 @@ class MediaStorage
      */
     public function store(UploadedFile $file, string $directory = 'media'): array
     {
-        $disk = $this->filesystems->disk($this->config->get('filesystems.media_disk'));
+        /** @var FilesystemAdapter $disk */
+        $disk = $this->filesystems->disk(
+            $this->config->get('filesystems.media_disk')
+        );
         $mimeType = $file->getMimeType() ?? 'application/octet-stream';
         $size = $file->getSize();
         $path = $disk->putFile($directory, $file);
@@ -28,7 +32,7 @@ class MediaStorage
         }
 
         return [
-            'file_name' => basename($path),
+            'file_name' => basename($file->getClientOriginalName()),
             'mime_type' => $mimeType,
             'size_bytes' => $size,
             'storage_key' => $path,
