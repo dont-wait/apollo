@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\ArticleController;
 use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\TagController;
 use App\Http\Controllers\ArticleController as PublicArticleController;
 use App\Http\Controllers\AuthController;
@@ -69,4 +70,10 @@ Route::prefix('admin')
 
         Route::delete('/tags/{tag}', [TagController::class, 'destroy'])
             ->name('tags.destroy');
+
+        Route::get('/media', [MediaController::class, 'index'])
+            ->name('media.index');
+
+        Route::post('/media', [MediaController::class, 'store'])
+            ->name('media.store');
     });
