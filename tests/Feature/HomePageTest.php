@@ -7,12 +7,16 @@ use App\Models\Post;
 use App\Models\Tag;
 use App\Models\User;
 use Database\Seeders\DemoArticleSeeder;
-use Illuminate\Foundation\Testing\DatabaseTruncation;
+use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Meilisearch\Client;
+use Meilisearch\Endpoints\Indexes;
+use Meilisearch\Exceptions\CommunicationException;
+use Mockery;
 use Tests\TestCase;
 
 class HomePageTest extends TestCase
 {
-    use DatabaseTruncation;
+    use LazilyRefreshDatabase;
 
     public function test_home_page_renders_without_exposing_users(): void
     {
@@ -76,6 +80,7 @@ class HomePageTest extends TestCase
             'category_id' => Category::factory()->create(['name' => 'Systems'])->id,
             'title' => 'Unrelated production article',
         ]);
+        $this->fakeSearch('production', [$matchingArticle->id]);
 
         $response = $this->get(route('home', [
             'category' => $category->slug,
@@ -95,6 +100,7 @@ class HomePageTest extends TestCase
         Post::factory()->published()->create([
             'title' => 'Another article result',
         ]);
+        $this->fakeSearch('JSON article', [$matchingArticle->id]);
 
         $response = $this->getJson(route('home', ['q' => 'JSON article']));
 
@@ -140,8 +146,9 @@ class HomePageTest extends TestCase
 
     public function test_zero_search_is_not_ignored(): void
     {
-        Post::factory()->published()->create(['title' => 'Version 0', 'slug' => '0-version', 'excerpt' => 'Initial version']);
+        $article = Post::factory()->published()->create(['title' => 'Version 0', 'slug' => '0-version', 'excerpt' => 'Initial version']);
         Post::factory()->published()->create(['title' => 'Another version', 'slug' => 'another-version', 'excerpt' => 'Later version']);
+        $this->fakeSearch('0', [$article->id]);
 
         $this->getJson(route('home', ['q' => '0']))
             ->assertOk()
@@ -203,7 +210,7 @@ class HomePageTest extends TestCase
             ->assertOk()->assertJsonPath('data.0.id', $articles->first()->id);
     }
 
-    public function test_search_matches_indexed_body_category_and_tag_fields(): void
+    public function test_search_hydrates_matched_posts_and_their_relationships(): void
     {
         $body = Post::factory()->published()->create(['markdown_content' => 'Uniquequasar appears in body']);
         $category = Category::factory()->create(['name' => 'Uniquequasar systems']);
@@ -211,6 +218,7 @@ class HomePageTest extends TestCase
         $tagged = Post::factory()->published()->create();
         $tagged->tags()->attach(Tag::factory()->create(['name' => 'Uniquequasar'])->id);
         Post::factory()->published()->create();
+        $this->fakeSearch('Uniquequasar', [$body->id, $categorized->id, $tagged->id]);
 
         $response = $this->getJson(route('home', ['q' => 'Uniquequasar']))->assertOk();
 
@@ -225,6 +233,53 @@ class HomePageTest extends TestCase
 
         $this->getJson(route('home', ['q' => '%']))
             ->assertOk()->assertJsonPath('pagination.total', 0);
+    }
+
+    public function test_stale_search_hits_cannot_expose_hidden_or_other_category_posts(): void
+    {
+        $category = Category::factory()->create();
+        $visible = Post::factory()->published()->create(['category_id' => $category->id]);
+        $draft = Post::factory()->create(['category_id' => $category->id]);
+        $future = Post::factory()->published()->create(['category_id' => $category->id, 'published_at' => now()->addDay()]);
+        $deleted = Post::factory()->published()->create(['category_id' => $category->id]);
+        $deleted->delete();
+        $other = Post::factory()->published()->create();
+        $this->fakeSearch('Laravel', [$visible->id, $draft->id, $future->id, $deleted->id, $other->id]);
+
+        $this->getJson(route('home', ['q' => 'Laravel', 'category' => $category->slug]))
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $visible->id);
+    }
+
+    /** @param list<int> $ids */
+    private function fakeSearch(string $term, array $ids): void
+    {
+        config(['scout.driver' => 'meilisearch']);
+        $index = Mockery::mock(Indexes::class);
+        $index->shouldReceive('rawSearch')->once()->with($term, Mockery::on(function (array $options): bool {
+            $this->assertStringContainsString('category_active=true', $options['filter']);
+            $this->assertStringContainsString('published_at<=', $options['filter']);
+
+            return $options['attributesToRetrieve'] === ['id', 'id'] && $options['matchingStrategy'] === 'all';
+        }))->andReturn([
+            'hits' => array_map(fn (int $id): array => ['id' => $id], $ids),
+            'totalHits' => count($ids),
+        ]);
+        $this->mock(Client::class, function ($mock) use ($index): void {
+            $mock->shouldReceive('index')->with((new Post)->searchableAs())->andReturn($index);
+        });
+    }
+
+    public function test_search_outage_returns_service_unavailable_without_breaking_browsing(): void
+    {
+        config(['scout.driver' => 'meilisearch']);
+        $index = Mockery::mock(Indexes::class);
+        $index->shouldReceive('rawSearch')->once()->andThrow(new CommunicationException('Search offline'));
+        $this->mock(Client::class, function ($mock) use ($index): void {
+            $mock->shouldReceive('index')->andReturn($index);
+        });
+
+        $this->getJson(route('home', ['q' => 'Laravel']))->assertServiceUnavailable();
+        $this->get(route('home'))->assertOk();
     }
 
     public function test_repeated_article_requests_only_count_one_view(): void

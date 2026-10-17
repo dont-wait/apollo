@@ -67,7 +67,7 @@ class UpdateCategoryRequest extends FormRequest
                 Rule::unique('categories', 'slug')
                     ->ignore($category->id),
             ],
- 
+
             'description' => [
                 'nullable',
                 'string',
