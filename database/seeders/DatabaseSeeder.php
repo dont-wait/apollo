@@ -17,6 +17,8 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(AdminUserSeeder::class);
 
+        $this->call(AiTopicSeeder::class);
+
         $this->call(BlogContentSeeder::class);
 
         // User::factory(10)->create();

@@ -1,4 +1,4 @@
-## 1\. Phạm vi và đầu ra
+## 1. Phạm vi và đầu ra
 
 **Owner:** Sang
 

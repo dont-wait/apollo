@@ -1,9 +1,13 @@
 <?php
 
+use App\Http\Controllers\Admin\AiArticleController;
+use App\Http\Controllers\Admin\AiSourceController;
 use App\Http\Controllers\Admin\ArticleController;
+use App\Http\Controllers\Admin\AutomationRunController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\TagController;
+use App\Http\Controllers\Admin\WeeklyReviewController;
 use App\Http\Controllers\ArticleController as PublicArticleController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\HomeController;
@@ -76,4 +80,22 @@ Route::prefix('admin')
 
         Route::post('/media', [MediaController::class, 'store'])
             ->name('media.store');
+
+        Route::get('/ai-sources', [AiSourceController::class, 'index'])->name('ai-sources.index');
+        Route::post('/ai-sources', [AiSourceController::class, 'store'])->name('ai-sources.store');
+        Route::put('/ai-sources/{source}', [AiSourceController::class, 'update'])->name('ai-sources.update');
+        Route::get('/ai-articles', [AiArticleController::class, 'index'])->name('ai-articles.index');
+        Route::get('/ai-articles/{article}', [AiArticleController::class, 'show'])->name('ai-articles.show');
+        Route::post('/automation-runs/collect', [AutomationRunController::class, 'collect'])->name('automation-runs.collect');
+        Route::post('/automation-runs/analyze', [AutomationRunController::class, 'analyze'])->name('automation-runs.analyze');
+        Route::get('/automation-runs', [AutomationRunController::class, 'index'])->name('automation-runs.index');
+        Route::get('/automation-runs/{run}', [AutomationRunController::class, 'show'])->name('automation-runs.show');
+        Route::post('/automation-runs/{run}/retry', [AutomationRunController::class, 'retry'])->name('automation-runs.retry');
+        Route::get('/weekly-reviews', [WeeklyReviewController::class, 'index'])->name('weekly-reviews.index');
+        Route::post('/weekly-reviews/generate', [WeeklyReviewController::class, 'generate'])->name('weekly-reviews.generate');
+        Route::get('/weekly-reviews/{review}', [WeeklyReviewController::class, 'show'])->name('weekly-reviews.show');
+        Route::put('/weekly-reviews/{review}', [WeeklyReviewController::class, 'update'])->name('weekly-reviews.update');
+        Route::post('/weekly-reviews/{review}/regenerate', [WeeklyReviewController::class, 'regenerate'])->name('weekly-reviews.regenerate');
+        Route::post('/weekly-reviews/{review}/apply-candidate', [WeeklyReviewController::class, 'applyCandidate'])->name('weekly-reviews.apply-candidate');
+        Route::post('/weekly-reviews/{review}/convert-to-post', [WeeklyReviewController::class, 'convert'])->name('weekly-reviews.convert');
     });
