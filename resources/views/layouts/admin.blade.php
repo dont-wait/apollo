@@ -69,15 +69,15 @@
             </nav>
             <nav class="space-y-1" data-active-classes="bg-surface-container-high text-primary border-l-2 border-primary font-semibold">
                 <div class="px-3 pb-1 font-label-sm text-label-sm text-outline tracking-wider uppercase">AI Automation</div>
-                <a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all font-body-sm text-body-sm" data-path="ai-weekly-review" href="#">
+                <a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all font-body-sm text-body-sm" data-path="ai-weekly-review" href="{{ route('admin.weekly-reviews.index') }}">
                     <span class="material-symbols-outlined text-[18px]">auto_awesome</span>
                     <span>AI Weekly Review</span>
                 </a>
-                <a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all font-body-sm text-body-sm" data-path="pipeline-sources" href="#">
+                <a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all font-body-sm text-body-sm" data-path="pipeline-sources" href="{{ route('admin.ai-sources.index') }}">
                     <span class="material-symbols-outlined text-[18px]">hub</span>
                     <span>Pipeline Sources</span>
                 </a>
-                <a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all font-body-sm text-body-sm" data-path="job-status" href="#">
+                <a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all font-body-sm text-body-sm" data-path="job-status" href="{{ route('admin.automation-runs.index') }}">
                     <span class="material-symbols-outlined text-[18px]">terminal</span>
                     <span>Job Status</span>
                 </a>

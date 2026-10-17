@@ -1,5 +1,6 @@
 import Alpine from 'alpinejs';
 import './admin/category-tag.js';
+import './admin/ai-weekly.js';
 window.Alpine = Alpine;
 
 window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}) => ({

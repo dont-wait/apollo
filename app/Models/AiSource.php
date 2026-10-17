@@ -10,7 +10,7 @@ class AiSource extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'source_type', 'site_url', 'feed_url', 'trust_score', 'priority', 'status', 'last_fetched_at'];
+    protected $fillable = ['name', 'source_type', 'site_url', 'feed_url', 'adapter_key', 'trust_score', 'priority', 'status', 'last_fetched_at'];
 
     public function articles(): HasMany
     {
