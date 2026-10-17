@@ -8,7 +8,7 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
     loginUrl,
     search: filters.q ?? '',
     activeCategory: filters.category ?? '',
-    sort: filters.sort ?? 'latest',
+    sort: filters.sort ?? (filters.q ? 'relevance' : 'latest'),
     pagination,
     loading: false,
     loadError: false,
@@ -18,6 +18,7 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
     committedUrl: null,
     sortMenuOpen: false,
     sortOptions: [
+        { value: 'relevance', label: 'Most relevant' },
         { value: 'latest', label: 'Latest' },
         { value: 'popular', label: 'Most bookmarked' },
         { value: 'reading', label: 'Longest reads' },
@@ -38,7 +39,7 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
     setSort(value) {
         this.sort = value;
         this.sortMenuOpen = false;
-        this.updateQuery('sort', value === 'latest' ? '' : value, { scroll: false });
+        this.updateQuery('sort', value, { scroll: false });
     },
 
     setCategory(category) {
@@ -53,7 +54,7 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
     resetFilters() {
         const url = new URL(window.location.href);
 
-        ['category', 'q', 'sort', 'page', 'cursor'].forEach((key) => url.searchParams.delete(key));
+        ['category', 'q', 'sort', 'page', 'cursor', 'search_page'].forEach((key) => url.searchParams.delete(key));
         this.search = '';
         this.activeCategory = '';
         this.sort = 'latest';
@@ -78,6 +79,7 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
 
         url.searchParams.delete('page');
         url.searchParams.delete('cursor');
+        url.searchParams.delete('search_page');
         this.load(url, { scroll });
     },
 
@@ -153,7 +155,7 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
     syncFilters(url) {
         this.search = url.searchParams.get('q') ?? '';
         this.activeCategory = url.searchParams.get('category') ?? '';
-        this.sort = url.searchParams.get('sort') ?? 'latest';
+        this.sort = url.searchParams.get('sort') ?? (this.search ? 'relevance' : 'latest');
     },
 
     init() {

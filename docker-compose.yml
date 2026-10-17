@@ -1,4 +1,21 @@
 services:
+  meilisearch:
+    image: getmeili/meilisearch:v1.37.0@sha256:9cde2774864e6c19cdd09fcd2950bc01ac9a0454b6f343fffafa14faae6eb7ea
+    restart: unless-stopped
+    environment:
+      MEILI_ENV: development
+      MEILI_MASTER_KEY: ${MEILISEARCH_KEY:-apollo-local-search-key}
+      MEILI_NO_ANALYTICS: "true"
+    ports:
+      - "127.0.0.1:${MEILISEARCH_PORT:-7700}:7700"
+    volumes:
+      - meilisearch_data:/meili_data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:7700/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   mysql:
     image: mysql:8.4@sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242
     restart: no
@@ -87,6 +104,7 @@ services:
         aws --endpoint-url http://rustfs:9000 s3api put-bucket-policy --bucket "$$MEDIA_BUCKET" --policy "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":[\"s3:GetObject\"],\"Resource\":[\"arn:aws:s3:::$$MEDIA_BUCKET/*\"]}]}"
 
 volumes:
+  meilisearch_data:
   rustfs_data:
   rustfs_logs:
   mysql_data:

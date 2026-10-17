@@ -92,11 +92,28 @@ test('filter changes discard the cursor and pagination follows server URLs', asy
         urls.push(url.href);
         return result('next');
     });
-    window.location.href = 'https://apollo.test/?cursor=old';
+    window.location.href = 'https://apollo.test/?cursor=old&search_page=2';
     feed.setCategory('systems');
     await new Promise(setImmediate);
     assert.equal(new URL(urls[0]).searchParams.has('cursor'), false);
+    assert.equal(new URL(urls[0]).searchParams.has('search_page'), false);
     feed.goToPage('https://apollo.test/?category=systems&cursor=next');
     await new Promise(setImmediate);
     assert.equal(new URL(urls[1]).searchParams.get('cursor'), 'next');
+});
+
+test('search defaults to relevance but explicit latest sorting is retained', async () => {
+    const urls = [];
+    const { feed } = createFeed(async (url) => {
+        urls.push(url.href);
+        return result('matched');
+    });
+    feed.search = 'larvel';
+    feed.applyFilters();
+    await new Promise(setImmediate);
+    assert.equal(feed.sort, 'relevance');
+    feed.setSort('latest');
+    await new Promise(setImmediate);
+    assert.equal(new URL(urls[1]).searchParams.get('sort'), 'latest');
+    assert.equal(feed.sort, 'latest');
 });
