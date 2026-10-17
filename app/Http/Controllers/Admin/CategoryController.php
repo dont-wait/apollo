@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreCategoryRequest;
 use App\Http\Requests\Admin\UpdateCategoryRequest;
+use App\Http\Requests\Admin\UpdateCategoryStatusRequest;
 use App\Models\Category;
+use App\Models\Tag;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -15,19 +17,25 @@ class CategoryController extends Controller
     public function index(Request $request): JsonResponse|View
     {
         $categories = Category::query()
-            ->with('parent:id,name')
+            ->with('parent')
             ->withCount('children')
             ->orderBy('name')
             ->get();
 
-        if (! $request->expectsJson()) {
-            return view('admin.categories.index', [
-                'categories' => $categories,
+        if ($request->expectsJson()) {
+            return response()->json([
+                'data' => $categories,
             ]);
         }
 
-        return response()->json([
-            'data' => $categories,
+        $tags = Tag::query()
+            ->withCount('posts')
+            ->orderBy('name')
+            ->get();
+
+        return view('admin.categories.index', [
+            'categories' => $categories,
+            'tags' => $tags,
         ]);
     }
 
@@ -67,6 +75,20 @@ class CategoryController extends Controller
 
         return response()->json([
             'message' => 'Cập nhật category thành công.',
+            'data' => $category->fresh(),
+        ]);
+    }
+
+    public function updateStatus(
+        UpdateCategoryStatusRequest $request,
+        Category $category
+    ): JsonResponse {
+        $category->update([
+            'status' => $request->validated()['status'],
+        ]);
+
+        return response()->json([
+            'message' => 'Cập nhật trạng thái category thành công.',
             'data' => $category->fresh(),
         ]);
     }

@@ -44,6 +44,16 @@ class StoreCategoryRequest extends FormRequest
                 'nullable',
                 Rule::in(['ACTIVE', 'INACTIVE']),
             ],
+            'color' => [
+                'nullable',
+                'regex:/^#[0-9A-Fa-f]{6}$/',
+            ],
+
+            'icon' => [
+                'nullable',
+                'string',
+                'max:50',
+            ],
         ];
     }
 }

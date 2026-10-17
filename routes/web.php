@@ -1,13 +1,18 @@
 <?php
 
+use App\Http\Controllers\Admin\ArticleController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\TagController;
+use App\Http\Controllers\ArticleController as PublicArticleController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\HomeController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
+
+Route::get('/articles/{article:slug}', [PublicArticleController::class, 'show'])
+    ->name('articles.show');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -33,6 +38,8 @@ Route::prefix('admin')
             return view('admin.dashboard');
         })->name('dashboard');
 
+        Route::resource('articles', ArticleController::class)->except(['show']);
+
         Route::get('/categories', [CategoryController::class, 'index'])
             ->name('categories.index');
 
@@ -44,6 +51,9 @@ Route::prefix('admin')
 
         Route::put('/categories/{category}', [CategoryController::class, 'update'])
             ->name('categories.update');
+
+        Route::patch('/categories/{category}/status', [CategoryController::class, 'updateStatus'])
+            ->name('categories.update-status');
 
         Route::get('/tags', [TagController::class, 'index'])
             ->name('tags.index');

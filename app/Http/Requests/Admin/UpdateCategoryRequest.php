@@ -67,7 +67,7 @@ class UpdateCategoryRequest extends FormRequest
                 Rule::unique('categories', 'slug')
                     ->ignore($category->id),
             ],
-
+ 
             'description' => [
                 'nullable',
                 'string',
@@ -77,6 +77,16 @@ class UpdateCategoryRequest extends FormRequest
             'status' => [
                 'required',
                 Rule::in(['ACTIVE', 'INACTIVE']),
+            ],
+            'color' => [
+                'nullable',
+                'regex:/^#[0-9A-Fa-f]{6}$/',
+            ],
+
+            'icon' => [
+                'nullable',
+                'string',
+                'max:50',
             ],
         ];
     }
