@@ -15,12 +15,29 @@ use Illuminate\Notifications\Notifiable;
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
+    public const ROLE_ADMIN = 'ADMIN';
+
+    public const ROLE_USER = 'USER';
+
+    public const ROLES = [self::ROLE_ADMIN, self::ROLE_USER];
+
+    public const STATUS_ACTIVE = 'ACTIVE';
+
+    public const STATUS_INACTIVE = 'INACTIVE';
+
+    public const STATUSES = [self::STATUS_ACTIVE, self::STATUS_INACTIVE];
+
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, SoftDeletes;
 
     public function isAdmin(): bool
     {
-        return $this->role === 'ADMIN';
+        return $this->role === self::ROLE_ADMIN;
+    }
+
+    public function isActive(): bool
+    {
+        return $this->status === self::STATUS_ACTIVE;
     }
 
     public function posts(): HasMany
