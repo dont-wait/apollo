@@ -193,6 +193,212 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
     },
 });
 
+window.articleComments = (options = {}) => ({
+    indexUrl: options.indexUrl,
+    storeUrl: options.storeUrl,
+    repliesUrlTemplate: options.repliesUrlTemplate,
+    authenticated: options.authenticated ?? false,
+    loginUrl: options.loginUrl ?? '/login',
+    comments: [],
+    replies: {},
+    expandedReplies: {},
+    replyLoading: {},
+    replyErrors: {},
+    replyNextUrls: {},
+    replyDrafts: {},
+    formErrors: {},
+    draft: '',
+    nextCommentsUrl: null,
+    loadMoreError: '',
+    loading: true,
+    loadingMore: false,
+    error: false,
+    submitting: null,
+    replyingTo: null,
+
+    init() {
+        this.loadComments();
+    },
+
+    summaryLabel() {
+        if (this.loading) {
+            return 'Loading conversation';
+        }
+
+        if (this.comments.length === 0) {
+            return 'No comments yet';
+        }
+
+        return `${this.comments.length}${this.nextCommentsUrl ? '+' : ''} threads`;
+    },
+
+    csrfToken() {
+        return document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+    },
+
+    async request(url, options = {}) {
+        const response = await fetch(url, {
+            ...options,
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': this.csrfToken(),
+                ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+                ...(options.headers ?? {}),
+            },
+        });
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            const error = new Error(payload.message ?? `Request failed with status ${response.status}`);
+            error.status = response.status;
+            error.payload = payload;
+            throw error;
+        }
+
+        return payload;
+    },
+
+    async loadComments(url = this.indexUrl) {
+        this.loading = true;
+        this.error = false;
+
+        try {
+            const payload = await this.request(url);
+            this.comments = payload.data ?? [];
+            this.nextCommentsUrl = payload.links?.next ?? null;
+        } catch (error) {
+            this.error = true;
+            console.error('Unable to load comments:', error);
+        } finally {
+            this.loading = false;
+        }
+    },
+
+    async loadMoreComments() {
+        if (!this.nextCommentsUrl || this.loadingMore) {
+            return;
+        }
+
+        this.loadingMore = true;
+        this.loadMoreError = '';
+
+        try {
+            const payload = await this.request(this.nextCommentsUrl);
+            this.comments = [...this.comments, ...(payload.data ?? [])];
+            this.nextCommentsUrl = payload.links?.next ?? null;
+        } catch (error) {
+            this.loadMoreError = 'Unable to load more comments. Please try again.';
+            console.error('Unable to load more comments:', error);
+        } finally {
+            this.loadingMore = false;
+        }
+    },
+
+    repliesUrl(commentId) {
+        return this.repliesUrlTemplate.replace('__COMMENT__', commentId);
+    },
+
+    async toggleReplies(commentId) {
+        this.expandedReplies[commentId] = !this.expandedReplies[commentId];
+
+        if (this.expandedReplies[commentId] && this.replies[commentId] === undefined) {
+            await this.loadReplies(commentId);
+        }
+    },
+
+    async loadReplies(commentId, url = this.repliesUrl(commentId)) {
+        this.replyLoading[commentId] = true;
+        this.replyErrors[commentId] = '';
+
+        try {
+            const payload = await this.request(url);
+            this.replies[commentId] = [
+                ...(this.replies[commentId] ?? []),
+                ...(payload.data ?? []),
+            ];
+            this.replyNextUrls[commentId] = payload.links?.next ?? null;
+        } catch (error) {
+            this.replyErrors[commentId] = 'Unable to load replies.';
+            console.error('Unable to load replies:', error);
+        } finally {
+            this.replyLoading[commentId] = false;
+        }
+    },
+
+    startReply(commentId) {
+        if (!this.authenticated) {
+            window.location.href = this.loginUrl;
+
+            return;
+        }
+
+        this.replyingTo = commentId;
+        this.formErrors[commentId] = '';
+        this.$nextTick(() => document.getElementById(`reply-${commentId}`)?.focus());
+    },
+
+    cancelReply() {
+        this.replyingTo = null;
+    },
+
+    async submitComment() {
+        await this.submit(null, this.draft);
+    },
+
+    async submitReply(commentId) {
+        await this.submit(commentId, this.replyDrafts[commentId] ?? '');
+    },
+
+    async submit(parentId, content) {
+        const key = parentId ?? 'root';
+        const trimmedContent = content.trim();
+
+        if (!trimmedContent || this.submitting !== null) {
+            return;
+        }
+
+        this.submitting = key;
+        this.formErrors[key] = '';
+
+        try {
+            const payload = await this.request(this.storeUrl, {
+                method: 'POST',
+                body: JSON.stringify({ content: trimmedContent, parent_id: parentId }),
+            });
+            const comment = payload.data;
+
+            if (parentId === null) {
+                this.comments = [comment, ...this.comments];
+                this.draft = '';
+            } else {
+                this.replies[parentId] = [...(this.replies[parentId] ?? []), comment];
+                this.replyDrafts[parentId] = '';
+                this.expandedReplies[parentId] = true;
+                const root = this.comments.find((item) => item.id === parentId);
+                if (root) {
+                    root.replies_count += 1;
+                }
+                this.replyingTo = null;
+            }
+        } catch (error) {
+            if (error.status === 422) {
+                const messages = Object.values(error.payload?.errors ?? {}).flat();
+                this.formErrors[key] = messages[0] ?? error.message;
+            } else if (error.status === 401) {
+                this.authenticated = false;
+                this.formErrors[key] = 'Your session has expired. Please sign in again.';
+            } else if (error.status === 429) {
+                this.formErrors[key] = 'You are posting too quickly. Please try again in a moment.';
+            } else {
+                this.formErrors[key] = 'Unable to post your comment. Please try again.';
+            }
+        } finally {
+            this.submitting = null;
+        }
+    },
+});
+
 window.adminTrafficChart = () => ({
     width: 600,
     height: 200,

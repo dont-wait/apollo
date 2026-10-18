@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\TagController;
 use App\Http\Controllers\ArticleController as PublicArticleController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CommentController;
 use App\Http\Controllers\HomeController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Support\Facades\Route;
@@ -14,6 +15,18 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 
 Route::get('/articles/{article:slug}', [PublicArticleController::class, 'show'])
     ->name('articles.show');
+
+Route::prefix('articles/{article:slug}/comments')
+    ->name('articles.comments.')
+    ->group(function (): void {
+        Route::get('/', [CommentController::class, 'index'])->name('index');
+        Route::post('/', [CommentController::class, 'store'])
+            ->middleware(['auth', 'throttle:comments'])
+            ->name('store');
+        Route::get('/{comment}/replies', [CommentController::class, 'replies'])
+            ->scopeBindings()
+            ->name('replies');
+    });
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');

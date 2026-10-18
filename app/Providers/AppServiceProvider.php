@@ -6,6 +6,9 @@ use App\Models\Category;
 use App\Models\Tag;
 use App\Observers\RelatedPostSearchObserver;
 use GuzzleHttp\Client as HttpClient;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Meilisearch\Client;
 
@@ -29,6 +32,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        RateLimiter::for('comments', function (Request $request): Limit {
+            return Limit::perMinute(10)->by($request->user()->id.'|'.$request->ip());
+        });
+
         Category::observe(RelatedPostSearchObserver::class);
         Tag::observe(RelatedPostSearchObserver::class);
     }
