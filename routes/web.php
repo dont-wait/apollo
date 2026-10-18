@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\ArticleController;
 use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Admin\CommentController as AdminCommentController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\TagController;
 use App\Http\Controllers\ArticleController as PublicArticleController;
@@ -89,4 +90,10 @@ Route::prefix('admin')
 
         Route::post('/media', [MediaController::class, 'store'])
             ->name('media.store');
+
+        Route::get('/comments', [AdminCommentController::class, 'index'])
+            ->name('comments.index');
+
+        Route::patch('/comments/{comment}/status', [AdminCommentController::class, 'updateStatus'])
+            ->name('comments.update-status');
     });

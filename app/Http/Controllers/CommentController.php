@@ -11,12 +11,18 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Pagination\Cursor;
+use UnexpectedValueException;
 
 class CommentController extends Controller
 {
-    public function index(Request $request, Post $article): AnonymousResourceCollection
+    public function index(Request $request, Post $article): AnonymousResourceCollection|JsonResponse
     {
         $this->assertPublicArticle($article);
+
+        if ($invalidCursor = $this->invalidCursorResponse($request, 'comments_cursor')) {
+            return $invalidCursor;
+        }
 
         $comments = $article->comments()
             ->select(['id', 'post_id', 'user_id', 'parent_id', 'content', 'created_at'])
@@ -39,7 +45,7 @@ class CommentController extends Controller
         return CommentResource::collection($comments);
     }
 
-    public function replies(Request $request, Post $article, Comment $comment): AnonymousResourceCollection
+    public function replies(Request $request, Post $article, Comment $comment): AnonymousResourceCollection|JsonResponse
     {
         $this->assertPublicArticle($article);
         abort_unless(
@@ -49,12 +55,16 @@ class CommentController extends Controller
             404,
         );
 
+        if ($invalidCursor = $this->invalidCursorResponse($request, 'replies_cursor')) {
+            return $invalidCursor;
+        }
+
         $replies = $comment->replies()
             ->select(['id', 'post_id', 'user_id', 'parent_id', 'content', 'created_at'])
             ->visible()
             ->with(['user:id,name,avatar_url'])
-            ->orderBy('created_at')
-            ->orderBy('id')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->cursorPaginate(
                 $this->pageSize($request, Comment::REPLY_PAGE_SIZE, 20),
                 ['id', 'post_id', 'user_id', 'parent_id', 'content', 'created_at'],
@@ -73,7 +83,7 @@ class CommentController extends Controller
             'user_id' => $request->user()->id,
             'parent_id' => $request->validated('parent_id'),
             'content' => $request->validated('content'),
-            'status' => Comment::STATUS_VISIBLE,
+            'status' => Comment::STATUS_PENDING,
         ]);
 
         $comment->load('user:id,name,avatar_url');
@@ -95,5 +105,28 @@ class CommentController extends Controller
     private function pageSize(Request $request, int $default, int $maximum): int
     {
         return min(max($request->integer('per_page', $default), 1), $maximum);
+    }
+
+    private function invalidCursorResponse(Request $request, string $cursorName): ?JsonResponse
+    {
+        $encodedCursor = $request->query($cursorName);
+
+        if ($encodedCursor === null) {
+            return null;
+        }
+
+        $cursor = is_string($encodedCursor) ? Cursor::fromEncoded($encodedCursor) : null;
+
+        if ($cursor === null) {
+            return response()->json(['message' => 'The pagination cursor is invalid.'], 422);
+        }
+
+        try {
+            $cursor->parameters(['created_at', 'id']);
+        } catch (UnexpectedValueException) {
+            return response()->json(['message' => 'The pagination cursor is invalid.'], 422);
+        }
+
+        return null;
     }
 }

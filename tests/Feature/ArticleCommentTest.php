@@ -56,10 +56,16 @@ class ArticleCommentTest extends TestCase
     {
         $article = Post::factory()->published()->create();
         $root = Comment::factory()->create(['post_id' => $article->id]);
-        $reply = Comment::factory()->create([
+        $olderReply = Comment::factory()->create([
             'post_id' => $article->id,
             'parent_id' => $root->id,
             'content' => 'The first reply',
+            'created_at' => now()->subMinute(),
+        ]);
+        $newerReply = Comment::factory()->create([
+            'post_id' => $article->id,
+            'parent_id' => $root->id,
+            'content' => 'The latest reply',
         ]);
         Comment::factory()->hidden()->create([
             'post_id' => $article->id,
@@ -71,9 +77,10 @@ class ArticleCommentTest extends TestCase
             'comment' => $root,
         ]))
             ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $reply->id)
-            ->assertJsonPath('data.0.content', 'The first reply');
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.id', $newerReply->id)
+            ->assertJsonPath('data.0.content', 'The latest reply')
+            ->assertJsonPath('data.1.id', $olderReply->id);
     }
 
     public function test_article_page_renders_the_guest_comment_prompt(): void
@@ -110,8 +117,10 @@ class ArticleCommentTest extends TestCase
 
         $rootResponse->assertCreated()
             ->assertJsonPath('data.content', 'A thoughtful root comment')
+            ->assertJsonPath('data.status', Comment::STATUS_PENDING)
             ->assertJsonPath('data.author.name', 'Grace Hopper');
         $root = Comment::query()->where('content', 'A thoughtful root comment')->firstOrFail();
+        $root->update(['status' => Comment::STATUS_VISIBLE]);
 
         $this->actingAs($user)->postJson(
             route('articles.comments.store', ['article' => $article->slug]),
@@ -122,9 +131,46 @@ class ArticleCommentTest extends TestCase
             'post_id' => $article->id,
             'user_id' => $user->id,
             'parent_id' => $root->id,
-            'status' => Comment::STATUS_VISIBLE,
+            'status' => Comment::STATUS_PENDING,
             'content' => 'A helpful reply',
         ]);
+    }
+
+    public function test_invalid_cursors_return_validation_error_instead_of_server_error(): void
+    {
+        $article = Post::factory()->published()->create();
+        $cursor = rtrim(strtr(base64_encode(json_encode(['_pointsToNextItems' => true], JSON_THROW_ON_ERROR)), '+/', '-_'), '=');
+
+        $this->getJson(route('articles.comments.index', [
+            'article' => $article->slug,
+            'comments_cursor' => $cursor,
+        ]))
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'The pagination cursor is invalid.');
+    }
+
+    public function test_pending_comments_are_not_public_and_hidden_threads_return_not_found(): void
+    {
+        $article = Post::factory()->published()->create();
+        $user = User::factory()->create();
+        $response = $this->actingAs($user)->postJson(
+            route('articles.comments.store', ['article' => $article->slug]),
+            ['content' => 'Waiting for review'],
+        )->assertCreated();
+        $pendingId = Comment::query()->where('content', 'Waiting for review')->value('id');
+
+        $this->getJson(route('articles.comments.index', ['article' => $article->slug]))
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+        $this->assertSame(Comment::STATUS_PENDING, $response->json('data.status'));
+
+        $hidden = Comment::factory()->hidden()->create(['post_id' => $article->id]);
+        $this->getJson(route('articles.comments.replies', [
+            'article' => $article->slug,
+            'comment' => $hidden,
+            'replies_cursor' => 'invalid',
+        ]))->assertNotFound();
+        $this->assertNotNull($pendingId);
     }
 
     public function test_comment_validation_rejects_invalid_or_cross_article_parents(): void

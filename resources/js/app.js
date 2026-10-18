@@ -207,6 +207,7 @@ window.articleComments = (options = {}) => ({
     replyNextUrls: {},
     replyDrafts: {},
     formErrors: {},
+    successMessages: {},
     draft: '',
     nextCommentsUrl: null,
     loadMoreError: '',
@@ -313,10 +314,10 @@ window.articleComments = (options = {}) => ({
 
         try {
             const payload = await this.request(url);
-            this.replies[commentId] = [
-                ...(this.replies[commentId] ?? []),
-                ...(payload.data ?? []),
-            ];
+            const existingReplies = this.replies[commentId] ?? [];
+            const existingIds = new Set(existingReplies.map((reply) => reply.id));
+            const newReplies = (payload.data ?? []).filter((reply) => !existingIds.has(reply.id));
+            this.replies[commentId] = [...existingReplies, ...newReplies];
             this.replyNextUrls[commentId] = payload.links?.next ?? null;
         } catch (error) {
             this.replyErrors[commentId] = 'Unable to load replies.';
@@ -360,6 +361,7 @@ window.articleComments = (options = {}) => ({
 
         this.submitting = key;
         this.formErrors[key] = '';
+        this.successMessages[key] = '';
 
         try {
             const payload = await this.request(this.storeUrl, {
@@ -369,15 +371,31 @@ window.articleComments = (options = {}) => ({
             const comment = payload.data;
 
             if (parentId === null) {
-                this.comments = [comment, ...this.comments];
                 this.draft = '';
+                if (comment.status === 'VISIBLE') {
+                    this.comments = [comment, ...this.comments];
+                } else {
+                    this.successMessages.root = 'Your comment is awaiting moderation.';
+                }
             } else {
-                this.replies[parentId] = [...(this.replies[parentId] ?? []), comment];
                 this.replyDrafts[parentId] = '';
                 this.expandedReplies[parentId] = true;
-                const root = this.comments.find((item) => item.id === parentId);
-                if (root) {
-                    root.replies_count += 1;
+                if (comment.status === 'VISIBLE') {
+                    if (this.replies[parentId] === undefined) {
+                        this.replies[parentId] = [comment];
+                        await this.loadReplies(parentId);
+                    } else {
+                        this.replies[parentId] = [
+                            comment,
+                            ...this.replies[parentId].filter((reply) => reply.id !== comment.id),
+                        ];
+                    }
+                    const root = this.comments.find((item) => item.id === parentId);
+                    if (root) {
+                        root.replies_count += 1;
+                    }
+                } else {
+                    this.successMessages[parentId] = 'Your reply is awaiting moderation.';
                 }
                 this.replyingTo = null;
             }

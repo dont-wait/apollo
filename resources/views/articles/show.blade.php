@@ -103,6 +103,7 @@
                     ></textarea>
                     <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
                         <p class="text-xs text-error" x-cloak x-show="formErrors.root" x-text="formErrors.root"></p>
+                        <p class="text-xs text-emerald-300" x-cloak x-show="successMessages.root" x-text="successMessages.root"></p>
                         <span class="ml-auto font-mono text-[10px] text-on-surface-variant" x-text="`${draft.length}/2000`"></span>
                     </div>
                     <button class="mt-4 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 font-display text-sm font-semibold text-on-primary transition-colors hover:bg-surface-tint disabled:cursor-not-allowed disabled:opacity-60" type="submit" :disabled="submitting === 'root' || !draft.trim()">
@@ -171,6 +172,7 @@
                                 <button class="font-mono text-[10px] uppercase tracking-[0.1em] text-primary transition-colors hover:text-on-surface" type="button" x-show="replyNextUrls[comment.id] && !replyLoading[comment.id]" @click="loadReplies(comment.id, replyNextUrls[comment.id])">Load more replies</button>
                             </div>
 
+                            <p class="mt-4 text-xs text-emerald-300" x-cloak x-show="successMessages[comment.id]" x-text="successMessages[comment.id]"></p>
                             <form class="mt-4" x-cloak x-show="replyingTo === comment.id && authenticated" @submit.prevent="submitReply(comment.id)">
                                 <label class="sr-only" :for="`reply-${comment.id}`">Reply to this comment</label>
                                 <textarea :id="`reply-${comment.id}`" class="min-h-20 w-full resize-y rounded-lg border border-outline-variant/60 bg-background px-3 py-3 text-sm leading-6 text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20" x-model="replyDrafts[comment.id]" maxlength="2000" placeholder="Write a reply..." :disabled="submitting === comment.id"></textarea>

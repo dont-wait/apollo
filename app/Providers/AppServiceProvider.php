@@ -32,8 +32,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        RateLimiter::for('comments', function (Request $request): Limit {
-            return Limit::perMinute(10)->by($request->user()->id.'|'.$request->ip());
+        RateLimiter::for('comments', function (Request $request): array {
+            return [
+                Limit::perMinute(10)->by('user:'.$request->user()->id),
+                Limit::perMinute(30)->by('ip:'.$request->ip()),
+            ];
         });
 
         Category::observe(RelatedPostSearchObserver::class);
