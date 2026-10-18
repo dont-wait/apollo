@@ -74,4 +74,48 @@ class AdminCommentTest extends TestCase
             ->assertSeeText($comment->content)
             ->assertSeeText('(deleted)');
     }
+
+    public function test_admin_can_search_comments_and_bulk_update_status(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $article = Post::factory()->published()->create(['title' => 'Searchable article']);
+        $otherArticle = Post::factory()->published()->create(['title' => 'Other article']);
+        $firstComment = Comment::factory()->create([
+            'post_id' => $article->id,
+            'content' => 'First searchable comment',
+        ]);
+        $secondComment = Comment::factory()->create([
+            'post_id' => $article->id,
+            'content' => 'Second searchable comment',
+        ]);
+        Comment::factory()->create([
+            'post_id' => $otherArticle->id,
+            'content' => 'Do not show this comment',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.comments.index', ['article' => 'Searchable article']))
+            ->assertOk()
+            ->assertSeeText('First searchable comment')
+            ->assertSeeText('Second searchable comment')
+            ->assertDontSeeText('Do not show this comment');
+
+        $this->actingAs($admin)
+            ->patch(route('admin.comments.bulk-status'), [
+                'comment_ids' => [$firstComment->id, $secondComment->id],
+                'status' => Comment::STATUS_HIDDEN,
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('comments', [
+            'id' => $firstComment->id,
+            'status' => Comment::STATUS_HIDDEN,
+            'moderated_by' => $admin->id,
+        ]);
+        $this->assertDatabaseHas('comments', [
+            'id' => $secondComment->id,
+            'status' => Comment::STATUS_HIDDEN,
+            'moderated_by' => $admin->id,
+        ]);
+    }
 }

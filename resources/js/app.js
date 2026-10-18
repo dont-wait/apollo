@@ -197,7 +197,10 @@ window.articleComments = (options = {}) => ({
     indexUrl: options.indexUrl,
     storeUrl: options.storeUrl,
     repliesUrlTemplate: options.repliesUrlTemplate,
+    updateUrlTemplate: options.updateUrlTemplate,
+    deleteUrlTemplate: options.deleteUrlTemplate,
     authenticated: options.authenticated ?? false,
+    currentUserId: options.currentUserId ?? null,
     loginUrl: options.loginUrl ?? '/login',
     comments: [],
     replyDrafts: {},
@@ -211,6 +214,11 @@ window.articleComments = (options = {}) => ({
     error: false,
     submitting: null,
     replyingTo: null,
+    openMenu: null,
+    editing: null,
+    editDrafts: {},
+    editErrors: {},
+    editSubmitting: null,
 
     init() {
         this.loadComments();
@@ -365,6 +373,106 @@ window.articleComments = (options = {}) => ({
 
     repliesUrl(commentId) {
         return this.repliesUrlTemplate.replace('__COMMENT__', commentId);
+    },
+
+    commentUrl(template, commentId) {
+        return template.replace('__COMMENT__', commentId);
+    },
+
+    isOwnComment(comment) {
+        return this.authenticated
+            && this.currentUserId !== null
+            && Number(comment.author?.id) === Number(this.currentUserId);
+    },
+
+    toggleMenu(commentId) {
+        this.openMenu = this.openMenu === commentId ? null : commentId;
+    },
+
+    startEditing(comment) {
+        if (!this.isOwnComment(comment)) {
+            return;
+        }
+
+        this.openMenu = null;
+        this.editing = comment.id;
+        this.editDrafts[comment.id] = comment.content;
+        this.editErrors[comment.id] = '';
+    },
+
+    cancelEditing() {
+        this.editing = null;
+        this.editSubmitting = null;
+    },
+
+    async saveEdit(comment) {
+        const content = (this.editDrafts[comment.id] ?? '').trim();
+
+        if (!content || this.editSubmitting !== null) {
+            return;
+        }
+
+        this.editSubmitting = comment.id;
+        this.editErrors[comment.id] = '';
+
+        try {
+            const payload = await this.request(this.commentUrl(this.updateUrlTemplate, comment.id), {
+                method: 'PATCH',
+                body: JSON.stringify({ content }),
+            });
+
+            comment.content = payload.data?.content ?? content;
+            this.editing = null;
+        } catch (error) {
+            if (error.status === 422) {
+                const messages = Object.values(error.payload?.errors ?? {}).flat();
+                this.editErrors[comment.id] = messages[0] ?? error.message;
+            } else if (error.status === 403) {
+                this.editErrors[comment.id] = 'You can only edit your own comment.';
+            } else {
+                this.editErrors[comment.id] = 'Unable to save your comment. Please try again.';
+            }
+        } finally {
+            this.editSubmitting = null;
+        }
+    },
+
+    async deleteComment(comment) {
+        if (!this.isOwnComment(comment) || !window.confirm('Delete this comment?')) {
+            return;
+        }
+
+        this.editSubmitting = comment.id;
+        this.editErrors[comment.id] = '';
+
+        try {
+            await this.request(this.commentUrl(this.deleteUrlTemplate, comment.id), {
+                method: 'DELETE',
+            });
+
+            const commentIndex = this.comments.findIndex((item) => item.id === comment.id);
+            const parent = comment.parent_id === null ? null : this.findComment(comment.parent_id);
+            let endIndex = commentIndex + 1;
+
+            while (endIndex < this.comments.length && this.comments[endIndex].depth > comment.depth) {
+                endIndex += 1;
+            }
+
+            this.comments.splice(commentIndex, endIndex - commentIndex);
+
+            if (parent) {
+                parent.replies_count = Math.max(0, parent.replies_count - 1);
+            }
+
+            this.editing = null;
+            this.openMenu = null;
+        } catch (error) {
+            this.editErrors[comment.id] = error.status === 403
+                ? 'You can only delete your own comment.'
+                : 'Unable to delete your comment. Please try again.';
+        } finally {
+            this.editSubmitting = null;
+        }
     },
 
     async toggleReplies(comment) {

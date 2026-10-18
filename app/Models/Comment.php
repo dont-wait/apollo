@@ -22,6 +22,10 @@ class Comment extends Model
 
     public const string STATUS_PENDING = 'PENDING';
 
+    public const string STATUS_HIDDEN = 'HIDDEN';
+
+    public const string STATUS_DELETED = 'DELETED';
+
     protected $fillable = ['post_id', 'user_id', 'parent_id', 'content', 'status', 'moderated_by', 'moderated_at'];
 
     public function scopeVisible(Builder $query): Builder

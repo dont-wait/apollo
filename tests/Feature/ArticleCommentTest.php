@@ -135,6 +135,65 @@ class ArticleCommentTest extends TestCase
         ]);
     }
 
+    public function test_user_can_edit_own_comment_but_not_another_users_comment(): void
+    {
+        $article = Post::factory()->published()->create();
+        $owner = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $comment = Comment::factory()->create([
+            'post_id' => $article->id,
+            'user_id' => $owner->id,
+            'content' => 'Original content',
+        ]);
+
+        $this->actingAs($owner)
+            ->patchJson(route('articles.comments.update', [
+                'article' => $article->slug,
+                'comment' => $comment,
+            ]), ['content' => 'Edited content'])
+            ->assertOk()
+            ->assertJsonPath('data.content', 'Edited content');
+
+        $this->actingAs($otherUser)
+            ->patchJson(route('articles.comments.update', [
+                'article' => $article->slug,
+                'comment' => $comment,
+            ]), ['content' => 'Unauthorized edit'])
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('comments', [
+            'id' => $comment->id,
+            'content' => 'Edited content',
+        ]);
+    }
+
+    public function test_user_can_delete_own_comment_and_deleted_comment_is_not_public(): void
+    {
+        $article = Post::factory()->published()->create();
+        $owner = User::factory()->create();
+        $comment = Comment::factory()->create([
+            'post_id' => $article->id,
+            'user_id' => $owner->id,
+            'content' => 'Delete me',
+        ]);
+
+        $this->actingAs($owner)
+            ->deleteJson(route('articles.comments.destroy', [
+                'article' => $article->slug,
+                'comment' => $comment,
+            ]))
+            ->assertOk();
+
+        $this->assertDatabaseHas('comments', [
+            'id' => $comment->id,
+            'status' => Comment::STATUS_DELETED,
+        ]);
+
+        $this->getJson(route('articles.comments.index', ['article' => $article->slug]))
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
     public function test_invalid_cursors_return_validation_error_instead_of_server_error(): void
     {
         $article = Post::factory()->published()->create();

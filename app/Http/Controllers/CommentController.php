@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\PostStatus;
 use App\Http\Requests\StoreCommentRequest;
+use App\Http\Requests\UpdateCommentRequest;
 use App\Http\Resources\CommentResource;
 use App\Models\Comment;
 use App\Models\Post;
@@ -12,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Pagination\Cursor;
+use Illuminate\Support\Facades\Gate;
 use UnexpectedValueException;
 
 class CommentController extends Controller
@@ -89,6 +91,31 @@ class CommentController extends Controller
         $comment->setAttribute('visible_replies_count', 0);
 
         return (new CommentResource($comment))->response()->setStatusCode(201);
+    }
+
+    public function update(UpdateCommentRequest $request, Post $article, Comment $comment): CommentResource
+    {
+        $this->assertPublicArticle($article);
+
+        $comment->update(['content' => $request->validated('content')]);
+        $comment->load('user:id,name,avatar_url');
+        $comment->setAttribute('visible_replies_count', $comment->replies()->visible()->count());
+
+        return new CommentResource($comment);
+    }
+
+    public function destroy(Request $request, Post $article, Comment $comment): JsonResponse
+    {
+        $this->assertPublicArticle($article);
+        Gate::forUser($request->user())->authorize('delete', $comment);
+
+        $comment->update([
+            'status' => Comment::STATUS_DELETED,
+            'moderated_by' => null,
+            'moderated_at' => null,
+        ]);
+
+        return response()->json(['message' => 'Comment deleted.']);
     }
 
     private function assertPublicArticle(Post $article): void

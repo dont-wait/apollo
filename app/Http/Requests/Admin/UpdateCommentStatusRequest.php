@@ -28,8 +28,8 @@ class UpdateCommentStatusRequest extends FormRequest
                 'required',
                 Rule::in([
                     Comment::STATUS_VISIBLE,
-                    'HIDDEN',
-                    'DELETED',
+                    Comment::STATUS_HIDDEN,
+                    Comment::STATUS_DELETED,
                 ]),
             ],
         ];

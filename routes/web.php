@@ -24,6 +24,14 @@ Route::prefix('articles/{article:slug}/comments')
         Route::post('/', [CommentController::class, 'store'])
             ->middleware(['auth', 'throttle:comments'])
             ->name('store');
+        Route::patch('/{comment}', [CommentController::class, 'update'])
+            ->middleware('auth')
+            ->scopeBindings()
+            ->name('update');
+        Route::delete('/{comment}', [CommentController::class, 'destroy'])
+            ->middleware('auth')
+            ->scopeBindings()
+            ->name('destroy');
         Route::get('/{comment}/replies', [CommentController::class, 'replies'])
             ->scopeBindings()
             ->name('replies');
@@ -96,4 +104,7 @@ Route::prefix('admin')
 
         Route::patch('/comments/{comment}/status', [AdminCommentController::class, 'updateStatus'])
             ->name('comments.update-status');
+
+        Route::patch('/comments/bulk-status', [AdminCommentController::class, 'bulkUpdateStatus'])
+            ->name('comments.bulk-status');
     });

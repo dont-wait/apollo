@@ -64,7 +64,10 @@
             'indexUrl' => route('articles.comments.index', ['article' => $article->slug]),
             'storeUrl' => route('articles.comments.store', ['article' => $article->slug]),
             'repliesUrlTemplate' => route('articles.comments.replies', ['article' => $article->slug, 'comment' => '__COMMENT__']),
+            'updateUrlTemplate' => route('articles.comments.update', ['article' => $article->slug, 'comment' => '__COMMENT__']),
+            'deleteUrlTemplate' => route('articles.comments.destroy', ['article' => $article->slug, 'comment' => '__COMMENT__']),
             'authenticated' => auth()->check(),
+            'currentUserId' => auth()->id(),
             'loginUrl' => route('login', ['redirect' => url()->current().'#comments']),
         ]))"
         x-init="init()"
@@ -147,11 +150,35 @@
                                 <span class="text-outline-variant">·</span>
                                 <p class="font-mono text-[9px] uppercase tracking-[0.08em] text-on-surface-variant" :title="comment.created_at" x-text="comment.created_at_human"></p>
                             </div>
+                            <div class="relative ml-auto" x-show="isOwnComment(comment)" @click.outside="openMenu = null">
+                                <button class="flex size-7 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface-high hover:text-primary" type="button" aria-label="Comment actions" :aria-expanded="openMenu === comment.id" @click.stop="toggleMenu(comment.id)">
+                                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">more_horiz</span>
+                                </button>
+                                <div class="absolute right-0 top-8 z-20 min-w-28 rounded-lg border border-outline-variant/60 bg-surface-high p-1 shadow-xl" x-cloak x-show="openMenu === comment.id">
+                                    <button class="flex w-full rounded-md px-3 py-2 text-left text-xs text-on-surface transition-colors hover:bg-surface-highest hover:text-primary" type="button" @click="startEditing(comment)">Edit</button>
+                                    <button class="flex w-full rounded-md px-3 py-2 text-left text-xs text-error transition-colors hover:bg-surface-highest" type="button" @click="deleteComment(comment)">Delete</button>
+                                </div>
+                            </div>
                         </div>
 
-                        <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-on-surface-variant" x-text="comment.content"></p>
+                        <template x-if="editing !== comment.id">
+                            <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-on-surface-variant" x-text="comment.content"></p>
+                        </template>
 
-                        <div class="mt-2 flex flex-wrap items-center gap-3">
+                        <template x-if="editing === comment.id">
+                            <form class="mt-3" @submit.prevent="saveEdit(comment)">
+                                <textarea class="min-h-20 w-full resize-y rounded-lg border border-outline-variant/60 bg-background px-3 py-3 text-sm leading-6 text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20" x-model="editDrafts[comment.id]" maxlength="2000" :disabled="editSubmitting === comment.id"></textarea>
+                                <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
+                                    <p class="text-xs text-error" x-show="editErrors[comment.id]" x-text="editErrors[comment.id]"></p>
+                                    <div class="ml-auto flex items-center gap-3">
+                                        <button class="font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant hover:text-primary" type="button" @click="cancelEditing()">Cancel</button>
+                                        <button class="rounded-md bg-primary px-3 py-2 font-mono text-[10px] uppercase tracking-[0.1em] text-on-primary transition-colors hover:bg-surface-tint disabled:cursor-not-allowed disabled:opacity-60" type="submit" :disabled="editSubmitting === comment.id || !(editDrafts[comment.id] || '').trim()" x-text="editSubmitting === comment.id ? 'Saving...' : 'Save'"></button>
+                                    </div>
+                                </div>
+                            </form>
+                        </template>
+
+                        <div class="mt-2 flex flex-wrap items-center gap-3" x-show="editing !== comment.id">
                             <button class="font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant transition-colors hover:text-primary" type="button" @click="startReply(comment)">Reply</button>
                             <span class="text-outline-variant" x-show="comment.replies_count > 0">·</span>
                             <button class="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant transition-colors hover:text-primary" type="button" x-show="comment.replies_count > 0" @click="toggleReplies(comment)">
