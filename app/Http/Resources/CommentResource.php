@@ -16,6 +16,7 @@ class CommentResource extends JsonResource
     {
         return [
             'id' => (int) $this->id,
+            'parent_id' => $this->parent_id !== null ? (int) $this->parent_id : null,
             'content' => $this->content,
             'status' => $this->status,
             'created_at' => $this->created_at?->toIso8601String(),

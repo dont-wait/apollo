@@ -25,7 +25,7 @@ class CommentController extends Controller
         }
 
         $comments = $article->comments()
-            ->select(['id', 'post_id', 'user_id', 'parent_id', 'content', 'created_at'])
+            ->select(['id', 'post_id', 'user_id', 'parent_id', 'content', 'status', 'created_at'])
             ->visible()
             ->roots()
             ->with(['user:id,name,avatar_url'])
@@ -38,7 +38,7 @@ class CommentController extends Controller
             ->orderByDesc('id')
             ->cursorPaginate(
                 $this->pageSize($request, Comment::ROOT_PAGE_SIZE, 20),
-                ['id', 'post_id', 'user_id', 'parent_id', 'content', 'created_at'],
+                ['id', 'post_id', 'user_id', 'parent_id', 'content', 'status', 'created_at'],
                 'comments_cursor',
             );
 
@@ -50,7 +50,6 @@ class CommentController extends Controller
         $this->assertPublicArticle($article);
         abort_unless(
             $comment->post_id === $article->id
-                && $comment->parent_id === null
                 && $comment->status === Comment::STATUS_VISIBLE,
             404,
         );
@@ -60,14 +59,14 @@ class CommentController extends Controller
         }
 
         $replies = $comment->replies()
-            ->select(['id', 'post_id', 'user_id', 'parent_id', 'content', 'created_at'])
+            ->select(['id', 'post_id', 'user_id', 'parent_id', 'content', 'status', 'created_at'])
             ->visible()
             ->with(['user:id,name,avatar_url'])
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->cursorPaginate(
                 $this->pageSize($request, Comment::REPLY_PAGE_SIZE, 20),
-                ['id', 'post_id', 'user_id', 'parent_id', 'content', 'created_at'],
+                ['id', 'post_id', 'user_id', 'parent_id', 'content', 'status', 'created_at'],
                 'replies_cursor',
             );
 
@@ -83,7 +82,7 @@ class CommentController extends Controller
             'user_id' => $request->user()->id,
             'parent_id' => $request->validated('parent_id'),
             'content' => $request->validated('content'),
-            'status' => Comment::STATUS_PENDING,
+            'status' => Comment::STATUS_VISIBLE,
         ]);
 
         $comment->load('user:id,name,avatar_url');

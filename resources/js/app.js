@@ -200,11 +200,6 @@ window.articleComments = (options = {}) => ({
     authenticated: options.authenticated ?? false,
     loginUrl: options.loginUrl ?? '/login',
     comments: [],
-    replies: {},
-    expandedReplies: {},
-    replyLoading: {},
-    replyErrors: {},
-    replyNextUrls: {},
     replyDrafts: {},
     formErrors: {},
     successMessages: {},
@@ -221,16 +216,30 @@ window.articleComments = (options = {}) => ({
         this.loadComments();
     },
 
+    normalizeComment(comment, depth = 0) {
+        return {
+            ...comment,
+            depth,
+            expanded: false,
+            childrenLoaded: false,
+            childrenLoading: false,
+            childrenError: '',
+            nextRepliesUrl: null,
+        };
+    },
+
     summaryLabel() {
         if (this.loading) {
             return 'Loading conversation';
         }
 
-        if (this.comments.length === 0) {
+        const rootCount = this.comments.filter((comment) => comment.depth === 0).length;
+
+        if (rootCount === 0) {
             return 'No comments yet';
         }
 
-        return `${this.comments.length}${this.nextCommentsUrl ? '+' : ''} threads`;
+        return `${rootCount}${this.nextCommentsUrl ? '+' : ''} threads`;
     },
 
     csrfToken() {
@@ -260,13 +269,65 @@ window.articleComments = (options = {}) => ({
         return payload;
     },
 
+    findComment(commentId) {
+        return this.comments.find((comment) => comment.id === commentId);
+    },
+
+    isVisible(comment) {
+        let parentId = comment.parent_id;
+
+        while (parentId !== null) {
+            const parent = this.findComment(parentId);
+
+            if (!parent || !parent.expanded) {
+                return false;
+            }
+
+            parentId = parent.parent_id;
+        }
+
+        return true;
+    },
+
+    subtreeEndIndex(comment) {
+        const parentIndex = this.comments.findIndex((item) => item.id === comment.id);
+        let index = parentIndex + 1;
+
+        while (index < this.comments.length && this.comments[index].depth > comment.depth) {
+            index += 1;
+        }
+
+        return index;
+    },
+
+    insertDirectChild(parent, child) {
+        const parentIndex = this.comments.findIndex((comment) => comment.id === parent.id);
+
+        if (parentIndex === -1 || this.comments.some((comment) => comment.id === child.id)) {
+            return;
+        }
+
+        this.comments.splice(parentIndex + 1, 0, child);
+    },
+
+    insertChildren(parent, children) {
+        const existingIds = new Set(this.comments.map((comment) => comment.id));
+        const newChildren = children.filter((comment) => !existingIds.has(comment.id));
+
+        if (newChildren.length === 0) {
+            return;
+        }
+
+        this.comments.splice(this.subtreeEndIndex(parent), 0, ...newChildren);
+    },
+
     async loadComments(url = this.indexUrl) {
         this.loading = true;
         this.error = false;
 
         try {
             const payload = await this.request(url);
-            this.comments = payload.data ?? [];
+            this.comments = (payload.data ?? []).map((comment) => this.normalizeComment(comment));
             this.nextCommentsUrl = payload.links?.next ?? null;
         } catch (error) {
             this.error = true;
@@ -286,7 +347,7 @@ window.articleComments = (options = {}) => ({
 
         try {
             const payload = await this.request(this.nextCommentsUrl);
-            this.comments = [...this.comments, ...(payload.data ?? [])];
+            this.comments.push(...(payload.data ?? []).map((comment) => this.normalizeComment(comment)));
             this.nextCommentsUrl = payload.links?.next ?? null;
         } catch (error) {
             this.loadMoreError = 'Unable to load more comments. Please try again.';
@@ -300,43 +361,43 @@ window.articleComments = (options = {}) => ({
         return this.repliesUrlTemplate.replace('__COMMENT__', commentId);
     },
 
-    async toggleReplies(commentId) {
-        this.expandedReplies[commentId] = !this.expandedReplies[commentId];
+    async toggleReplies(comment) {
+        comment.expanded = !comment.expanded;
 
-        if (this.expandedReplies[commentId] && this.replies[commentId] === undefined) {
-            await this.loadReplies(commentId);
+        if (comment.expanded && !comment.childrenLoaded && !comment.childrenLoading) {
+            await this.loadReplies(comment);
         }
     },
 
-    async loadReplies(commentId, url = this.repliesUrl(commentId)) {
-        this.replyLoading[commentId] = true;
-        this.replyErrors[commentId] = '';
+    async loadReplies(comment, url = null) {
+        comment.childrenLoading = true;
+        comment.childrenError = '';
 
         try {
-            const payload = await this.request(url);
-            const existingReplies = this.replies[commentId] ?? [];
-            const existingIds = new Set(existingReplies.map((reply) => reply.id));
-            const newReplies = (payload.data ?? []).filter((reply) => !existingIds.has(reply.id));
-            this.replies[commentId] = [...existingReplies, ...newReplies];
-            this.replyNextUrls[commentId] = payload.links?.next ?? null;
+            const payload = await this.request(url ?? this.repliesUrl(comment.id));
+            const children = (payload.data ?? []).map((child) => this.normalizeComment(child, comment.depth + 1));
+            this.insertChildren(comment, children);
+            comment.childrenLoaded = true;
+            comment.nextRepliesUrl = payload.links?.next ?? null;
         } catch (error) {
-            this.replyErrors[commentId] = 'Unable to load replies.';
+            comment.childrenError = 'Unable to load replies.';
             console.error('Unable to load replies:', error);
         } finally {
-            this.replyLoading[commentId] = false;
+            comment.childrenLoading = false;
         }
     },
 
-    startReply(commentId) {
+    startReply(comment) {
         if (!this.authenticated) {
             window.location.href = this.loginUrl;
 
             return;
         }
 
-        this.replyingTo = commentId;
-        this.formErrors[commentId] = '';
-        this.$nextTick(() => document.getElementById(`reply-${commentId}`)?.focus());
+        this.replyingTo = comment.id;
+        this.formErrors[comment.id] = '';
+        this.successMessages[comment.id] = '';
+        this.$nextTick(() => document.getElementById(`reply-${comment.id}`)?.focus());
     },
 
     cancelReply() {
@@ -347,8 +408,8 @@ window.articleComments = (options = {}) => ({
         await this.submit(null, this.draft);
     },
 
-    async submitReply(commentId) {
-        await this.submit(commentId, this.replyDrafts[commentId] ?? '');
+    async submitReply(comment) {
+        await this.submit(comment.id, this.replyDrafts[comment.id] ?? '');
     },
 
     async submit(parentId, content) {
@@ -371,33 +432,26 @@ window.articleComments = (options = {}) => ({
             const comment = payload.data;
 
             if (parentId === null) {
+                this.comments.unshift(this.normalizeComment(comment));
                 this.draft = '';
-                if (comment.status === 'VISIBLE') {
-                    this.comments = [comment, ...this.comments];
-                } else {
-                    this.successMessages.root = 'Your comment is awaiting moderation.';
-                }
-            } else {
-                this.replyDrafts[parentId] = '';
-                this.expandedReplies[parentId] = true;
-                if (comment.status === 'VISIBLE') {
-                    if (this.replies[parentId] === undefined) {
-                        this.replies[parentId] = [comment];
-                        await this.loadReplies(parentId);
-                    } else {
-                        this.replies[parentId] = [
-                            comment,
-                            ...this.replies[parentId].filter((reply) => reply.id !== comment.id),
-                        ];
-                    }
-                    const root = this.comments.find((item) => item.id === parentId);
-                    if (root) {
-                        root.replies_count += 1;
-                    }
-                } else {
-                    this.successMessages[parentId] = 'Your reply is awaiting moderation.';
-                }
-                this.replyingTo = null;
+                return;
+            }
+
+            const parent = this.findComment(parentId);
+            this.replyDrafts[parentId] = '';
+            this.replyingTo = null;
+
+            if (!parent) {
+                return;
+            }
+
+            const child = this.normalizeComment(comment, parent.depth + 1);
+            this.insertDirectChild(parent, child);
+            parent.replies_count += 1;
+            parent.expanded = true;
+
+            if (!parent.childrenLoaded) {
+                await this.loadReplies(parent);
             }
         } catch (error) {
             if (error.status === 422) {

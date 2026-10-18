@@ -35,8 +35,7 @@ class StoreCommentRequest extends FormRequest
                     $article = $this->route('article');
 
                     $query->where('post_id', $article->id)
-                        ->where('status', Comment::STATUS_VISIBLE)
-                        ->whereNull('parent_id');
+                        ->where('status', Comment::STATUS_VISIBLE);
                 }),
             ],
         ];

@@ -117,10 +117,9 @@ class ArticleCommentTest extends TestCase
 
         $rootResponse->assertCreated()
             ->assertJsonPath('data.content', 'A thoughtful root comment')
-            ->assertJsonPath('data.status', Comment::STATUS_PENDING)
+            ->assertJsonPath('data.status', Comment::STATUS_VISIBLE)
             ->assertJsonPath('data.author.name', 'Grace Hopper');
         $root = Comment::query()->where('content', 'A thoughtful root comment')->firstOrFail();
-        $root->update(['status' => Comment::STATUS_VISIBLE]);
 
         $this->actingAs($user)->postJson(
             route('articles.comments.store', ['article' => $article->slug]),
@@ -131,7 +130,7 @@ class ArticleCommentTest extends TestCase
             'post_id' => $article->id,
             'user_id' => $user->id,
             'parent_id' => $root->id,
-            'status' => Comment::STATUS_PENDING,
+            'status' => Comment::STATUS_VISIBLE,
             'content' => 'A helpful reply',
         ]);
     }
@@ -149,20 +148,19 @@ class ArticleCommentTest extends TestCase
             ->assertJsonPath('message', 'The pagination cursor is invalid.');
     }
 
-    public function test_pending_comments_are_not_public_and_hidden_threads_return_not_found(): void
+    public function test_new_comments_are_public_immediately_and_hidden_threads_return_not_found(): void
     {
         $article = Post::factory()->published()->create();
         $user = User::factory()->create();
-        $response = $this->actingAs($user)->postJson(
+        $this->actingAs($user)->postJson(
             route('articles.comments.store', ['article' => $article->slug]),
             ['content' => 'Waiting for review'],
         )->assertCreated();
-        $pendingId = Comment::query()->where('content', 'Waiting for review')->value('id');
 
         $this->getJson(route('articles.comments.index', ['article' => $article->slug]))
             ->assertOk()
-            ->assertJsonCount(0, 'data');
-        $this->assertSame(Comment::STATUS_PENDING, $response->json('data.status'));
+            ->assertJsonPath('data.0.content', 'Waiting for review')
+            ->assertJsonPath('data.0.status', Comment::STATUS_VISIBLE);
 
         $hidden = Comment::factory()->hidden()->create(['post_id' => $article->id]);
         $this->getJson(route('articles.comments.replies', [
@@ -170,10 +168,9 @@ class ArticleCommentTest extends TestCase
             'comment' => $hidden,
             'replies_cursor' => 'invalid',
         ]))->assertNotFound();
-        $this->assertNotNull($pendingId);
     }
 
-    public function test_comment_validation_rejects_invalid_or_cross_article_parents(): void
+    public function test_comment_validation_rejects_invalid_or_cross_article_parents_but_allows_deep_replies(): void
     {
         $article = Post::factory()->published()->create();
         $otherArticle = Post::factory()->published()->create();
@@ -198,7 +195,16 @@ class ArticleCommentTest extends TestCase
         $this->actingAs($user)->postJson(
             route('articles.comments.store', ['article' => $article->slug]),
             ['content' => 'Nested reply', 'parent_id' => $nestedReply->id],
-        )->assertUnprocessable()->assertJsonValidationErrors('parent_id');
+        )->assertCreated()->assertJsonPath('data.parent_id', $nestedReply->id);
+
+        $this->getJson(route('articles.comments.replies', [
+            'article' => $article->slug,
+            'comment' => $nestedReply,
+        ]))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.parent_id', $nestedReply->id)
+            ->assertJsonPath('data.0.content', 'Nested reply');
     }
 
     public function test_comments_are_unavailable_for_unpublished_articles(): void
