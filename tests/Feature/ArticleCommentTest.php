@@ -67,6 +67,11 @@ class ArticleCommentTest extends TestCase
             'parent_id' => $root->id,
             'content' => 'The latest reply',
         ]);
+        Comment::factory()->create([
+            'post_id' => $article->id,
+            'parent_id' => $newerReply->id,
+            'content' => 'A nested reply',
+        ]);
         Comment::factory()->hidden()->create([
             'post_id' => $article->id,
             'parent_id' => $root->id,
@@ -80,6 +85,7 @@ class ArticleCommentTest extends TestCase
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.id', $newerReply->id)
             ->assertJsonPath('data.0.content', 'The latest reply')
+            ->assertJsonPath('data.0.replies_count', 1)
             ->assertJsonPath('data.1.id', $olderReply->id);
     }
 

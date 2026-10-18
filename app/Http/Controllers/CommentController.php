@@ -64,6 +64,11 @@ class CommentController extends Controller
             ->select(['id', 'post_id', 'user_id', 'parent_id', 'content', 'status', 'created_at'])
             ->visible()
             ->with(['user:id,name,avatar_url'])
+            ->withCount([
+                'replies as visible_replies_count' => function (Builder $query): void {
+                    $query->visible();
+                },
+            ])
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->cursorPaginate(
