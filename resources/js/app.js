@@ -438,7 +438,17 @@ window.articleComments = (options = {}) => ({
     },
 
     async deleteComment(comment) {
-        if (!this.isOwnComment(comment) || !window.confirm('Delete this comment?')) {
+        if (!this.isOwnComment(comment)) {
+            return;
+        }
+
+        const confirmed = await window.showConfirmModal({
+            title: 'Delete comment',
+            message: 'This comment will be removed from the public conversation.',
+            confirmText: 'Delete',
+        });
+
+        if (!confirmed) {
             return;
         }
 

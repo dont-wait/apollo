@@ -56,6 +56,17 @@
                 toggleAll(event) {
                     this.selectAll = event.target.checked;
                     this.$root.querySelectorAll('[data-comment-select]').forEach((input) => input.checked = this.selectAll);
+                },
+                confirmBulkAction(event) {
+                    window.showConfirmModal({
+                        title: 'Update selected comments',
+                        message: 'Apply the selected status to all checked comments on this page?',
+                        confirmText: 'Apply',
+                    }).then((confirmed) => {
+                        if (confirmed) {
+                            event.target.submit();
+                        }
+                    });
                 }
             }"
         >
@@ -66,17 +77,17 @@
                     <p class="mt-1 text-sm text-[#bdc8d1]">There are no comments matching this filter.</p>
                 </div>
             @else
-                <form id="bulk-comments-form" method="POST" action="{{ route('admin.comments.bulk-status') }}" class="flex flex-wrap items-center gap-3 border-b border-[#32353b] bg-[#0b0e13] px-5 py-3">
+                <form id="bulk-comments-form" method="POST" action="{{ route('admin.comments.bulk-status') }}" class="flex flex-wrap items-center gap-3 border-b border-[#32353b] bg-[#0b0e13] px-5 py-3" @submit.prevent="confirmBulkAction($event)">
                     @csrf
                     @method('PATCH')
                     <label class="font-mono text-[10px] uppercase tracking-[0.12em] text-[#87929a]" for="bulk-status">Selected comments</label>
-                    <select id="bulk-status" name="status" class="rounded-lg border border-[#32353b] bg-[#191c21] px-3 py-2 text-sm text-[#e1e2ea] focus:border-sky-400 focus:outline-none">
+                    <select id="bulk-status" name="status" required class="rounded-lg border border-[#32353b] bg-[#191c21] px-3 py-2 text-sm text-[#e1e2ea] focus:border-sky-400 focus:outline-none">
                         <option value="">Choose action...</option>
                         <option value="VISIBLE">Approve / show</option>
                         <option value="HIDDEN">Hide</option>
                         <option value="DELETED">Delete</option>
                     </select>
-                    <button type="submit" class="rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-sky-400" onclick="return confirm('Apply this status to the selected comments?')">Apply</button>
+                    <button type="submit" class="rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-sky-400">Apply</button>
                 </form>
                 <div class="overflow-x-auto">
                     <table class="w-full min-w-[900px] text-left text-sm">
@@ -148,4 +159,5 @@
             @endif
         </section>
     </div>
+    <x-confirm-modal />
 @endsection

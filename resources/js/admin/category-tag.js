@@ -26,10 +26,6 @@ document.addEventListener('DOMContentLoaded', () => {
     */
     const taxonomyManager = document.getElementById('taxonomyManager');
 
-    if (!taxonomyManager) {
-        return;
-    }
-
     // =====================================================
     // SHARED CONFIRM MODAL
     // =====================================================
@@ -147,6 +143,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             confirmModalConfirm.focus();
         });
+    }
+
+    window.showConfirmModal = showConfirmModal;
+
+    if (!taxonomyManager) {
+        return;
     }
     // =====================================================
     // TAB SWITCHING

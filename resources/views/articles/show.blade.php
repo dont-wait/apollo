@@ -218,4 +218,5 @@
             </div>
         </div>
     </section>
+    <x-confirm-modal />
 @endsection
