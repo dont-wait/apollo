@@ -219,6 +219,10 @@ window.articleComments = (options = {}) => ({
     normalizeComment(comment, depth = 0) {
         return {
             ...comment,
+            id: Number(comment.id),
+            parent_id: comment.parent_id === null || comment.parent_id === undefined
+                ? null
+                : Number(comment.parent_id),
             depth,
             expanded: false,
             childrenLoaded: false,
@@ -270,7 +274,9 @@ window.articleComments = (options = {}) => ({
     },
 
     findComment(commentId) {
-        return this.comments.find((comment) => comment.id === commentId);
+        const normalizedId = Number(commentId);
+
+        return this.comments.find((comment) => comment.id === normalizedId);
     },
 
     isVisible(comment) {
