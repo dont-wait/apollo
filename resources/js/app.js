@@ -3,10 +3,15 @@ import './confirm-modal.js';
 import './admin/category-tag.js';
 window.Alpine = Alpine;
 
-window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}) => ({
+const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
+
+const bookmarkUrl = (template, postId) => template.replace('__POST__', String(postId));
+
+window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}, bookmarkUrls = {}) => ({
     posts,
     authenticated,
     loginUrl,
+    bookmarkUrls,
     search: filters.q ?? '',
     activeCategory: filters.category ?? '',
     sort: filters.sort ?? (filters.q ? 'relevance' : 'latest'),
@@ -25,8 +30,9 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
         { value: 'reading', label: 'Longest reads' },
     ],
     view: 'list',
-    bookmarked: [],
     bookmarkNotice: false,
+    bookmarkNoticeMessage: 'Sign in to save articles to your bookmarks.',
+    bookmarkingPostId: null,
     newsletterSubmitted: false,
 
     visiblePosts() {
@@ -170,27 +176,125 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
     },
 
     isBookmarked(postId) {
-        return this.bookmarked.includes(postId);
+        return this.posts.find((post) => post.id === postId)?.bookmarked === true;
     },
 
     bookmarkCount(post) {
-        return post.bookmarks + (this.isBookmarked(post.id) ? 1 : 0);
+        return post.bookmarks;
     },
 
-    toggleBookmark(postId) {
+    async toggleBookmark(post) {
         if (!this.authenticated) {
+            this.bookmarkNoticeMessage = 'Sign in to save articles to your bookmarks.';
             this.bookmarkNotice = true;
 
             return;
         }
 
-        this.bookmarked = this.isBookmarked(postId)
-            ? this.bookmarked.filter((id) => id !== postId)
-            : [...this.bookmarked, postId];
+        if (this.bookmarkingPostId === post.id) {
+            return;
+        }
+
+        const previousBookmarked = post.bookmarked;
+        const previousCount = post.bookmarks;
+        const nextBookmarked = !previousBookmarked;
+        const url = bookmarkUrl(
+            nextBookmarked ? this.bookmarkUrls.store : this.bookmarkUrls.destroy,
+            post.id,
+        );
+
+        this.bookmarkingPostId = post.id;
+        post.bookmarked = nextBookmarked;
+        post.bookmarks += nextBookmarked ? 1 : -1;
+
+        try {
+            const response = await fetch(url, {
+                method: nextBookmarked ? 'POST' : 'DELETE',
+                headers: {
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': csrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+            const payload = await response.json();
+
+            if (!response.ok || typeof payload.bookmarks_count !== 'number') {
+                throw new Error(`Bookmark request failed with status ${response.status}`);
+            }
+
+            post.bookmarked = payload.bookmarked;
+            post.bookmarks = payload.bookmarks_count;
+        } catch (error) {
+            post.bookmarked = previousBookmarked;
+            post.bookmarks = previousCount;
+            this.bookmarkNoticeMessage = 'Unable to update bookmark. Please try again.';
+            this.bookmarkNotice = true;
+            console.error('Unable to update bookmark:', error);
+        } finally {
+            this.bookmarkingPostId = null;
+        }
     },
 
     focusSearch() {
         this.$refs.search?.focus();
+    },
+});
+
+window.bookmarkButton = (config) => ({
+    postId: config.postId,
+    bookmarked: config.bookmarked,
+    count: config.count,
+    storeUrl: config.storeUrl,
+    destroyUrl: config.destroyUrl,
+    loading: false,
+    error: false,
+
+    async toggle() {
+        if (this.loading) {
+            return;
+        }
+
+        const nextBookmarked = !this.bookmarked;
+        const previousBookmarked = this.bookmarked;
+        const previousCount = this.count;
+
+        this.loading = true;
+        this.error = false;
+        this.bookmarked = nextBookmarked;
+        this.count += nextBookmarked ? 1 : -1;
+
+        try {
+            const response = await fetch(
+                bookmarkUrl(nextBookmarked ? this.storeUrl : this.destroyUrl, this.postId),
+                {
+                    method: nextBookmarked ? 'POST' : 'DELETE',
+                    headers: {
+                        Accept: 'application/json',
+                        'X-CSRF-TOKEN': csrfToken(),
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                },
+            );
+            const payload = await response.json();
+
+            if (!response.ok || typeof payload.bookmarks_count !== 'number') {
+                throw new Error(`Bookmark request failed with status ${response.status}`);
+            }
+
+            this.bookmarked = payload.bookmarked;
+            this.count = payload.bookmarks_count;
+            this.$dispatch('bookmark-toggled', {
+                id: this.postId,
+                bookmarked: this.bookmarked,
+            });
+        } catch (error) {
+            this.bookmarked = previousBookmarked;
+            this.count = previousCount;
+            this.error = true;
+            console.error('Unable to update bookmark:', error);
+        } finally {
+            this.loading = false;
+        }
     },
 });
 
@@ -679,6 +783,27 @@ window.articleComments = (options = {}) => ({
             }
         } finally {
             this.submitting = null;
+        }
+    },
+});
+
+window.savedBookmarks = (initialVisibleCount) => ({
+    visibleCount: initialVisibleCount,
+
+    handleBookmark(event) {
+        if (!event.detail.bookmarked) {
+            this.visibleCount = Math.max(0, this.visibleCount - 1);
+        }
+    },
+});
+
+window.savedBookmarkCard = (config) => ({
+    ...window.bookmarkButton(config),
+    removed: false,
+
+    handleBookmark(event) {
+        if (event.detail.id === this.postId && !event.detail.bookmarked) {
+            this.removed = true;
         }
     },
 });
