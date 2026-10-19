@@ -32,6 +32,8 @@ class UpdateCommentStatusRequest extends FormRequest
                     Comment::STATUS_DELETED,
                 ]),
             ],
+            'version' => ['required', 'integer', 'min:1'],
+            'restore' => ['nullable', 'boolean'],
         ];
     }
 }

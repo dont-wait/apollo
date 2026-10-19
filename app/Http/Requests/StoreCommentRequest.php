@@ -27,6 +27,7 @@ class StoreCommentRequest extends FormRequest
     {
         return [
             'content' => ['required', 'string', 'max:'.Comment::MAX_CONTENT_LENGTH],
+            'idempotency_key' => ['nullable', 'string', 'max:64'],
             'parent_id' => [
                 'nullable',
                 'integer',
@@ -47,6 +48,12 @@ class StoreCommentRequest extends FormRequest
 
         if (is_string($content)) {
             $this->merge(['content' => trim($content)]);
+        }
+
+        $idempotencyKey = $this->header('Idempotency-Key');
+
+        if (is_string($idempotencyKey) && $idempotencyKey !== '') {
+            $this->merge(['idempotency_key' => $idempotencyKey]);
         }
     }
 

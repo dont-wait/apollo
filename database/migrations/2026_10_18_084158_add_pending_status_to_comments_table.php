@@ -18,7 +18,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::statement("UPDATE comments SET status = 'VISIBLE' WHERE status = 'PENDING'");
+        if (DB::table('comments')->where('status', 'PENDING')->exists()) {
+            throw new RuntimeException('Cannot roll back comment pending status while PENDING comments still exist.');
+        }
+
         DB::statement("ALTER TABLE comments MODIFY status ENUM('VISIBLE', 'HIDDEN', 'DELETED') NOT NULL DEFAULT 'VISIBLE'");
     }
 };

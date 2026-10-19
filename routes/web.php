@@ -25,7 +25,7 @@ Route::prefix('articles/{article:slug}/comments')
             ->middleware(['auth', 'throttle:comments'])
             ->name('store');
         Route::patch('/{comment}', [CommentController::class, 'update'])
-            ->middleware('auth')
+            ->middleware(['auth', 'throttle:comments'])
             ->scopeBindings()
             ->name('update');
         Route::delete('/{comment}', [CommentController::class, 'destroy'])

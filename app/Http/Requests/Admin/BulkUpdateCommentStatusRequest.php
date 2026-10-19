@@ -26,6 +26,8 @@ class BulkUpdateCommentStatusRequest extends FormRequest
         return [
             'comment_ids' => ['required', 'array', 'min:1', 'max:100'],
             'comment_ids.*' => ['integer', 'distinct', 'exists:comments,id'],
+            'comment_versions' => ['required', 'array'],
+            'comment_versions.*' => ['required', 'integer', 'min:1'],
             'status' => [
                 'required',
                 Rule::in([

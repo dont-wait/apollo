@@ -24,6 +24,7 @@ class UpdateCommentRequest extends FormRequest
     {
         return [
             'content' => ['required', 'string', 'max:'.Comment::MAX_CONTENT_LENGTH],
+            'version' => ['required', 'integer', 'min:1'],
         ];
     }
 

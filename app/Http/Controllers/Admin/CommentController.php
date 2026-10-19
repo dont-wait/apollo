@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class CommentController extends Controller
@@ -29,7 +30,9 @@ class CommentController extends Controller
 
         $comments = Comment::query()
             ->with([
-                'user:id,name',
+                'user' => function (BelongsTo $relation): void {
+                    $relation->withTrashed()->select('id', 'name');
+                },
                 'post' => function (BelongsTo $relation): void {
                     $relation->withTrashed()->select('id', 'title', 'slug', 'deleted_at');
                 },
@@ -40,18 +43,17 @@ class CommentController extends Controller
                 fn (Builder $query): Builder => $query->where('status', $status),
             )
             ->when($search !== '', function (Builder $query) use ($search): void {
-                $like = '%'.$search.'%';
-
-                $query->where(function (Builder $query) use ($like): void {
-                    $query->where('content', 'like', $like)
-                        ->orWhereHas('user', fn (Builder $userQuery): Builder => $userQuery->where('name', 'like', $like));
+                $query->where(function (Builder $query) use ($search): void {
+                    $query->whereFullText('content', $search)
+                        ->orWhereHas('user', fn (Builder $userQuery): Builder => $userQuery->whereFullText('name', $search));
                 });
             })
             ->when($articleSearch !== '', function (Builder $query) use ($articleSearch): void {
-                $like = '%'.$articleSearch.'%';
-
-                $query->whereHas('post', function (Builder $postQuery) use ($like): void {
-                    $postQuery->withTrashed()->where('title', 'like', $like);
+                $query->whereHas('post', function (Builder $postQuery) use ($articleSearch): void {
+                    $postQuery->withTrashed()->where(function (Builder $query) use ($articleSearch): void {
+                        $query->whereFullText('title', $articleSearch)
+                            ->orWhere('title', $articleSearch);
+                    });
                 });
             })
             ->latest('created_at')
@@ -79,24 +81,80 @@ class CommentController extends Controller
     public function bulkUpdateStatus(BulkUpdateCommentStatusRequest $request): RedirectResponse
     {
         $status = $request->validated('status');
-        $updated = Comment::query()
-            ->whereKey($request->validated('comment_ids'))
-            ->update([
-                'status' => $status,
-                'moderated_by' => $request->user()->id,
-                'moderated_at' => now(),
-            ]);
+        $updated = 0;
+        $commentVersions = $request->validated('comment_versions');
+
+        DB::transaction(function () use ($commentVersions, $request, $status, &$updated): void {
+            foreach ($request->validated('comment_ids') as $commentId) {
+                $version = $commentVersions[$commentId] ?? null;
+
+                if ($version === null) {
+                    continue;
+                }
+
+                $query = Comment::query()
+                    ->whereKey($commentId)
+                    ->where('version', $version);
+
+                if ($status !== Comment::STATUS_DELETED) {
+                    $query->where('status', '!=', Comment::STATUS_DELETED);
+                }
+
+                $updated += $query->update([
+                    'status' => $status,
+                    'moderated_by' => $request->user()->id,
+                    'moderated_at' => now(),
+                    'deleted_by' => $status === Comment::STATUS_DELETED ? $request->user()->id : null,
+                    'deleted_at' => $status === Comment::STATUS_DELETED ? now() : null,
+                    'version' => DB::raw('version + 1'),
+                    'updated_at' => now(),
+                ]);
+            }
+        }, attempts: 3);
 
         return back()->with('status', $updated.' comment(s) updated.');
     }
 
     public function updateStatus(UpdateCommentStatusRequest $request, Comment $comment): RedirectResponse
     {
-        $comment->update([
-            'status' => $request->validated('status'),
-            'moderated_by' => $request->user()->id,
-            'moderated_at' => now(),
-        ]);
+        $status = $request->validated('status');
+        $restore = $request->boolean('restore');
+        $updated = false;
+
+        DB::transaction(function () use ($comment, $request, $restore, $status, &$updated): void {
+            $lockedComment = Comment::query()->whereKey($comment->id)->lockForUpdate()->firstOrFail();
+
+            if ($lockedComment->version !== $request->integer('version')) {
+                return;
+            }
+
+            if ($lockedComment->status === Comment::STATUS_DELETED && ! $restore) {
+                return;
+            }
+
+            if ($restore && $lockedComment->status !== Comment::STATUS_DELETED) {
+                return;
+            }
+
+            if ($restore && $status !== Comment::STATUS_VISIBLE) {
+                return;
+            }
+
+            Comment::query()->whereKey($lockedComment->id)->update([
+                'status' => $status,
+                'moderated_by' => $request->user()->id,
+                'moderated_at' => now(),
+                'deleted_by' => $status === Comment::STATUS_DELETED ? $request->user()->id : null,
+                'deleted_at' => $status === Comment::STATUS_DELETED ? now() : null,
+                'version' => DB::raw('version + 1'),
+                'updated_at' => now(),
+            ]);
+            $updated = true;
+        }, attempts: 3);
+
+        if (! $updated) {
+            return back()->withErrors(['status' => 'This comment changed or was deleted. Refresh before moderating it.']);
+        }
 
         return back()->with('status', 'Comment status updated.');
     }

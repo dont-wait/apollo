@@ -25,6 +25,7 @@ class AdminCommentTest extends TestCase
         $this->actingAs($user)->get(route('admin.comments.index'))->assertForbidden();
         $this->actingAs($user)->patch(route('admin.comments.update-status', $comment), [
             'status' => Comment::STATUS_VISIBLE,
+            'version' => $comment->version,
         ])->assertForbidden();
     }
 
@@ -47,6 +48,7 @@ class AdminCommentTest extends TestCase
         $this->actingAs($admin)
             ->patch(route('admin.comments.update-status', $comment), [
                 'status' => Comment::STATUS_VISIBLE,
+                'version' => $comment->version,
             ])
             ->assertRedirect();
 
@@ -103,6 +105,10 @@ class AdminCommentTest extends TestCase
         $this->actingAs($admin)
             ->patch(route('admin.comments.bulk-status'), [
                 'comment_ids' => [$firstComment->id, $secondComment->id],
+                'comment_versions' => [
+                    $firstComment->id => $firstComment->version,
+                    $secondComment->id => $secondComment->version,
+                ],
                 'status' => Comment::STATUS_HIDDEN,
             ])
             ->assertRedirect();
@@ -116,6 +122,68 @@ class AdminCommentTest extends TestCase
             'id' => $secondComment->id,
             'status' => Comment::STATUS_HIDDEN,
             'moderated_by' => $admin->id,
+        ]);
+    }
+
+    public function test_stale_moderation_cannot_restore_a_user_deleted_comment(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $owner = User::factory()->create();
+        $article = Post::factory()->published()->create();
+        $comment = Comment::factory()->create([
+            'post_id' => $article->id,
+            'user_id' => $owner->id,
+            'status' => Comment::STATUS_VISIBLE,
+        ]);
+        $staleVersion = $comment->version;
+
+        $this->actingAs($owner)
+            ->deleteJson(route('articles.comments.destroy', [
+                'article' => $article->slug,
+                'comment' => $comment,
+            ]))
+            ->assertOk();
+
+        $this->actingAs($admin)
+            ->patch(route('admin.comments.update-status', $comment), [
+                'status' => Comment::STATUS_VISIBLE,
+                'version' => $staleVersion,
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors('status');
+
+        $this->assertDatabaseHas('comments', [
+            'id' => $comment->id,
+            'status' => Comment::STATUS_DELETED,
+        ]);
+    }
+
+    public function test_admin_must_use_explicit_restore_action_for_deleted_comments(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $comment = Comment::factory()->deleted()->create();
+
+        $this->actingAs($admin)
+            ->patch(route('admin.comments.update-status', $comment), [
+                'status' => Comment::STATUS_VISIBLE,
+                'version' => $comment->version,
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors('status');
+
+        $comment->refresh();
+
+        $this->actingAs($admin)
+            ->patch(route('admin.comments.update-status', $comment), [
+                'status' => Comment::STATUS_VISIBLE,
+                'version' => $comment->version,
+                'restore' => true,
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('comments', [
+            'id' => $comment->id,
+            'status' => Comment::STATUS_VISIBLE,
         ]);
     }
 }
