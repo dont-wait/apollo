@@ -64,7 +64,10 @@
             'indexUrl' => route('articles.comments.index', ['article' => $article->slug]),
             'storeUrl' => route('articles.comments.store', ['article' => $article->slug]),
             'repliesUrlTemplate' => route('articles.comments.replies', ['article' => $article->slug, 'comment' => '__COMMENT__']),
+            'updateUrlTemplate' => route('articles.comments.update', ['article' => $article->slug, 'comment' => '__COMMENT__']),
+            'deleteUrlTemplate' => route('articles.comments.destroy', ['article' => $article->slug, 'comment' => '__COMMENT__']),
             'authenticated' => auth()->check(),
+            'currentUserId' => auth()->id(),
             'loginUrl' => route('login', ['redirect' => url()->current().'#comments']),
         ]))"
         x-init="init()"
@@ -131,60 +134,81 @@
                 <p class="mt-1 text-sm text-on-surface-variant">Thoughtful comments make the article better for everyone.</p>
             </div>
 
-            <div class="space-y-5" x-cloak x-show="!loading && !error && comments.length > 0">
+            <div class="space-y-1" x-cloak x-show="!loading && !error && comments.length > 0">
                 <template x-for="comment in comments" :key="`comment-${comment.id}`">
-                    <article class="rounded-xl border border-outline-variant/30 bg-surface-low p-5 sm:p-6">
-                        <div class="flex items-start justify-between gap-4">
+                    <article
+                        class="relative py-3 transition-all first:pt-0"
+                        :class="comment.depth === 0 ? 'border-b border-outline-variant/30' : 'border-l-2 border-primary/20 pl-4 sm:pl-5'"
+                        x-cloak
+                        x-show="isVisible(comment)"
+                        :style="{ marginLeft: `${Math.min(comment.depth, 5) * 1}rem` }"
+                    >
+                        <div class="flex items-center gap-2.5">
+                            <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/15 font-display text-xs font-semibold text-primary" x-text="comment.author.initial"></span>
                             <div class="flex min-w-0 items-center gap-3">
-                                <span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/15 font-display text-sm font-semibold text-primary" x-text="comment.author.initial"></span>
-                                <div class="min-w-0">
-                                    <p class="truncate font-display text-sm font-semibold text-on-surface" x-text="comment.author.name"></p>
-                                    <p class="font-mono text-[10px] uppercase tracking-[0.08em] text-on-surface-variant" :title="comment.created_at" x-text="comment.created_at_human"></p>
+                                <p class="truncate font-display text-xs font-semibold text-on-surface" x-text="comment.author.name"></p>
+                                <span class="text-outline-variant">·</span>
+                                <p class="font-mono text-[9px] uppercase tracking-[0.08em] text-on-surface-variant" :title="comment.created_at" x-text="comment.created_at_human"></p>
+                                <span class="font-mono text-[9px] uppercase tracking-[0.08em] text-on-surface-variant" x-cloak x-show="comment.edited_at">(edited)</span>
+                            </div>
+                            <div class="relative ml-auto" x-show="isOwnComment(comment)" @click.outside="openMenu = null">
+                                <button class="flex size-7 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface-high hover:text-primary" type="button" aria-label="Comment actions" :aria-expanded="openMenu === comment.id" @click.stop="toggleMenu(comment.id)">
+                                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">more_horiz</span>
+                                </button>
+                                <div class="absolute right-0 top-8 z-20 min-w-28 rounded-lg border border-outline-variant/60 bg-surface-high p-1 shadow-xl" x-cloak x-show="openMenu === comment.id">
+                                    <button class="flex w-full rounded-md px-3 py-2 text-left text-xs text-on-surface transition-colors hover:bg-surface-highest hover:text-primary" type="button" @click="startEditing(comment)">Edit</button>
+                                    <button class="flex w-full rounded-md px-3 py-2 text-left text-xs text-error transition-colors hover:bg-surface-highest" type="button" @click="deleteComment(comment)">Delete</button>
                                 </div>
                             </div>
-                            <button class="shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] text-primary transition-colors hover:text-on-surface" type="button" @click="startReply(comment.id)">Reply</button>
                         </div>
 
-                        <p class="mt-4 whitespace-pre-wrap text-sm leading-7 text-on-surface-variant" x-text="comment.content"></p>
+                        <template x-if="editing !== comment.id">
+                            <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-on-surface-variant" x-text="comment.content"></p>
+                        </template>
 
-                        <div class="mt-5 border-t border-outline-variant/20 pt-4">
-                            <button class="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant transition-colors hover:text-primary" type="button" x-show="comment.replies_count > 0" @click="toggleReplies(comment.id)">
-                                <span class="material-symbols-outlined text-[16px]" aria-hidden="true" x-text="expandedReplies[comment.id] ? 'keyboard_arrow_up' : 'keyboard_arrow_down'"></span>
-                                <span x-text="expandedReplies[comment.id] ? 'Hide replies' : `View ${comment.replies_count} ${comment.replies_count === 1 ? 'reply' : 'replies'}`"></span>
-                            </button>
-
-                            <div class="mt-4 space-y-4 border-l-2 border-primary/20 pl-4 sm:pl-6" x-cloak x-show="expandedReplies[comment.id]">
-                                <div class="text-xs text-on-surface-variant" x-show="replyLoading[comment.id]">Loading replies...</div>
-                                <div class="flex flex-wrap items-center gap-3 text-xs text-error" x-cloak x-show="replyErrors[comment.id]">
-                                    <span x-text="replyErrors[comment.id]"></span>
-                                    <button class="font-mono text-[10px] uppercase tracking-[0.1em] text-primary hover:text-on-surface" type="button" @click="loadReplies(comment.id)">Try again</button>
-                                </div>
-                                <template x-for="reply in (replies[comment.id] || [])" :key="`reply-${reply.id}`">
-                                    <div>
-                                        <div class="flex items-center gap-2">
-                                            <span class="flex size-7 items-center justify-center rounded-full bg-tertiary/15 font-display text-xs font-semibold text-tertiary" x-text="reply.author.initial"></span>
-                                            <span class="font-display text-xs font-semibold text-on-surface" x-text="reply.author.name"></span>
-                                            <span class="font-mono text-[9px] uppercase tracking-[0.08em] text-on-surface-variant" x-text="reply.created_at_human"></span>
-                                        </div>
-                                        <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-on-surface-variant" x-text="reply.content"></p>
-                                    </div>
-                                </template>
-                                <button class="font-mono text-[10px] uppercase tracking-[0.1em] text-primary transition-colors hover:text-on-surface" type="button" x-show="replyNextUrls[comment.id] && !replyLoading[comment.id]" @click="loadReplies(comment.id, replyNextUrls[comment.id])">Load more replies</button>
-                            </div>
-
-                            <p class="mt-4 text-xs text-emerald-300" x-cloak x-show="successMessages[comment.id]" x-text="successMessages[comment.id]"></p>
-                            <form class="mt-4" x-cloak x-show="replyingTo === comment.id && authenticated" @submit.prevent="submitReply(comment.id)">
-                                <label class="sr-only" :for="`reply-${comment.id}`">Reply to this comment</label>
-                                <textarea :id="`reply-${comment.id}`" class="min-h-20 w-full resize-y rounded-lg border border-outline-variant/60 bg-background px-3 py-3 text-sm leading-6 text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20" x-model="replyDrafts[comment.id]" maxlength="2000" placeholder="Write a reply..." :disabled="submitting === comment.id"></textarea>
+                        <template x-if="editing === comment.id">
+                            <form class="mt-3" @submit.prevent="saveEdit(comment)">
+                                <textarea class="min-h-20 w-full resize-y rounded-lg border border-outline-variant/60 bg-background px-3 py-3 text-sm leading-6 text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20" x-model="editDrafts[comment.id]" maxlength="2000" :disabled="editSubmitting === comment.id"></textarea>
                                 <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
-                                    <p class="text-xs text-error" x-show="formErrors[comment.id]" x-text="formErrors[comment.id]"></p>
+                                    <p class="text-xs text-error" x-show="editErrors[comment.id]" x-text="editErrors[comment.id]"></p>
                                     <div class="ml-auto flex items-center gap-3">
-                                        <button class="font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant hover:text-primary" type="button" @click="cancelReply()">Cancel</button>
-                                        <button class="rounded-md bg-primary px-3 py-2 font-mono text-[10px] uppercase tracking-[0.1em] text-on-primary transition-colors hover:bg-surface-tint disabled:cursor-not-allowed disabled:opacity-60" type="submit" :disabled="submitting === comment.id || !(replyDrafts[comment.id] || '').trim()" x-text="submitting === comment.id ? 'Posting...' : 'Post reply'"></button>
+                                        <button class="font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant hover:text-primary" type="button" @click="cancelEditing()">Cancel</button>
+                                        <button class="rounded-md bg-primary px-3 py-2 font-mono text-[10px] uppercase tracking-[0.1em] text-on-primary transition-colors hover:bg-surface-tint disabled:cursor-not-allowed disabled:opacity-60" type="submit" :disabled="editSubmitting === comment.id || !(editDrafts[comment.id] || '').trim()" x-text="editSubmitting === comment.id ? 'Saving...' : 'Save'"></button>
                                     </div>
                                 </div>
                             </form>
+                        </template>
+
+                        <div class="mt-2 flex flex-wrap items-center gap-3" x-show="editing !== comment.id">
+                            <button class="font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant transition-colors hover:text-primary" type="button" x-show="comment.status !== 'DELETED'" @click="startReply(comment)">Reply</button>
+                            <span class="text-outline-variant" x-show="comment.replies_count > 0">·</span>
+                            <button class="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant transition-colors hover:text-primary" type="button" x-show="comment.replies_count > 0" @click="toggleReplies(comment)">
+                                <span class="material-symbols-outlined text-[16px]" aria-hidden="true" x-text="comment.expanded ? 'keyboard_arrow_up' : 'keyboard_arrow_down'"></span>
+                                <span x-text="comment.expanded ? 'Hide replies' : `View ${comment.replies_count} ${comment.replies_count === 1 ? 'reply' : 'replies'}`"></span>
+                            </button>
                         </div>
+
+                        <div class="mt-3 space-y-2" x-cloak x-show="comment.expanded">
+                            <div class="text-xs text-on-surface-variant" x-show="comment.childrenLoading">Loading replies...</div>
+                            <div class="flex flex-wrap items-center gap-3 text-xs text-error" x-cloak x-show="comment.childrenError">
+                                <span x-text="comment.childrenError"></span>
+                                <button class="font-mono text-[10px] uppercase tracking-[0.1em] text-primary hover:text-on-surface" type="button" @click="loadReplies(comment, comment.nextRepliesUrl)">Try again</button>
+                            </div>
+                            <button class="font-mono text-[10px] uppercase tracking-[0.1em] text-primary transition-colors hover:text-on-surface" type="button" x-show="comment.nextRepliesUrl && !comment.childrenLoading" @click="loadReplies(comment, comment.nextRepliesUrl)">Load more replies</button>
+                        </div>
+
+                        <p class="mt-2 text-xs text-emerald-300" x-cloak x-show="successMessages[comment.id]" x-text="successMessages[comment.id]"></p>
+                        <form class="mt-3" x-cloak x-show="replyingTo === comment.id && authenticated && comment.status !== 'DELETED'" @submit.prevent="submitReply(comment)">
+                            <label class="sr-only" :for="`reply-${comment.id}`">Reply to this comment</label>
+                            <textarea :id="`reply-${comment.id}`" class="min-h-20 w-full resize-y rounded-lg border border-outline-variant/60 bg-background px-3 py-3 text-sm leading-6 text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20" x-model="replyDrafts[comment.id]" maxlength="2000" placeholder="Write a reply..." :disabled="submitting === comment.id"></textarea>
+                            <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
+                                <p class="text-xs text-error" x-show="formErrors[comment.id]" x-text="formErrors[comment.id]"></p>
+                                <div class="ml-auto flex items-center gap-3">
+                                    <button class="font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant hover:text-primary" type="button" @click="cancelReply()">Cancel</button>
+                                    <button class="rounded-md bg-primary px-3 py-2 font-mono text-[10px] uppercase tracking-[0.1em] text-on-primary transition-colors hover:bg-surface-tint disabled:cursor-not-allowed disabled:opacity-60" type="submit" :disabled="submitting === comment.id || !(replyDrafts[comment.id] || '').trim()" x-text="submitting === comment.id ? 'Posting...' : 'Post reply'"></button>
+                                </div>
+                            </div>
+                        </form>
                     </article>
                 </template>
             </div>
@@ -195,4 +219,5 @@
             </div>
         </div>
     </section>
+    <x-confirm-modal />
 @endsection

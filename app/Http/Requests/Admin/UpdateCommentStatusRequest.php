@@ -28,10 +28,12 @@ class UpdateCommentStatusRequest extends FormRequest
                 'required',
                 Rule::in([
                     Comment::STATUS_VISIBLE,
-                    'HIDDEN',
-                    'DELETED',
+                    Comment::STATUS_HIDDEN,
+                    Comment::STATUS_DELETED,
                 ]),
             ],
+            'version' => ['required', 'integer', 'min:1'],
+            'restore' => ['nullable', 'boolean'],
         ];
     }
 }

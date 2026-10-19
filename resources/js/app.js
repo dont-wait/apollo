@@ -1,4 +1,5 @@
 import Alpine from 'alpinejs';
+import './confirm-modal.js';
 import './admin/category-tag.js';
 window.Alpine = Alpine;
 
@@ -197,14 +198,12 @@ window.articleComments = (options = {}) => ({
     indexUrl: options.indexUrl,
     storeUrl: options.storeUrl,
     repliesUrlTemplate: options.repliesUrlTemplate,
+    updateUrlTemplate: options.updateUrlTemplate,
+    deleteUrlTemplate: options.deleteUrlTemplate,
     authenticated: options.authenticated ?? false,
+    currentUserId: options.currentUserId ?? null,
     loginUrl: options.loginUrl ?? '/login',
     comments: [],
-    replies: {},
-    expandedReplies: {},
-    replyLoading: {},
-    replyErrors: {},
-    replyNextUrls: {},
     replyDrafts: {},
     formErrors: {},
     successMessages: {},
@@ -216,9 +215,33 @@ window.articleComments = (options = {}) => ({
     error: false,
     submitting: null,
     replyingTo: null,
+    openMenu: null,
+    editing: null,
+    editDrafts: {},
+    editErrors: {},
+    editSubmitting: null,
+    submissionKeys: {},
+    deletedCommentIds: [],
+    mutationVersion: 0,
 
     init() {
         this.loadComments();
+    },
+
+    normalizeComment(comment, depth = 0) {
+        return {
+            ...comment,
+            id: Number(comment.id),
+            parent_id: comment.parent_id === null || comment.parent_id === undefined
+                ? null
+                : Number(comment.parent_id),
+            depth,
+            expanded: false,
+            childrenLoaded: false,
+            childrenLoading: false,
+            childrenError: '',
+            nextRepliesUrl: null,
+        };
     },
 
     summaryLabel() {
@@ -226,11 +249,13 @@ window.articleComments = (options = {}) => ({
             return 'Loading conversation';
         }
 
-        if (this.comments.length === 0) {
+        const rootCount = this.comments.filter((comment) => comment.depth === 0).length;
+
+        if (rootCount === 0) {
             return 'No comments yet';
         }
 
-        return `${this.comments.length}${this.nextCommentsUrl ? '+' : ''} threads`;
+        return `${rootCount}${this.nextCommentsUrl ? '+' : ''} threads`;
     },
 
     csrfToken() {
@@ -260,13 +285,107 @@ window.articleComments = (options = {}) => ({
         return payload;
     },
 
+    findComment(commentId) {
+        const normalizedId = Number(commentId);
+
+        return this.comments.find((comment) => comment.id === normalizedId);
+    },
+
+    newSubmissionKey() {
+        return window.crypto?.randomUUID?.()
+            ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    },
+
+    isVisible(comment) {
+        let parentId = comment.parent_id;
+        const visited = new Set();
+
+        while (parentId !== null) {
+            if (visited.has(parentId)) {
+                return false;
+            }
+
+            visited.add(parentId);
+            const parent = this.findComment(parentId);
+
+            if (!parent || !parent.expanded) {
+                return false;
+            }
+
+            parentId = parent.parent_id;
+        }
+
+        return true;
+    },
+
+    subtreeEndIndex(comment) {
+        const parentIndex = this.comments.findIndex((item) => item.id === comment.id);
+        let index = parentIndex + 1;
+
+        while (index < this.comments.length && this.comments[index].depth > comment.depth) {
+            index += 1;
+        }
+
+        return index;
+    },
+
+    removeSubtree(comment) {
+        const commentIndex = this.comments.findIndex((item) => item.id === comment.id);
+
+        if (commentIndex === -1) {
+            return false;
+        }
+
+        this.comments.splice(commentIndex, this.subtreeEndIndex(comment) - commentIndex);
+
+        return true;
+    },
+
+    pruneEmptyDeletedAncestors(comment) {
+        let current = comment;
+
+        while (current?.status === 'DELETED' && current.replies_count === 0) {
+            const parent = current.parent_id === null ? null : this.findComment(current.parent_id);
+
+            this.removeSubtree(current);
+
+            if (!parent) {
+                return;
+            }
+
+            parent.replies_count = Math.max(0, parent.replies_count - 1);
+            current = parent;
+        }
+    },
+
+    insertDirectChild(parent, child) {
+        const parentIndex = this.comments.findIndex((comment) => comment.id === parent.id);
+
+        if (parentIndex === -1 || this.comments.some((comment) => comment.id === child.id)) {
+            return;
+        }
+
+        this.comments.splice(parentIndex + 1, 0, child);
+    },
+
+    insertChildren(parent, children) {
+        const existingIds = new Set(this.comments.map((comment) => comment.id));
+        const newChildren = children.filter((comment) => !existingIds.has(comment.id));
+
+        if (newChildren.length === 0) {
+            return;
+        }
+
+        this.comments.splice(this.subtreeEndIndex(parent), 0, ...newChildren);
+    },
+
     async loadComments(url = this.indexUrl) {
         this.loading = true;
         this.error = false;
 
         try {
             const payload = await this.request(url);
-            this.comments = payload.data ?? [];
+            this.comments = (payload.data ?? []).map((comment) => this.normalizeComment(comment));
             this.nextCommentsUrl = payload.links?.next ?? null;
         } catch (error) {
             this.error = true;
@@ -286,7 +405,9 @@ window.articleComments = (options = {}) => ({
 
         try {
             const payload = await this.request(this.nextCommentsUrl);
-            this.comments = [...this.comments, ...(payload.data ?? [])];
+            this.comments.push(...(payload.data ?? [])
+                .filter((comment) => !this.deletedCommentIds.includes(Number(comment.id)))
+                .map((comment) => this.normalizeComment(comment)));
             this.nextCommentsUrl = payload.links?.next ?? null;
         } catch (error) {
             this.loadMoreError = 'Unable to load more comments. Please try again.';
@@ -300,43 +421,186 @@ window.articleComments = (options = {}) => ({
         return this.repliesUrlTemplate.replace('__COMMENT__', commentId);
     },
 
-    async toggleReplies(commentId) {
-        this.expandedReplies[commentId] = !this.expandedReplies[commentId];
-
-        if (this.expandedReplies[commentId] && this.replies[commentId] === undefined) {
-            await this.loadReplies(commentId);
-        }
+    commentUrl(template, commentId) {
+        return template.replace('__COMMENT__', commentId);
     },
 
-    async loadReplies(commentId, url = this.repliesUrl(commentId)) {
-        this.replyLoading[commentId] = true;
-        this.replyErrors[commentId] = '';
+    isOwnComment(comment) {
+        return this.authenticated
+            && comment.status !== 'DELETED'
+            && this.currentUserId !== null
+            && Number(comment.author?.id) === Number(this.currentUserId);
+    },
+
+    toggleMenu(commentId) {
+        this.openMenu = this.openMenu === commentId ? null : commentId;
+    },
+
+    startEditing(comment) {
+        if (!this.isOwnComment(comment)) {
+            return;
+        }
+
+        this.openMenu = null;
+        this.editing = comment.id;
+        this.editDrafts[comment.id] = comment.content;
+        this.editErrors[comment.id] = '';
+    },
+
+    cancelEditing() {
+        this.editing = null;
+        this.editSubmitting = null;
+    },
+
+    async saveEdit(comment) {
+        const content = (this.editDrafts[comment.id] ?? '').trim();
+
+        if (!content || this.editSubmitting !== null) {
+            return;
+        }
+
+        this.editSubmitting = comment.id;
+        this.editErrors[comment.id] = '';
 
         try {
-            const payload = await this.request(url);
-            const existingReplies = this.replies[commentId] ?? [];
-            const existingIds = new Set(existingReplies.map((reply) => reply.id));
-            const newReplies = (payload.data ?? []).filter((reply) => !existingIds.has(reply.id));
-            this.replies[commentId] = [...existingReplies, ...newReplies];
-            this.replyNextUrls[commentId] = payload.links?.next ?? null;
+            const payload = await this.request(this.commentUrl(this.updateUrlTemplate, comment.id), {
+                method: 'PATCH',
+                body: JSON.stringify({ content, version: comment.version }),
+            });
+
+            comment.content = payload.data?.content ?? content;
+            comment.version = payload.data?.version ?? comment.version;
+            comment.updated_at = payload.data?.updated_at ?? comment.updated_at;
+            comment.edited_at = payload.data?.edited_at ?? new Date().toISOString();
+            this.editing = null;
         } catch (error) {
-            this.replyErrors[commentId] = 'Unable to load replies.';
-            console.error('Unable to load replies:', error);
+            if (error.status === 422) {
+                const messages = Object.values(error.payload?.errors ?? {}).flat();
+                this.editErrors[comment.id] = messages[0] ?? error.message;
+            } else if (error.status === 403) {
+                this.editErrors[comment.id] = 'You can only edit your own comment.';
+            } else if (error.status === 409) {
+                this.editErrors[comment.id] = error.message;
+            } else {
+                this.editErrors[comment.id] = 'Unable to save your comment. Please try again.';
+            }
         } finally {
-            this.replyLoading[commentId] = false;
+            this.editSubmitting = null;
         }
     },
 
-    startReply(commentId) {
+    async deleteComment(comment) {
+        if (!this.isOwnComment(comment)) {
+            return;
+        }
+
+        const confirmed = await window.showConfirmModal({
+            title: 'Delete comment',
+            message: 'This comment will be removed from the public conversation.',
+            confirmText: 'Delete',
+        });
+
+        if (!confirmed) {
+            return;
+        }
+
+        this.editSubmitting = comment.id;
+        this.editErrors[comment.id] = '';
+
+        try {
+            await this.request(this.commentUrl(this.deleteUrlTemplate, comment.id), {
+                method: 'DELETE',
+            });
+
+            this.mutationVersion += 1;
+            if (!this.deletedCommentIds.includes(comment.id)) {
+                this.deletedCommentIds.push(comment.id);
+            }
+
+            const commentIndex = this.comments.findIndex((item) => item.id === comment.id);
+            const parent = comment.parent_id === null ? null : this.findComment(comment.parent_id);
+
+            if (commentIndex === -1) {
+                return;
+            }
+
+            if (comment.replies_count > 0) {
+                comment.status = 'DELETED';
+                comment.content = '[Comment deleted]';
+                comment.author = {
+                    id: null,
+                    name: 'Deleted user',
+                    avatar_url: null,
+                    initial: 'D',
+                };
+                comment.edited_at = null;
+                this.editing = null;
+                this.openMenu = null;
+                return;
+            }
+
+            this.removeSubtree(comment);
+
+            if (parent) {
+                parent.replies_count = Math.max(0, parent.replies_count - 1);
+                this.pruneEmptyDeletedAncestors(parent);
+            }
+
+            this.editing = null;
+            this.openMenu = null;
+        } catch (error) {
+            this.editErrors[comment.id] = error.status === 403
+                ? 'You can only delete your own comment.'
+                : 'Unable to delete your comment. Please try again.';
+        } finally {
+            this.editSubmitting = null;
+        }
+    },
+
+    async toggleReplies(comment) {
+        comment.expanded = !comment.expanded;
+
+        if (comment.expanded && !comment.childrenLoaded && !comment.childrenLoading) {
+            await this.loadReplies(comment);
+        }
+    },
+
+    async loadReplies(comment, url = null) {
+        comment.childrenLoading = true;
+        comment.childrenError = '';
+        const requestMutationVersion = this.mutationVersion;
+
+        try {
+            const payload = await this.request(url ?? this.repliesUrl(comment.id));
+            if (requestMutationVersion !== this.mutationVersion) {
+                return;
+            }
+
+            const children = (payload.data ?? [])
+                .filter((child) => !this.deletedCommentIds.includes(Number(child.id)))
+                .map((child) => this.normalizeComment(child, comment.depth + 1));
+            this.insertChildren(comment, children);
+            comment.childrenLoaded = true;
+            comment.nextRepliesUrl = payload.links?.next ?? null;
+        } catch (error) {
+            comment.childrenError = 'Unable to load replies.';
+            console.error('Unable to load replies:', error);
+        } finally {
+            comment.childrenLoading = false;
+        }
+    },
+
+    startReply(comment) {
         if (!this.authenticated) {
             window.location.href = this.loginUrl;
 
             return;
         }
 
-        this.replyingTo = commentId;
-        this.formErrors[commentId] = '';
-        this.$nextTick(() => document.getElementById(`reply-${commentId}`)?.focus());
+        this.replyingTo = comment.id;
+        this.formErrors[comment.id] = '';
+        this.successMessages[comment.id] = '';
+        this.$nextTick(() => document.getElementById(`reply-${comment.id}`)?.focus());
     },
 
     cancelReply() {
@@ -347,8 +611,8 @@ window.articleComments = (options = {}) => ({
         await this.submit(null, this.draft);
     },
 
-    async submitReply(commentId) {
-        await this.submit(commentId, this.replyDrafts[commentId] ?? '');
+    async submitReply(comment) {
+        await this.submit(comment.id, this.replyDrafts[comment.id] ?? '');
     },
 
     async submit(parentId, content) {
@@ -362,47 +626,49 @@ window.articleComments = (options = {}) => ({
         this.submitting = key;
         this.formErrors[key] = '';
         this.successMessages[key] = '';
+        this.submissionKeys[key] ??= this.newSubmissionKey();
 
         try {
             const payload = await this.request(this.storeUrl, {
                 method: 'POST',
+                headers: {
+                    'Idempotency-Key': this.submissionKeys[key],
+                },
                 body: JSON.stringify({ content: trimmedContent, parent_id: parentId }),
             });
             const comment = payload.data;
+            delete this.submissionKeys[key];
 
             if (parentId === null) {
+                this.comments.unshift(this.normalizeComment(comment));
                 this.draft = '';
-                if (comment.status === 'VISIBLE') {
-                    this.comments = [comment, ...this.comments];
-                } else {
-                    this.successMessages.root = 'Your comment is awaiting moderation.';
-                }
-            } else {
-                this.replyDrafts[parentId] = '';
-                this.expandedReplies[parentId] = true;
-                if (comment.status === 'VISIBLE') {
-                    if (this.replies[parentId] === undefined) {
-                        this.replies[parentId] = [comment];
-                        await this.loadReplies(parentId);
-                    } else {
-                        this.replies[parentId] = [
-                            comment,
-                            ...this.replies[parentId].filter((reply) => reply.id !== comment.id),
-                        ];
-                    }
-                    const root = this.comments.find((item) => item.id === parentId);
-                    if (root) {
-                        root.replies_count += 1;
-                    }
-                } else {
-                    this.successMessages[parentId] = 'Your reply is awaiting moderation.';
-                }
-                this.replyingTo = null;
+                return;
+            }
+
+            const parent = this.findComment(parentId);
+            this.replyDrafts[parentId] = '';
+            this.replyingTo = null;
+
+            if (!parent) {
+                return;
+            }
+
+            const child = this.normalizeComment(comment, parent.depth + 1);
+            this.insertDirectChild(parent, child);
+            parent.replies_count += 1;
+            parent.expanded = true;
+
+            if (!parent.childrenLoaded) {
+                await this.loadReplies(parent);
             }
         } catch (error) {
             if (error.status === 422) {
+                delete this.submissionKeys[key];
                 const messages = Object.values(error.payload?.errors ?? {}).flat();
                 this.formErrors[key] = messages[0] ?? error.message;
+            } else if (error.status === 409) {
+                delete this.submissionKeys[key];
+                this.formErrors[key] = error.message;
             } else if (error.status === 401) {
                 this.authenticated = false;
                 this.formErrors[key] = 'Your session has expired. Please sign in again.';

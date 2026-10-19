@@ -67,6 +67,11 @@ class ArticleCommentTest extends TestCase
             'parent_id' => $root->id,
             'content' => 'The latest reply',
         ]);
+        Comment::factory()->create([
+            'post_id' => $article->id,
+            'parent_id' => $newerReply->id,
+            'content' => 'A nested reply',
+        ]);
         Comment::factory()->hidden()->create([
             'post_id' => $article->id,
             'parent_id' => $root->id,
@@ -80,7 +85,27 @@ class ArticleCommentTest extends TestCase
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.id', $newerReply->id)
             ->assertJsonPath('data.0.content', 'The latest reply')
+            ->assertJsonPath('data.0.replies_count', 1)
             ->assertJsonPath('data.1.id', $olderReply->id);
+    }
+
+    public function test_replies_from_another_article_are_not_returned_in_a_thread(): void
+    {
+        $article = Post::factory()->published()->create();
+        $otherArticle = Post::factory()->published()->create();
+        $root = Comment::factory()->create(['post_id' => $article->id]);
+        Comment::factory()->create([
+            'post_id' => $otherArticle->id,
+            'parent_id' => $root->id,
+            'content' => 'Cross-article reply',
+        ]);
+
+        $this->getJson(route('articles.comments.replies', [
+            'article' => $article->slug,
+            'comment' => $root,
+        ]))
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
     }
 
     public function test_article_page_renders_the_guest_comment_prompt(): void
@@ -117,10 +142,9 @@ class ArticleCommentTest extends TestCase
 
         $rootResponse->assertCreated()
             ->assertJsonPath('data.content', 'A thoughtful root comment')
-            ->assertJsonPath('data.status', Comment::STATUS_PENDING)
+            ->assertJsonPath('data.status', Comment::STATUS_VISIBLE)
             ->assertJsonPath('data.author.name', 'Grace Hopper');
         $root = Comment::query()->where('content', 'A thoughtful root comment')->firstOrFail();
-        $root->update(['status' => Comment::STATUS_VISIBLE]);
 
         $this->actingAs($user)->postJson(
             route('articles.comments.store', ['article' => $article->slug]),
@@ -131,9 +155,225 @@ class ArticleCommentTest extends TestCase
             'post_id' => $article->id,
             'user_id' => $user->id,
             'parent_id' => $root->id,
-            'status' => Comment::STATUS_PENDING,
+            'status' => Comment::STATUS_VISIBLE,
             'content' => 'A helpful reply',
         ]);
+    }
+
+    public function test_user_can_edit_own_comment_but_not_another_users_comment(): void
+    {
+        $article = Post::factory()->published()->create();
+        $owner = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $comment = Comment::factory()->create([
+            'post_id' => $article->id,
+            'user_id' => $owner->id,
+            'content' => 'Original content',
+        ]);
+
+        $this->actingAs($owner)
+            ->patchJson(route('articles.comments.update', [
+                'article' => $article->slug,
+                'comment' => $comment,
+            ]), ['content' => 'Edited content', 'version' => $comment->version])
+            ->assertOk()
+            ->assertJsonPath('data.content', 'Edited content');
+
+        $this->actingAs($otherUser)
+            ->patchJson(route('articles.comments.update', [
+                'article' => $article->slug,
+                'comment' => $comment,
+            ]), ['content' => 'Unauthorized edit', 'version' => $comment->fresh()->version])
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('comments', [
+            'id' => $comment->id,
+            'content' => 'Edited content',
+        ]);
+        $this->assertNotNull($comment->fresh()->edited_at);
+    }
+
+    public function test_stale_comment_edit_is_rejected(): void
+    {
+        $article = Post::factory()->published()->create();
+        $owner = User::factory()->create();
+        $comment = Comment::factory()->create([
+            'post_id' => $article->id,
+            'user_id' => $owner->id,
+        ]);
+        $version = $comment->version;
+
+        $this->actingAs($owner)
+            ->patchJson(route('articles.comments.update', [
+                'article' => $article->slug,
+                'comment' => $comment,
+            ]), ['content' => 'First edit', 'version' => $version])
+            ->assertOk();
+
+        $this->actingAs($owner)
+            ->patchJson(route('articles.comments.update', [
+                'article' => $article->slug,
+                'comment' => $comment,
+            ]), ['content' => 'Stale edit', 'version' => $version])
+            ->assertConflict();
+
+        $this->assertDatabaseHas('comments', [
+            'id' => $comment->id,
+            'content' => 'First edit',
+        ]);
+    }
+
+    public function test_repeated_comment_submission_with_same_idempotency_key_returns_the_original_comment(): void
+    {
+        $article = Post::factory()->published()->create();
+        $user = User::factory()->create();
+        $payload = ['content' => 'Retry-safe comment'];
+        $key = 'retry-safe-comment-key';
+
+        $firstResponse = $this->actingAs($user)
+            ->withHeader('Idempotency-Key', $key)
+            ->postJson(route('articles.comments.store', ['article' => $article->slug]), $payload)
+            ->assertCreated();
+        $commentId = $firstResponse->json('data.id');
+
+        $this->actingAs($user)
+            ->withHeader('Idempotency-Key', $key)
+            ->postJson(route('articles.comments.store', ['article' => $article->slug]), $payload)
+            ->assertCreated()
+            ->assertJsonPath('data.id', $commentId);
+
+        $this->assertDatabaseCount('comments', 1);
+    }
+
+    public function test_user_can_delete_own_comment_and_deleted_comment_is_not_public(): void
+    {
+        $article = Post::factory()->published()->create();
+        $owner = User::factory()->create();
+        $comment = Comment::factory()->create([
+            'post_id' => $article->id,
+            'user_id' => $owner->id,
+            'content' => 'Delete me',
+        ]);
+
+        $this->actingAs($owner)
+            ->deleteJson(route('articles.comments.destroy', [
+                'article' => $article->slug,
+                'comment' => $comment,
+            ]))
+            ->assertOk();
+
+        $this->assertDatabaseHas('comments', [
+            'id' => $comment->id,
+            'status' => Comment::STATUS_DELETED,
+            'deleted_by' => $owner->id,
+        ]);
+        $this->assertNotNull($comment->fresh()->deleted_at);
+
+        $this->getJson(route('articles.comments.index', ['article' => $article->slug]))
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_deleted_parent_remains_as_a_placeholder_when_it_has_replies(): void
+    {
+        $article = Post::factory()->published()->create();
+        $owner = User::factory()->create();
+        $parent = Comment::factory()->create([
+            'post_id' => $article->id,
+            'user_id' => $owner->id,
+            'content' => 'Parent to delete',
+        ]);
+        $reply = Comment::factory()->reply($parent)->create(['content' => 'Keep this reply visible']);
+
+        $this->actingAs($owner)
+            ->deleteJson(route('articles.comments.destroy', [
+                'article' => $article->slug,
+                'comment' => $parent,
+            ]))
+            ->assertOk();
+
+        $this->getJson(route('articles.comments.index', ['article' => $article->slug]))
+            ->assertOk()
+            ->assertJsonPath('data.0.content', '[Comment deleted]')
+            ->assertJsonPath('data.0.author.name', 'Deleted user')
+            ->assertJsonPath('data.0.replies_count', 1);
+
+        $this->getJson(route('articles.comments.replies', [
+            'article' => $article->slug,
+            'comment' => $parent,
+        ]))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $reply->id)
+            ->assertJsonPath('data.0.content', 'Keep this reply visible');
+    }
+
+    public function test_deleted_ancestors_preserve_a_deep_visible_reply_chain(): void
+    {
+        $article = Post::factory()->published()->create();
+        $parent = Comment::factory()->create(['post_id' => $article->id]);
+        $deletedChild = Comment::factory()->reply($parent)->deleted()->create();
+        $visibleGrandchild = Comment::factory()->reply($deletedChild)->create([
+            'content' => 'Visible deep reply',
+        ]);
+        $parent->update(['status' => Comment::STATUS_DELETED]);
+
+        $this->getJson(route('articles.comments.index', ['article' => $article->slug]))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $parent->id)
+            ->assertJsonPath('data.0.content', '[Comment deleted]')
+            ->assertJsonPath('data.0.replies_count', 1);
+
+        $this->getJson(route('articles.comments.replies', [
+            'article' => $article->slug,
+            'comment' => $deletedChild,
+        ]))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $visibleGrandchild->id)
+            ->assertJsonPath('data.0.content', 'Visible deep reply');
+    }
+
+    public function test_replies_under_a_hidden_ancestor_are_not_publicly_reachable(): void
+    {
+        $article = Post::factory()->published()->create();
+        $hiddenParent = Comment::factory()->hidden()->create(['post_id' => $article->id]);
+        $visibleChild = Comment::factory()->reply($hiddenParent)->create();
+
+        $this->getJson(route('articles.comments.replies', [
+            'article' => $article->slug,
+            'comment' => $visibleChild,
+        ]))->assertNotFound();
+    }
+
+    public function test_reply_creation_rechecks_a_hidden_parent(): void
+    {
+        $article = Post::factory()->published()->create();
+        $parent = Comment::factory()->create(['post_id' => $article->id]);
+        $parent->update(['status' => Comment::STATUS_HIDDEN]);
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->postJson(route('articles.comments.store', ['article' => $article->slug]), [
+                'content' => 'Unreachable reply',
+                'parent_id' => $parent->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('parent_id');
+    }
+
+    public function test_soft_deleted_comment_authors_do_not_break_public_reads(): void
+    {
+        $article = Post::factory()->published()->create();
+        $author = User::factory()->create();
+        $comment = Comment::factory()->create([
+            'post_id' => $article->id,
+            'user_id' => $author->id,
+        ]);
+        $author->delete();
+
+        $this->getJson(route('articles.comments.index', ['article' => $article->slug]))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $comment->id)
+            ->assertJsonPath('data.0.author.name', 'Deleted user');
     }
 
     public function test_invalid_cursors_return_validation_error_instead_of_server_error(): void
@@ -149,20 +389,36 @@ class ArticleCommentTest extends TestCase
             ->assertJsonPath('message', 'The pagination cursor is invalid.');
     }
 
-    public function test_pending_comments_are_not_public_and_hidden_threads_return_not_found(): void
+    public function test_cursors_with_non_scalar_values_return_validation_error(): void
+    {
+        $article = Post::factory()->published()->create();
+        $cursor = rtrim(strtr(base64_encode(json_encode([
+            'created_at' => ['invalid'],
+            'id' => 1,
+            '_pointsToNextItems' => true,
+        ], JSON_THROW_ON_ERROR)), '+/', '-_'), '=');
+
+        $this->getJson(route('articles.comments.index', [
+            'article' => $article->slug,
+            'comments_cursor' => $cursor,
+        ]))
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'The pagination cursor is invalid.');
+    }
+
+    public function test_new_comments_are_public_immediately_and_hidden_threads_return_not_found(): void
     {
         $article = Post::factory()->published()->create();
         $user = User::factory()->create();
-        $response = $this->actingAs($user)->postJson(
+        $this->actingAs($user)->postJson(
             route('articles.comments.store', ['article' => $article->slug]),
             ['content' => 'Waiting for review'],
         )->assertCreated();
-        $pendingId = Comment::query()->where('content', 'Waiting for review')->value('id');
 
         $this->getJson(route('articles.comments.index', ['article' => $article->slug]))
             ->assertOk()
-            ->assertJsonCount(0, 'data');
-        $this->assertSame(Comment::STATUS_PENDING, $response->json('data.status'));
+            ->assertJsonPath('data.0.content', 'Waiting for review')
+            ->assertJsonPath('data.0.status', Comment::STATUS_VISIBLE);
 
         $hidden = Comment::factory()->hidden()->create(['post_id' => $article->id]);
         $this->getJson(route('articles.comments.replies', [
@@ -170,10 +426,9 @@ class ArticleCommentTest extends TestCase
             'comment' => $hidden,
             'replies_cursor' => 'invalid',
         ]))->assertNotFound();
-        $this->assertNotNull($pendingId);
     }
 
-    public function test_comment_validation_rejects_invalid_or_cross_article_parents(): void
+    public function test_comment_validation_rejects_invalid_or_cross_article_parents_but_allows_deep_replies(): void
     {
         $article = Post::factory()->published()->create();
         $otherArticle = Post::factory()->published()->create();
@@ -198,7 +453,16 @@ class ArticleCommentTest extends TestCase
         $this->actingAs($user)->postJson(
             route('articles.comments.store', ['article' => $article->slug]),
             ['content' => 'Nested reply', 'parent_id' => $nestedReply->id],
-        )->assertUnprocessable()->assertJsonValidationErrors('parent_id');
+        )->assertCreated()->assertJsonPath('data.parent_id', $nestedReply->id);
+
+        $this->getJson(route('articles.comments.replies', [
+            'article' => $article->slug,
+            'comment' => $nestedReply,
+        ]))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.parent_id', $nestedReply->id)
+            ->assertJsonPath('data.0.content', 'Nested reply');
     }
 
     public function test_comments_are_unavailable_for_unpublished_articles(): void
