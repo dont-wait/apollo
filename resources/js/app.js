@@ -1,4 +1,5 @@
 import Alpine from 'alpinejs';
+import './confirm-modal.js';
 import './admin/category-tag.js';
 window.Alpine = Alpine;
 
@@ -219,6 +220,9 @@ window.articleComments = (options = {}) => ({
     editDrafts: {},
     editErrors: {},
     editSubmitting: null,
+    submissionKeys: {},
+    deletedCommentIds: [],
+    mutationVersion: 0,
 
     init() {
         this.loadComments();
@@ -287,10 +291,21 @@ window.articleComments = (options = {}) => ({
         return this.comments.find((comment) => comment.id === normalizedId);
     },
 
+    newSubmissionKey() {
+        return window.crypto?.randomUUID?.()
+            ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    },
+
     isVisible(comment) {
         let parentId = comment.parent_id;
+        const visited = new Set();
 
         while (parentId !== null) {
+            if (visited.has(parentId)) {
+                return false;
+            }
+
+            visited.add(parentId);
             const parent = this.findComment(parentId);
 
             if (!parent || !parent.expanded) {
@@ -312,6 +327,35 @@ window.articleComments = (options = {}) => ({
         }
 
         return index;
+    },
+
+    removeSubtree(comment) {
+        const commentIndex = this.comments.findIndex((item) => item.id === comment.id);
+
+        if (commentIndex === -1) {
+            return false;
+        }
+
+        this.comments.splice(commentIndex, this.subtreeEndIndex(comment) - commentIndex);
+
+        return true;
+    },
+
+    pruneEmptyDeletedAncestors(comment) {
+        let current = comment;
+
+        while (current?.status === 'DELETED' && current.replies_count === 0) {
+            const parent = current.parent_id === null ? null : this.findComment(current.parent_id);
+
+            this.removeSubtree(current);
+
+            if (!parent) {
+                return;
+            }
+
+            parent.replies_count = Math.max(0, parent.replies_count - 1);
+            current = parent;
+        }
     },
 
     insertDirectChild(parent, child) {
@@ -361,7 +405,9 @@ window.articleComments = (options = {}) => ({
 
         try {
             const payload = await this.request(this.nextCommentsUrl);
-            this.comments.push(...(payload.data ?? []).map((comment) => this.normalizeComment(comment)));
+            this.comments.push(...(payload.data ?? [])
+                .filter((comment) => !this.deletedCommentIds.includes(Number(comment.id)))
+                .map((comment) => this.normalizeComment(comment)));
             this.nextCommentsUrl = payload.links?.next ?? null;
         } catch (error) {
             this.loadMoreError = 'Unable to load more comments. Please try again.';
@@ -381,6 +427,7 @@ window.articleComments = (options = {}) => ({
 
     isOwnComment(comment) {
         return this.authenticated
+            && comment.status !== 'DELETED'
             && this.currentUserId !== null
             && Number(comment.author?.id) === Number(this.currentUserId);
     },
@@ -418,10 +465,13 @@ window.articleComments = (options = {}) => ({
         try {
             const payload = await this.request(this.commentUrl(this.updateUrlTemplate, comment.id), {
                 method: 'PATCH',
-                body: JSON.stringify({ content }),
+                body: JSON.stringify({ content, version: comment.version }),
             });
 
             comment.content = payload.data?.content ?? content;
+            comment.version = payload.data?.version ?? comment.version;
+            comment.updated_at = payload.data?.updated_at ?? comment.updated_at;
+            comment.edited_at = payload.data?.edited_at ?? new Date().toISOString();
             this.editing = null;
         } catch (error) {
             if (error.status === 422) {
@@ -429,6 +479,8 @@ window.articleComments = (options = {}) => ({
                 this.editErrors[comment.id] = messages[0] ?? error.message;
             } else if (error.status === 403) {
                 this.editErrors[comment.id] = 'You can only edit your own comment.';
+            } else if (error.status === 409) {
+                this.editErrors[comment.id] = error.message;
             } else {
                 this.editErrors[comment.id] = 'Unable to save your comment. Please try again.';
             }
@@ -460,18 +512,38 @@ window.articleComments = (options = {}) => ({
                 method: 'DELETE',
             });
 
-            const commentIndex = this.comments.findIndex((item) => item.id === comment.id);
-            const parent = comment.parent_id === null ? null : this.findComment(comment.parent_id);
-            let endIndex = commentIndex + 1;
-
-            while (endIndex < this.comments.length && this.comments[endIndex].depth > comment.depth) {
-                endIndex += 1;
+            this.mutationVersion += 1;
+            if (!this.deletedCommentIds.includes(comment.id)) {
+                this.deletedCommentIds.push(comment.id);
             }
 
-            this.comments.splice(commentIndex, endIndex - commentIndex);
+            const commentIndex = this.comments.findIndex((item) => item.id === comment.id);
+            const parent = comment.parent_id === null ? null : this.findComment(comment.parent_id);
+
+            if (commentIndex === -1) {
+                return;
+            }
+
+            if (comment.replies_count > 0) {
+                comment.status = 'DELETED';
+                comment.content = '[Comment deleted]';
+                comment.author = {
+                    id: null,
+                    name: 'Deleted user',
+                    avatar_url: null,
+                    initial: 'D',
+                };
+                comment.edited_at = null;
+                this.editing = null;
+                this.openMenu = null;
+                return;
+            }
+
+            this.removeSubtree(comment);
 
             if (parent) {
                 parent.replies_count = Math.max(0, parent.replies_count - 1);
+                this.pruneEmptyDeletedAncestors(parent);
             }
 
             this.editing = null;
@@ -496,10 +568,17 @@ window.articleComments = (options = {}) => ({
     async loadReplies(comment, url = null) {
         comment.childrenLoading = true;
         comment.childrenError = '';
+        const requestMutationVersion = this.mutationVersion;
 
         try {
             const payload = await this.request(url ?? this.repliesUrl(comment.id));
-            const children = (payload.data ?? []).map((child) => this.normalizeComment(child, comment.depth + 1));
+            if (requestMutationVersion !== this.mutationVersion) {
+                return;
+            }
+
+            const children = (payload.data ?? [])
+                .filter((child) => !this.deletedCommentIds.includes(Number(child.id)))
+                .map((child) => this.normalizeComment(child, comment.depth + 1));
             this.insertChildren(comment, children);
             comment.childrenLoaded = true;
             comment.nextRepliesUrl = payload.links?.next ?? null;
@@ -547,13 +626,18 @@ window.articleComments = (options = {}) => ({
         this.submitting = key;
         this.formErrors[key] = '';
         this.successMessages[key] = '';
+        this.submissionKeys[key] ??= this.newSubmissionKey();
 
         try {
             const payload = await this.request(this.storeUrl, {
                 method: 'POST',
+                headers: {
+                    'Idempotency-Key': this.submissionKeys[key],
+                },
                 body: JSON.stringify({ content: trimmedContent, parent_id: parentId }),
             });
             const comment = payload.data;
+            delete this.submissionKeys[key];
 
             if (parentId === null) {
                 this.comments.unshift(this.normalizeComment(comment));
@@ -579,8 +663,12 @@ window.articleComments = (options = {}) => ({
             }
         } catch (error) {
             if (error.status === 422) {
+                delete this.submissionKeys[key];
                 const messages = Object.values(error.payload?.errors ?? {}).flat();
                 this.formErrors[key] = messages[0] ?? error.message;
+            } else if (error.status === 409) {
+                delete this.submissionKeys[key];
+                this.formErrors[key] = error.message;
             } else if (error.status === 401) {
                 this.authenticated = false;
                 this.formErrors[key] = 'Your session has expired. Please sign in again.';

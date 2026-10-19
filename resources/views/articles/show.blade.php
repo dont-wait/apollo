@@ -149,6 +149,7 @@
                                 <p class="truncate font-display text-xs font-semibold text-on-surface" x-text="comment.author.name"></p>
                                 <span class="text-outline-variant">·</span>
                                 <p class="font-mono text-[9px] uppercase tracking-[0.08em] text-on-surface-variant" :title="comment.created_at" x-text="comment.created_at_human"></p>
+                                <span class="font-mono text-[9px] uppercase tracking-[0.08em] text-on-surface-variant" x-cloak x-show="comment.edited_at">(edited)</span>
                             </div>
                             <div class="relative ml-auto" x-show="isOwnComment(comment)" @click.outside="openMenu = null">
                                 <button class="flex size-7 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface-high hover:text-primary" type="button" aria-label="Comment actions" :aria-expanded="openMenu === comment.id" @click.stop="toggleMenu(comment.id)">
@@ -179,7 +180,7 @@
                         </template>
 
                         <div class="mt-2 flex flex-wrap items-center gap-3" x-show="editing !== comment.id">
-                            <button class="font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant transition-colors hover:text-primary" type="button" @click="startReply(comment)">Reply</button>
+                            <button class="font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant transition-colors hover:text-primary" type="button" x-show="comment.status !== 'DELETED'" @click="startReply(comment)">Reply</button>
                             <span class="text-outline-variant" x-show="comment.replies_count > 0">·</span>
                             <button class="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant transition-colors hover:text-primary" type="button" x-show="comment.replies_count > 0" @click="toggleReplies(comment)">
                                 <span class="material-symbols-outlined text-[16px]" aria-hidden="true" x-text="comment.expanded ? 'keyboard_arrow_up' : 'keyboard_arrow_down'"></span>
@@ -197,7 +198,7 @@
                         </div>
 
                         <p class="mt-2 text-xs text-emerald-300" x-cloak x-show="successMessages[comment.id]" x-text="successMessages[comment.id]"></p>
-                        <form class="mt-3" x-cloak x-show="replyingTo === comment.id && authenticated" @submit.prevent="submitReply(comment)">
+                        <form class="mt-3" x-cloak x-show="replyingTo === comment.id && authenticated && comment.status !== 'DELETED'" @submit.prevent="submitReply(comment)">
                             <label class="sr-only" :for="`reply-${comment.id}`">Reply to this comment</label>
                             <textarea :id="`reply-${comment.id}`" class="min-h-20 w-full resize-y rounded-lg border border-outline-variant/60 bg-background px-3 py-3 text-sm leading-6 text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20" x-model="replyDrafts[comment.id]" maxlength="2000" placeholder="Write a reply..." :disabled="submitting === comment.id"></textarea>
                             <div class="mt-2 flex flex-wrap items-center justify-between gap-3">

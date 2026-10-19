@@ -26,126 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     */
     const taxonomyManager = document.getElementById('taxonomyManager');
 
-    // =====================================================
-    // SHARED CONFIRM MODAL
-    // =====================================================
-
-    const confirmModal =
-        document.getElementById('confirmModal');
-
-    const confirmModalTitle =
-        document.getElementById('confirmModalTitle');
-
-    const confirmModalMessage =
-        document.getElementById('confirmModalMessage');
-
-    const confirmModalCancel =
-        document.getElementById('confirmModalCancel');
-
-    const confirmModalConfirm =
-        document.getElementById('confirmModalConfirm');
-
-
-    function showConfirmModal({
-        title = 'Confirm Action',
-        message,
-        confirmText = 'Confirm',
-    }) {
-        return new Promise((resolve) => {
-            if (!confirmModal) {
-                resolve(false);
-                return;
-            }
-
-            confirmModalTitle.textContent = title;
-            confirmModalMessage.textContent = message;
-            confirmModalConfirm.textContent = confirmText;
-
-            confirmModal.classList.remove('hidden');
-            confirmModal.classList.add('flex');
-
-            confirmModal.setAttribute(
-                'aria-hidden',
-                'false'
-            );
-
-            const closeModal = (result) => {
-                confirmModal.classList.add('hidden');
-                confirmModal.classList.remove('flex');
-
-                confirmModal.setAttribute(
-                    'aria-hidden',
-                    'true'
-                );
-
-                confirmModalCancel.removeEventListener(
-                    'click',
-                    handleCancel
-                );
-
-                confirmModalConfirm.removeEventListener(
-                    'click',
-                    handleConfirm
-                );
-
-                confirmModal.removeEventListener(
-                    'click',
-                    handleBackdrop
-                );
-
-                document.removeEventListener(
-                    'keydown',
-                    handleEscape
-                );
-
-                resolve(result);
-            };
-
-            const handleCancel = () => {
-                closeModal(false);
-            };
-
-            const handleConfirm = () => {
-                closeModal(true);
-            };
-
-            const handleBackdrop = (event) => {
-                if (event.target === confirmModal) {
-                    closeModal(false);
-                }
-            };
-
-            const handleEscape = (event) => {
-                if (event.key === 'Escape') {
-                    closeModal(false);
-                }
-            };
-
-            confirmModalCancel.addEventListener(
-                'click',
-                handleCancel
-            );
-
-            confirmModalConfirm.addEventListener(
-                'click',
-                handleConfirm
-            );
-
-            confirmModal.addEventListener(
-                'click',
-                handleBackdrop
-            );
-
-            document.addEventListener(
-                'keydown',
-                handleEscape
-            );
-
-            confirmModalConfirm.focus();
-        });
-    }
-
-    window.showConfirmModal = showConfirmModal;
+    const showConfirmModal = window.showConfirmModal;
 
     if (!taxonomyManager) {
         return;
@@ -797,9 +678,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.location.reload();
                     }
                     catch (error) {
-                        alert(
-                            error.message
-                        );
+                        window.showConfirmModal({
+                            title: 'Action failed',
+                            message: error.message,
+                            confirmText: 'Close',
+                            showCancel: false,
+                        });
                     }
                 }
             );
@@ -1274,9 +1158,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             window.location.reload();
                         }
                         catch (error) {
-                            alert(
-                                error.message
-                            );
+                            window.showConfirmModal({
+                                title: 'Action failed',
+                                message: error.message,
+                                confirmText: 'Close',
+                                showCancel: false,
+                            });
                         }
                     }
                 );
