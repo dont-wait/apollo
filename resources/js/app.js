@@ -32,6 +32,7 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
     view: 'list',
     bookmarkNotice: false,
     bookmarkNoticeMessage: 'Sign in to save articles to your bookmarks.',
+    bookmarkNoticeShowsLogin: false,
     bookmarkingPostId: null,
     newsletterSubmitted: false,
 
@@ -186,6 +187,7 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
     async toggleBookmark(post) {
         if (!this.authenticated) {
             this.bookmarkNoticeMessage = 'Sign in to save articles to your bookmarks.';
+            this.bookmarkNoticeShowsLogin = true;
             this.bookmarkNotice = true;
 
             return;
@@ -228,6 +230,7 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
             post.bookmarked = previousBookmarked;
             post.bookmarks = previousCount;
             this.bookmarkNoticeMessage = 'Unable to update bookmark. Please try again.';
+            this.bookmarkNoticeShowsLogin = false;
             this.bookmarkNotice = true;
             console.error('Unable to update bookmark:', error);
         } finally {

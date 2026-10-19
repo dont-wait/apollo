@@ -386,7 +386,7 @@
         <div x-cloak x-show="bookmarkNotice" x-transition class="fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-md items-center justify-between gap-4 rounded-lg border border-primary/30 bg-surface-high px-4 py-3 shadow-2xl shadow-black/30" role="status">
             <p class="text-sm text-on-surface" x-text="bookmarkNoticeMessage"></p>
             <div class="flex shrink-0 items-center gap-2">
-                <a class="rounded bg-primary px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-on-primary" :href="loginUrl">Sign in</a>
+                <a x-cloak x-show="bookmarkNoticeShowsLogin" class="rounded bg-primary px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-on-primary" :href="loginUrl">Sign in</a>
                 <button class="rounded p-1 text-outline transition-colors hover:text-on-surface" type="button" aria-label="Dismiss" @click="bookmarkNotice = false">
                     <span class="material-symbols-outlined text-[18px]" aria-hidden="true">close</span>
                 </button>

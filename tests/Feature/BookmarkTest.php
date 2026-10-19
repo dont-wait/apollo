@@ -101,6 +101,31 @@ class BookmarkTest extends TestCase
         ]);
     }
 
+    public function test_user_cannot_unbookmark_an_unpublished_post(): void
+    {
+        $user = User::factory()->create();
+        $post = Post::factory()->published()->create();
+        $user->bookmarkedPosts()->attach($post);
+        $post->update(['status' => 'DRAFT', 'published_at' => null]);
+
+        $this->actingAs($user)
+            ->deleteJson(route('bookmarks.destroy', $post))
+            ->assertNotFound();
+
+        $this->assertDatabaseHas('bookmarks', [
+            'user_id' => $user->id,
+            'post_id' => $post->id,
+        ]);
+    }
+
+    public function test_guest_article_save_link_preserves_the_article_path_for_login(): void
+    {
+        $post = Post::factory()->published()->create();
+
+        $this->get(route('articles.show', ['article' => $post->slug]))
+            ->assertSee(route('login', ['redirect' => '/articles/'.$post->slug]), false);
+    }
+
     public function test_saved_articles_only_include_visible_posts_owned_by_the_current_user(): void
     {
         $user = User::factory()->create();

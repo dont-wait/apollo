@@ -39,9 +39,8 @@
                 <span>{{ number_format($article->view_count) }} views</span>
                 <span class="text-outline-variant">·</span>
                 @auth
-                    <button
-                        class="inline-flex items-center gap-1.5 rounded px-1 py-0.5 transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
-                        type="button"
+                    <span
+                        class="inline-flex flex-wrap items-center gap-1.5"
                         x-data="bookmarkButton(@js([
                             'postId' => $article->id,
                             'bookmarked' => $isBookmarked,
@@ -49,17 +48,23 @@
                             'storeUrl' => route('bookmarks.store', ['post' => '__POST__']),
                             'destroyUrl' => route('bookmarks.destroy', ['post' => '__POST__']),
                         ]))"
-                        :class="bookmarked ? 'text-primary' : 'text-on-surface-variant'"
-                        :disabled="loading"
-                        :aria-label="bookmarked ? 'Remove bookmark' : 'Save article'"
-                        :aria-pressed="bookmarked"
-                        @click="toggle()"
                     >
-                        <span class="material-symbols-outlined text-[16px]" x-text="bookmarked ? 'bookmark' : 'bookmark_border'" aria-hidden="true"></span>
-                        <span x-text="count"></span>
-                    </button>
+                        <button
+                            class="inline-flex items-center gap-1.5 rounded px-1 py-0.5 transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                            type="button"
+                            :class="bookmarked ? 'text-primary' : 'text-on-surface-variant'"
+                            :disabled="loading"
+                            :aria-label="bookmarked ? 'Remove bookmark' : 'Save article'"
+                            :aria-pressed="bookmarked"
+                            @click="toggle()"
+                        >
+                            <span class="material-symbols-outlined text-[16px]" x-text="bookmarked ? 'bookmark' : 'bookmark_border'" aria-hidden="true"></span>
+                            <span x-text="count"></span>
+                        </button>
+                        <span x-cloak x-show="error" class="normal-case tracking-normal text-error" role="alert">Unable to update bookmark. Please try again.</span>
+                    </span>
                 @else
-                    <a class="inline-flex items-center gap-1.5 transition-colors hover:text-primary" href="{{ route('login', ['redirect' => url()->current()]) }}">
+                    <a class="inline-flex items-center gap-1.5 transition-colors hover:text-primary" href="{{ route('login', ['redirect' => request()->getRequestUri()]) }}">
                         <span class="material-symbols-outlined text-[16px]" aria-hidden="true">bookmark_border</span>
                         <span>Save</span>
                     </a>

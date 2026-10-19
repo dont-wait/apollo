@@ -59,9 +59,11 @@ Route::middleware('auth')->group(function (): void {
         ->name('bookmarks.index');
 
     Route::post('/bookmarks/{post}', [BookmarkController::class, 'store'])
+        ->middleware('throttle:bookmarks')
         ->name('bookmarks.store');
 
     Route::delete('/bookmarks/{post}', [BookmarkController::class, 'destroy'])
+        ->middleware('throttle:bookmarks')
         ->name('bookmarks.destroy');
 });
 

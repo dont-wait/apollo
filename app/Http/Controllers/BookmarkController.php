@@ -37,14 +37,15 @@ class BookmarkController extends Controller
             // A concurrent request may have created the same bookmark already.
         }
 
-        return $this->bookmarkResponse($post, true);
+        return $this->bookmarkResponse($request, $post);
     }
 
     public function destroy(Request $request, Post $post): JsonResponse
     {
+        $this->ensurePublished($post);
         $request->user()->bookmarkedPosts()->detachOrFail($post->id);
 
-        return $this->bookmarkResponse($post, false);
+        return $this->bookmarkResponse($request, $post);
     }
 
     private function ensurePublished(Post $post): void
@@ -54,12 +55,12 @@ class BookmarkController extends Controller
         abort_unless($post->isPublished(), 404);
     }
 
-    private function bookmarkResponse(Post $post, bool $bookmarked): JsonResponse
+    private function bookmarkResponse(Request $request, Post $post): JsonResponse
     {
         $post->loadCount('bookmarks');
 
         return response()->json([
-            'bookmarked' => $bookmarked,
+            'bookmarked' => $request->user()->bookmarkedPosts()->whereKey($post->id)->exists(),
             'bookmarks_count' => (int) $post->bookmarks_count,
         ]);
     }
