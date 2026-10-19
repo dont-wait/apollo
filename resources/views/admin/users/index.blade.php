@@ -3,7 +3,26 @@
 @section('title', 'Users - Apollo Admin')
 
 @section('content')
-    <div class="-m-8 min-h-full space-y-6 bg-[#111319] p-4 text-[#e1e2ea] sm:p-8">
+    <div
+        class="-m-8 min-h-full space-y-6 bg-[#111319] p-4 text-[#e1e2ea] sm:p-8"
+        x-data="{
+            deleteForm: null,
+            showDeleteModal: false,
+            openDeleteModal(form) {
+                this.deleteForm = form;
+                this.showDeleteModal = true;
+            },
+            closeDeleteModal() {
+                this.showDeleteModal = false;
+                this.deleteForm = null;
+            },
+            confirmDelete() {
+                const form = this.deleteForm;
+                this.closeDeleteModal();
+                form?.requestSubmit();
+            },
+        }"
+    >
         <header class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
                 <p class="text-[11px] uppercase tracking-[0.16em] text-[#87929a]">Community // Workspace</p>
@@ -92,10 +111,10 @@
                                                 <span class="material-symbols-outlined text-lg">edit</span>
                                             </a>
                                             @unless (auth()->user()->is($user))
-                                                <form method="POST" action="{{ route('admin.users.destroy', $user) }}" onsubmit="return confirm('Bạn có chắc muốn xóa user này?')">
+                                                <form method="POST" action="{{ route('admin.users.destroy', $user) }}">
                                                     @csrf
                                                     @method('DELETE')
-                                                    <button type="submit" class="rounded-md p-2 text-[#bdc8d1] transition hover:bg-red-500/10 hover:text-red-300" aria-label="Xóa {{ $user->name }}" title="Xóa">
+                                                    <button type="button" class="rounded-md p-2 text-[#bdc8d1] transition hover:bg-red-500/10 hover:text-red-300" aria-label="Xóa {{ $user->name }}" title="Xóa" x-on:click="openDeleteModal($event.currentTarget.closest('form'))">
                                                         <span class="material-symbols-outlined text-lg">delete</span>
                                                     </button>
                                                 </form>
@@ -112,5 +131,20 @@
                 </div>
             @endif
         </section>
+
+        <x-confirm-modal
+            :initially-hidden="false"
+            title="Xác nhận xóa user"
+            message="Bạn có chắc chắn muốn xóa user này không?"
+            cancel-text="Hủy"
+            confirm-text="Xóa user"
+            x-cloak
+            x-show="showDeleteModal"
+            x-bind:aria-hidden="showDeleteModal ? 'false' : 'true'"
+            x-on:click.self="closeDeleteModal()"
+            x-on:keydown.escape.window="closeDeleteModal()"
+            x-on:confirm-modal-cancel="closeDeleteModal()"
+            x-on:confirm-modal-confirm="confirmDelete()"
+        />
     </div>
 @endsection

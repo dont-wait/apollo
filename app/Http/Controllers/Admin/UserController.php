@@ -7,8 +7,11 @@ use App\Http\Requests\Admin\StoreUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -103,19 +106,34 @@ class UserController extends Controller
     {
         $data = $request->validated();
 
-        if ($request->user()?->is($user) && $data['role'] !== User::ROLE_ADMIN) {
-            abort(403, 'Bạn không thể tự hạ quyền quản trị viên của mình.');
-        }
-
         if (blank($data['password'] ?? null)) {
             unset($data['password']);
         }
 
-        $user->update($data);
+        return DB::transaction(function () use ($request, $user, $data): RedirectResponse {
+            $admins = $this->lockAdminAccounts();
+            $user = User::query()->lockForUpdate()->findOrFail($user->getKey());
 
-        return redirect()
-            ->route('admin.users.index')
-            ->with('status', 'Tài khoản đã được cập nhật.');
+            if ($request->user()?->is($user) && $data['role'] !== User::ROLE_ADMIN) {
+                abort(403, 'Bạn không thể tự hạ quyền quản trị viên của mình.');
+            }
+
+            if ($user->isAdmin() && $data['role'] !== User::ROLE_ADMIN && $admins->count() <= 1) {
+                return back()->withErrors([
+                    'role' => 'Hệ thống phải luôn có ít nhất một quản trị viên.',
+                ]);
+            }
+
+            if (isset($data['password'])) {
+                $user->setRememberToken(Str::random(60));
+            }
+
+            $user->update($data);
+
+            return redirect()
+                ->route('admin.users.index')
+                ->with('status', 'Tài khoản đã được cập nhật.');
+        });
     }
 
     public function destroy(Request $request, User $user): RedirectResponse
@@ -126,10 +144,35 @@ class UserController extends Controller
             'Bạn không thể xóa tài khoản quản trị viên đang đăng nhập.',
         );
 
-        $user->delete();
+        return DB::transaction(function () use ($user): RedirectResponse {
+            $admins = $this->lockAdminAccounts();
+            $user = User::query()->lockForUpdate()->findOrFail($user->getKey());
 
-        return redirect()
-            ->route('admin.users.index')
-            ->with('status', 'Tài khoản đã được chuyển vào thùng rác.');
+            abort_if(
+                $user->isAdmin() && $admins->count() <= 1,
+                403,
+                'Hệ thống phải luôn có ít nhất một quản trị viên.',
+            );
+
+            $user->delete();
+
+            return redirect()
+                ->route('admin.users.index')
+                ->with('status', 'Tài khoản đã được chuyển vào thùng rác.');
+        });
+    }
+
+    /**
+     * Lock admin records in a stable order so concurrent admin changes serialize.
+     *
+     * @return Collection<int, User>
+     */
+    private function lockAdminAccounts(): Collection
+    {
+        return User::query()
+            ->where('role', User::ROLE_ADMIN)
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
     }
 }

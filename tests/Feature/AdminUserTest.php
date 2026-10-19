@@ -27,47 +27,85 @@ class AdminUserTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_inactive_admin_is_forbidden_from_user_management(): void
+    {
+        $admin = User::factory()->admin()->create([
+            'status' => User::STATUS_INACTIVE,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.users.index'))
+            ->assertForbidden();
+    }
+
     public function test_admin_can_search_users_by_name_and_email_and_filter_by_role_and_status(): void
     {
         $admin = User::factory()->admin()->create();
         $matchingUser = User::factory()->create([
-            'name' => 'Needle User',
-            'email' => 'needle-user@example.test',
+            'name' => 'UniqueNameMatch',
+            'email' => 'ordinary-user@example.test',
             'role' => User::ROLE_USER,
             'status' => User::STATUS_INACTIVE,
         ]);
-        $nameMatch = User::factory()->admin()->create([
-            'name' => 'Needle Admin',
+        $otherUser = User::factory()->create([
+            'name' => 'Unrelated User',
+            'email' => 'unrelated-user@example.test',
+        ]);
+        $emailMatch = User::factory()->admin()->create([
+            'name' => 'Ordinary Admin Name',
             'email' => 'needle-admin@example.test',
         ]);
 
         $this->actingAs($admin)
             ->get(route('admin.users.index', [
-                'q' => 'Needle',
+                'q' => 'UniqueNameMatch',
                 'role' => User::ROLE_USER,
                 'status' => User::STATUS_INACTIVE,
             ]))
             ->assertOk()
             ->assertSeeText($matchingUser->name)
-            ->assertDontSeeText($nameMatch->name);
+            ->assertDontSeeText($otherUser->name)
+            ->assertDontSeeText($emailMatch->name);
 
         $this->get(route('admin.users.index', ['q' => 'needle-admin@example.test']))
             ->assertOk()
-            ->assertSeeText($nameMatch->name)
+            ->assertSeeText($emailMatch->name)
             ->assertDontSeeText($matchingUser->name);
     }
 
     public function test_admin_user_list_is_paginated_and_keeps_the_requested_page(): void
     {
-        $admin = User::factory()->admin()->create();
-        User::factory()->count(11)->create();
+        $admin = User::factory()->admin()->create([
+            'created_at' => now()->subDays(20),
+            'updated_at' => now()->subDays(20),
+        ]);
+        $pageOneUser = User::factory()->create([
+            'name' => 'Page One User',
+            'created_at' => now()->addDays(11),
+            'updated_at' => now()->addDays(11),
+        ]);
+
+        foreach (range(2, 10) as $day) {
+            User::factory()->create([
+                'created_at' => now()->addDays($day),
+                'updated_at' => now()->addDays($day),
+            ]);
+        }
+
+        $pageTwoUser = User::factory()->create([
+            'name' => 'Page Two User',
+            'created_at' => now()->subDays(10),
+            'updated_at' => now()->subDays(10),
+        ]);
 
         $this->actingAs($admin)
             ->get(route('admin.users.index', ['page' => 2]))
             ->assertOk()
             ->assertViewHas('users', function (LengthAwarePaginator $users): bool {
                 return $users->currentPage() === 2 && $users->total() === 12;
-            });
+            })
+            ->assertSeeText($pageTwoUser->name)
+            ->assertDontSeeText($pageOneUser->name);
     }
 
     public function test_admin_can_open_create_and_edit_user_forms(): void
@@ -158,6 +196,29 @@ class AdminUserTest extends TestCase
         $this->assertSame($existingPasswordHash, $user->password);
     }
 
+    public function test_admin_can_update_password_and_refresh_the_remember_token(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $user = User::factory()->create();
+        $existingRememberToken = $user->getRememberToken();
+
+        $this->actingAs($admin)
+            ->put(route('admin.users.update', $user), [
+                'name' => $user->name,
+                'email' => $user->email,
+                'password' => 'new-secure-password',
+                'password_confirmation' => 'new-secure-password',
+                'role' => User::ROLE_USER,
+                'status' => User::STATUS_ACTIVE,
+            ])
+            ->assertRedirect(route('admin.users.index'));
+
+        $user->refresh();
+        $this->assertTrue(Hash::check('new-secure-password', $user->password));
+        $this->assertNotSame($existingRememberToken, $user->getRememberToken());
+        $this->assertSame(60, strlen($user->getRememberToken()));
+    }
+
     public function test_admin_cannot_update_user_to_another_users_email(): void
     {
         $admin = User::factory()->admin()->create();
@@ -193,7 +254,7 @@ class AdminUserTest extends TestCase
         $this->assertSoftDeleted($user);
     }
 
-    public function test_admin_cannot_delete_their_own_account(): void
+    public function test_admin_cannot_delete_the_last_admin_account(): void
     {
         $admin = User::factory()->admin()->create();
 
@@ -203,9 +264,10 @@ class AdminUserTest extends TestCase
 
         $this->assertModelExists($admin);
         $this->assertNull($admin->fresh()->deleted_at);
+        $this->assertSame(1, User::query()->where('role', User::ROLE_ADMIN)->count());
     }
 
-    public function test_admin_cannot_demote_their_own_account(): void
+    public function test_admin_cannot_demote_the_last_admin_account(): void
     {
         $admin = User::factory()->admin()->create();
 
@@ -223,5 +285,6 @@ class AdminUserTest extends TestCase
             ->assertSessionHasErrors('role');
 
         $this->assertSame(User::ROLE_ADMIN, $admin->fresh()->role);
+        $this->assertSame(1, User::query()->where('role', User::ROLE_ADMIN)->count());
     }
 }

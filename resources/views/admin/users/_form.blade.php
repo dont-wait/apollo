@@ -1,4 +1,4 @@
-<form method="POST" action="{{ $action }}" class="space-y-6">
+<form method="POST" action="{{ $action }}" class="mx-auto w-full max-w-3xl space-y-6">
     @csrf
     @if ($method !== 'POST')
         @method($method)
@@ -24,24 +24,48 @@
         </div>
 
         <div class="grid gap-5 md:grid-cols-2">
-            <div>
+            <div x-data="{ showPassword: false }">
                 <label for="password" class="mb-2 block text-sm font-medium">
                     Mật khẩu
                     @if (! $user)<span class="text-red-300">*</span>@endif
                 </label>
-                <input id="password" name="password" type="password" @required(! $user) minlength="8" autocomplete="new-password" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] focus:border-sky-400 focus:outline-none">
+                <div class="relative">
+                    <input id="password" name="password" type="password" :type="showPassword ? 'text' : 'password'" @required(! $user) minlength="8" autocomplete="new-password" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 pr-11 text-sm text-[#e1e2ea] focus:border-sky-400 focus:outline-none">
+                    <button type="button" class="absolute inset-y-0 right-2 flex items-center rounded px-2 text-[#87929a] transition hover:text-[#e1e2ea]" @click="showPassword = !showPassword" :aria-label="showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'">
+                        <svg class="size-5" x-show="!showPassword" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path d="M2.5 12s3.5-5 9.5-5 9.5 5 9.5 5-3.5 5-9.5 5-9.5-5-9.5-5Z"></path>
+                            <circle cx="12" cy="12" r="2.5"></circle>
+                        </svg>
+                        <svg class="size-5" x-cloak x-show="showPassword" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path d="m3 3 18 18"></path>
+                            <path d="M10.6 6.2A10.7 10.7 0 0 1 12 6c6 0 9.5 6 9.5 6a17.4 17.4 0 0 1-3.2 3.7M6.2 6.3C3.8 8 2.5 12 2.5 12s3.5 6 9.5 6c1.5 0 2.8-.4 4-.9"></path>
+                        </svg>
+                    </button>
+                </div>
                 @if ($user)
                     <p class="mt-1.5 text-xs text-[#87929a]">Để trống nếu không muốn đổi mật khẩu.</p>
                 @endif
                 @error('password') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
             </div>
 
-            <div>
+            <div x-data="{ showPasswordConfirmation: false }">
                 <label for="password_confirmation" class="mb-2 block text-sm font-medium">
                     Xác nhận mật khẩu
                     @if (! $user)<span class="text-red-300">*</span>@endif
                 </label>
-                <input id="password_confirmation" name="password_confirmation" type="password" @required(! $user) minlength="8" autocomplete="new-password" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] focus:border-sky-400 focus:outline-none">
+                <div class="relative">
+                    <input id="password_confirmation" name="password_confirmation" type="password" :type="showPasswordConfirmation ? 'text' : 'password'" @required(! $user) minlength="8" autocomplete="new-password" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 pr-11 text-sm text-[#e1e2ea] focus:border-sky-400 focus:outline-none">
+                    <button type="button" class="absolute inset-y-0 right-2 flex items-center rounded px-2 text-[#87929a] transition hover:text-[#e1e2ea]" @click="showPasswordConfirmation = !showPasswordConfirmation" :aria-label="showPasswordConfirmation ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'">
+                        <svg class="size-5" x-show="!showPasswordConfirmation" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path d="M2.5 12s3.5-5 9.5-5 9.5 5 9.5 5-3.5 5-9.5 5-9.5-5-9.5-5Z"></path>
+                            <circle cx="12" cy="12" r="2.5"></circle>
+                        </svg>
+                        <svg class="size-5" x-cloak x-show="showPasswordConfirmation" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path d="m3 3 18 18"></path>
+                            <path d="M10.6 6.2A10.7 10.7 0 0 1 12 6c6 0 9.5 6 9.5 6a17.4 17.4 0 0 1-3.2 3.7M6.2 6.3C3.8 8 2.5 12 2.5 12s3.5 6 9.5 6c1.5 0 2.8-.4 4-.9"></path>
+                        </svg>
+                    </button>
+                </div>
             </div>
         </div>
 
