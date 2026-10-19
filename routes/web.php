@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\TagController;
 use App\Http\Controllers\ArticleController as PublicArticleController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BookmarkController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\HomeController;
 use App\Http\Middleware\EnsureUserIsAdmin;
@@ -52,6 +53,17 @@ Route::middleware('guest')->group(function (): void {
 Route::post('/logout', [AuthController::class, 'logout'])
     ->middleware('auth')
     ->name('logout');
+
+Route::middleware('auth')->group(function (): void {
+    Route::get('/bookmarks', [BookmarkController::class, 'index'])
+        ->name('bookmarks.index');
+
+    Route::post('/bookmarks/{post}', [BookmarkController::class, 'store'])
+        ->name('bookmarks.store');
+
+    Route::delete('/bookmarks/{post}', [BookmarkController::class, 'destroy'])
+        ->name('bookmarks.destroy');
+});
 
 Route::prefix('admin')
     ->name('admin.')
