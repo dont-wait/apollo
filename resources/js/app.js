@@ -1,6 +1,8 @@
 import Alpine from 'alpinejs';
 import './confirm-modal.js';
 import './admin/category-tag.js';
+import './admin/ai-weekly.js';
+import './admin/notifications.js';
 window.Alpine = Alpine;
 
 window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}) => ({
