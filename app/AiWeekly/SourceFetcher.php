@@ -3,7 +3,10 @@
 namespace App\AiWeekly;
 
 use App\Models\AiSource;
+use GuzzleHttp\Psr7\FnStream;
+use GuzzleHttp\Psr7\Utils;
 use Illuminate\Support\Facades\Http;
+use Psr\Http\Message\ResponseInterface;
 use RuntimeException;
 
 class SourceFetcher
@@ -18,12 +21,29 @@ class SourceFetcher
         $url = $source->feed_url;
         $ip = $this->publicIp($url);
         $host = parse_url($url, PHP_URL_HOST);
-        $port = parse_url($url, PHP_URL_PORT) ?? (str_starts_with($url, 'https://') ? 443 : 80);
+        $port = parse_url($url, PHP_URL_PORT) ?? (strtolower(parse_url($url, PHP_URL_SCHEME)) === 'https' ? 443 : 80);
+        $limit = config('ai_weekly.max_feed_bytes');
+        $buffer = Utils::streamFor(fopen('php://temp', 'w+'));
+        $sink = FnStream::decorate($buffer, ['write' => function (string $bytes) use ($buffer, $limit): int {
+            if ($buffer->getSize() + strlen($bytes) > $limit) {
+                throw new RuntimeException('Source response is too large.');
+            }
+
+            return $buffer->write($bytes);
+        }]);
         $response = Http::connectTimeout(5)
             ->timeout(config('ai_weekly.http_timeout'))
             ->withHeaders($source->source_type === 'API' ? config('ai_weekly.api_adapters.'.$source->adapter_key.'.headers', []) : [])
             ->withoutRedirecting()
-            ->withOptions(['proxy' => '', 'curl' => [CURLOPT_RESOLVE => ["{$host}:{$port}:{$ip}"]]])
+            ->withOptions([
+                'proxy' => '', 'curl' => [CURLOPT_RESOLVE => ["{$host}:{$port}:{$ip}"]],
+                'sink' => $sink,
+                'on_headers' => function (ResponseInterface $response) use ($limit): void {
+                    if ((int) $response->getHeaderLine('Content-Length') > $limit) {
+                        throw new RuntimeException('Source response is too large.');
+                    }
+                },
+            ])
             ->get($url);
 
         if (! $response->successful()) {
@@ -33,7 +53,7 @@ class SourceFetcher
             if ($retryable && $retryAfter) {
                 $seconds = is_numeric($retryAfter) ? (int) $retryAfter : max(0, strtotime($retryAfter) - time());
             }
-            throw new SourceRequestException($retryable, $seconds);
+            throw new SourceRequestException($retryable, $seconds, $response->status());
         }
         if (strlen($response->body()) > config('ai_weekly.max_feed_bytes')) {
             throw new RuntimeException('Source response is too large.');

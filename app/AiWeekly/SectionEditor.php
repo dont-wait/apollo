@@ -38,6 +38,7 @@ class SectionEditor
     public function replace(WeeklyReview $review, string $section, string $replacement): array
     {
         $heading = self::HEADINGS[$section] ?? throw new RuntimeException('Unknown section.');
+        $this->validateReplacement($replacement);
         $body = preg_split('/^## Nguồn tham khảo\s*$/m', $review->markdown_content, 2)[0];
         if (! $this->validStructure($body)) {
             throw new RuntimeException('Review headings changed; regenerate the full review.');
@@ -62,6 +63,9 @@ class SectionEditor
         }
 
         $body = rtrim(substr($body, 0, $start))."\n\n".trim($replacement)."\n\n".ltrim(substr($body, $end));
+        if (! $this->validStructure($body)) {
+            throw new RuntimeException('Replacement changes the review headings.');
+        }
         preg_match_all('/\[\[(\d+)\]\]/', $body, $matches);
         $ids = array_values(array_unique(array_map('intval', $matches[1])));
         if ($ids === []) {
@@ -74,8 +78,49 @@ class SectionEditor
         }
 
         $body = preg_replace_callback('/\[\[(\d+)\]\]/', fn (array $match): string => '['.(array_search((int) $match[1], $ids, true) + 1).']', $body);
-        $references = collect($ids)->map(fn (int $id, int $index): string => ($index + 1).'. ['.$articles[$id]->title.']('.$articles[$id]->url.')')->implode("\n");
+        $references = collect($ids)->map(fn (int $id, int $index): string => ($index + 1).'. '.$this->reference($articles[$id]->title, $articles[$id]->url))->implode("\n");
 
         return ['markdown' => rtrim($body)."\n\n## Nguồn tham khảo\n".$references, 'citation_ids' => $ids];
+    }
+
+    public function validateReplacement(string $markdown): void
+    {
+        if (preg_match('/^ {0,3}#{1,2}(?:\s|$)|^\S[^\n]*\n {0,3}(?:=+|-+)[\t ]*$/m', $markdown)) {
+            throw new RuntimeException('Section body must not contain top-level headings.');
+        }
+    }
+
+    public function reference(string $title, string $url): string
+    {
+        $title = str_replace(
+            ['\\', '[', ']', '!', '`', '*', '_', '<', '>'],
+            ['\\\\', '\\[', '\\]', '\\!', '\\`', '\\*', '\\_', '&lt;', '&gt;'],
+            preg_replace('/\R/u', ' ', $title),
+        );
+        $url = str_replace(['\\', '(', ')', '<', '>', "\r", "\n", ' '], ['%5C', '%28', '%29', '%3C', '%3E', '%0D', '%0A', '%20'], $url);
+
+        return '['.$title.']('.$url.')';
+    }
+
+    /** @return array{markdown: string, citations: array<int, array{citation_order: int, is_representative: bool}>} */
+    public function synchronize(WeeklyReview $review, string $markdown): array
+    {
+        $body = preg_split('/^## Nguồn tham khảo\s*$/m', $markdown, 2)[0];
+        $articles = $review->sourceArticles()->orderByPivot('citation_order')->get()->keyBy('pivot.citation_order');
+        preg_match_all('/(?<!!)\[(\d+)\](?!\()/u', $body, $matches);
+        $numbers = array_values(array_unique(array_map('intval', $matches[1])));
+        $citations = [];
+        $references = [];
+        foreach ($numbers as $index => $number) {
+            $article = $articles->get($number);
+            if ($article === null) {
+                throw new RuntimeException('Review contains an unknown citation.');
+            }
+            $citations[$article->id] = ['citation_order' => $index + 1, 'is_representative' => true];
+            $references[] = ($index + 1).'. '.$this->reference($article->title, $article->url);
+        }
+        $body = preg_replace_callback('/(?<!!)\[(\d+)\](?!\()/u', fn (array $match): string => '['.(array_search((int) $match[1], $numbers, true) + 1).']', $body);
+
+        return ['markdown' => rtrim($body).($references ? "\n\n## Nguồn tham khảo\n".implode("\n", $references) : ''), 'citations' => $citations];
     }
 }

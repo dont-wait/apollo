@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\AiWeekly\ArticleNormalizer;
+use App\AiWeekly\DraftPostCreator;
 use App\AiWeekly\ModelClient;
 use App\AiWeekly\RunCoordinator;
 use App\AiWeekly\SourceFetcher;
@@ -117,6 +118,7 @@ class AiWeeklyTest extends TestCase
 
     public function test_generation_uses_snapshot_citations_and_never_creates_a_published_post(): void
     {
+        $admin = User::factory()->create(['role' => 'ADMIN']);
         $source = AiSource::factory()->create();
         $article = AiArticle::factory()->create(['source_id' => $source->id, 'published_at' => '2026-10-13 00:00:00']);
         $article->analyses()->create(['version' => 1, 'is_current' => true, 'status' => 'SUCCESS', 'summary' => 'Research summary']);
@@ -128,13 +130,14 @@ class AiWeeklyTest extends TestCase
             'title' => 'AI Weekly', 'excerpt' => 'Summary', 'markdown_content' => $this->structuredMarkdown($article->id),
             'citation_ids' => [$article->id], 'suggested_tags' => ['Research'],
         ]);
-        (new GenerateWeeklyReview($run->id))->handle(app(WeeklyDraftBuilder::class));
+        (new GenerateWeeklyReview($run->id))->handle(app(WeeklyDraftBuilder::class), app(DraftPostCreator::class));
 
         $review = WeeklyReview::firstOrFail();
         $this->assertSame('SUCCESS', $run->fresh()->status);
-        $this->assertSame('REVIEW', $review->status);
+        $this->assertSame('CONVERTED', $review->status);
         $this->assertSame(1, $review->sourceArticles()->count());
-        $this->assertSame(0, Post::count());
+        $this->assertSame('DRAFT', Post::sole()->status);
+        $this->assertSame($admin->id, Post::sole()->author_id);
         $this->assertNotNull($review->quality_warning);
     }
 
@@ -149,7 +152,7 @@ class AiWeeklyTest extends TestCase
             'citation_ids' => [999999], 'suggested_tags' => [],
         ]);
 
-        (new GenerateWeeklyReview($run->id))->handle(app(WeeklyDraftBuilder::class));
+        (new GenerateWeeklyReview($run->id))->handle(app(WeeklyDraftBuilder::class), app(DraftPostCreator::class));
 
         $this->assertSame('FAILED', $run->fresh()->status);
         $this->assertSame(0, WeeklyReview::count());
@@ -179,7 +182,7 @@ class AiWeeklyTest extends TestCase
         $review->sourceArticles()->attach($article, ['citation_order' => 1]);
 
         $this->putJson("/admin/weekly-reviews/{$review->id}", [
-            'revision' => 1, 'title' => 'Edited', 'excerpt' => 'Edited excerpt', 'markdown_content' => 'Edited body',
+            'revision' => 1, 'title' => 'Edited', 'excerpt' => 'Edited excerpt', 'markdown_content' => 'Edited body [1].',
         ])->assertOk()->assertJsonPath('data.revision', 2);
         $this->putJson("/admin/weekly-reviews/{$review->id}", [
             'revision' => 1, 'title' => 'Stale', 'markdown_content' => 'Stale body',
@@ -286,6 +289,7 @@ class AiWeeklyTest extends TestCase
 
     public function test_generation_retry_uses_the_model_frozen_before_configuration_changes(): void
     {
+        User::factory()->create(['role' => 'ADMIN']);
         config()->set([
             'ai_weekly.model' => 'original-model',
             'ai_weekly.model_url' => 'https://model.example.test/chat',
@@ -301,7 +305,7 @@ class AiWeeklyTest extends TestCase
                 'title' => 'Retried review', 'excerpt' => 'Retry summary',
                 'markdown_content' => $this->structuredMarkdown($article->id), 'citation_ids' => [$article->id],
             ])]]]])]);
-        (new GenerateWeeklyReview($run->id))->handle(app(WeeklyDraftBuilder::class));
+        (new GenerateWeeklyReview($run->id))->handle(app(WeeklyDraftBuilder::class), app(DraftPostCreator::class));
         $this->assertSame('FAILED', $run->fresh()->status);
         $this->assertSame('original-model', $run->fresh()->payload['snapshot']['model']);
         config()->set('ai_weekly.model', 'replacement-model');
@@ -309,7 +313,7 @@ class AiWeeklyTest extends TestCase
 
         $this->assertTrue(app(RunCoordinator::class)->retry($run->fresh()));
         Queue::assertPushed(GenerateWeeklyReview::class, fn (GenerateWeeklyReview $job): bool => $job->runId === $run->id && $job->attempt === 2);
-        (new GenerateWeeklyReview($run->id, 2))->handle(app(WeeklyDraftBuilder::class));
+        (new GenerateWeeklyReview($run->id, 2))->handle(app(WeeklyDraftBuilder::class), app(DraftPostCreator::class));
 
         $this->assertSame('SUCCESS', $run->fresh()->status);
         $this->assertDatabaseHas('weekly_reviews', ['generation_run_id' => $run->id, 'model_name' => 'original-model']);

@@ -20,7 +20,12 @@ return [
     'model' => env('AI_WEEKLY_MODEL'),
     'model_url' => env('AI_WEEKLY_MODEL_URL'),
     'model_key' => env('AI_WEEKLY_MODEL_KEY'),
-    'prompt_version' => '1',
+    'author_id' => env('AI_WEEKLY_AUTHOR_ID') ?: null,
+    'temperature' => (float) env('AI_WEEKLY_TEMPERATURE', 0),
+    'analysis_input_chars' => (int) env('AI_WEEKLY_ANALYSIS_INPUT_CHARS', 6000),
+    'analysis_output_tokens' => (int) env('AI_WEEKLY_ANALYSIS_OUTPUT_TOKENS', 1000),
+    'review_output_tokens' => (int) env('AI_WEEKLY_REVIEW_OUTPUT_TOKENS', 1800),
+    'prompt_version' => '2',
     'api_adapters' => [
         'generic_json' => [
             'headers' => env('AI_WEEKLY_GENERIC_API_TOKEN') ? ['Authorization' => 'Bearer '.env('AI_WEEKLY_GENERIC_API_TOKEN')] : [],

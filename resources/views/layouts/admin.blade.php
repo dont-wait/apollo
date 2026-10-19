@@ -131,10 +131,26 @@
                 </div>
             </div>
             <div class="flex items-center gap-space-md">
-                <button class="relative p-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded transition-colors" type="button">
-                    <span class="material-symbols-outlined text-[20px]">notifications</span>
-                    <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary ring-2 ring-surface-container-lowest"></span>
-                </button>
+                <details x-data="adminNotifications" data-notifications-url="{{ route('admin.notifications.index') }}" class="relative" @toggle="if ($el.open) refresh()">
+                    <summary class="relative cursor-pointer list-none rounded p-2 text-on-surface-variant hover:bg-surface-container hover:text-on-surface" aria-label="Thông báo AI Weekly">
+                        <span class="material-symbols-outlined text-[20px]">notifications</span>
+                        <span x-show="unreadCount > 0" style="display: none" x-text="unreadCount" aria-live="polite" class="absolute -right-1 -top-1 rounded-full bg-primary px-1.5 text-xs text-on-primary"></span>
+                    </summary>
+                    <div class="absolute right-0 top-full mt-2 grid w-80 gap-2 rounded border border-outline-variant bg-surface-container-lowest p-4 shadow-xl">
+                        <h2 class="font-semibold">Thông báo AI Weekly</h2>
+                        <p x-show="items.length === 0" class="text-sm text-on-surface-variant">Chưa có thông báo mới.</p>
+                        <template x-for="item in items" :key="item.id">
+                            <form method="post" :action="item.open_url">
+                                @csrf
+                                <button type="submit" class="grid w-full gap-1 rounded p-2 text-left hover:bg-surface-container">
+                                    <span class="text-xs text-primary" x-text="item.is_candidate ? 'Bản sinh lại đã sẵn sàng' : 'Bài AI Weekly nháp đã sẵn sàng'"></span>
+                                    <span class="text-sm" x-text="item.title"></span>
+                                    <span class="text-xs text-on-surface-variant" x-text="item.week_start"></span>
+                                </button>
+                            </form>
+                        </template>
+                    </div>
+                </details>
                 <div class="h-4 w-px bg-outline-variant/40"></div>
                 <div class="flex items-center gap-space-sm">
                     <div class="flex flex-col items-end">

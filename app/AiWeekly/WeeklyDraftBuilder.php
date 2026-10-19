@@ -5,7 +5,6 @@ namespace App\AiWeekly;
 use App\Models\AiArticle;
 use App\Models\AutomationRun;
 use App\Models\WeeklyReview;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use RuntimeException;
 
@@ -15,6 +14,7 @@ class WeeklyDraftBuilder
 
     public function build(AutomationRun $run): void
     {
+        $attempt = $run->attempt;
         $payload = $run->payload ?? [];
         $weekStart = $this->window->start($payload['week_start']);
         if (! isset($payload['snapshot'])) {
@@ -28,7 +28,7 @@ class WeeklyDraftBuilder
             $previousEnd = $weekStart->utc();
             $baselineAvailable = $previous->isNotEmpty()
                 && AutomationRun::query()->where('run_type', 'COLLECT')->where('status', 'SUCCESS')->where('created_at', '>=', $previousStart)->where('created_at', '<', $previousEnd)->exists()
-                && ! AutomationRun::query()->where('run_type', 'COLLECT')->whereIn('status', ['FAILED', 'PARTIAL'])->where('created_at', '>=', $previousStart)->where('created_at', '<', $previousEnd)->exists();
+                && ! AutomationRun::query()->where('run_type', 'COLLECT')->whereIn('status', ['PENDING', 'RUNNING', 'FAILED', 'PARTIAL'])->where('created_at', '>=', $previousStart)->where('created_at', '<', $previousEnd)->exists();
             $topics = [];
             foreach ($current as $article) {
                 foreach ($article->topics as $topic) {
@@ -78,7 +78,9 @@ class WeeklyDraftBuilder
                     'used_collected_at' => $article->published_at === null,
                 ])->values()->all(),
             ];
-            $run->update(['payload' => $payload]);
+            if (! $run->withinAttempt($attempt, fn (AutomationRun $locked): bool => $locked->update(['payload' => $payload]))) {
+                return;
+            }
         }
 
         $snapshot = $payload['snapshot'];
@@ -88,10 +90,7 @@ class WeeklyDraftBuilder
         }
 
         $section = $payload['section'] ?? null;
-        $instruction = $section
-            ? 'Rewrite only the '.$section.' section body in Vietnamese, without a heading. Return title, excerpt, markdown_content for this section, citation_ids and suggested_tags.'
-            : 'Write a Vietnamese weekly AI review in Markdown with these exact headings in order: '.implode(', ', SectionEditor::HEADINGS).'. Return title, excerpt, markdown_content, citation_ids and suggested_tags.';
-        $output = $this->model->complete($instruction.' Add [[article_id]] after every factual claim, using only supplied article IDs. citation_ids must list every ID used. Do not claim a trend when baseline_available is false.', $snapshot, $snapshot['model']);
+        $output = $this->model->complete(Prompts::review($section), $snapshot, $snapshot['model'], ResponseSchemas::review($validIds), config('ai_weekly.review_output_tokens'));
         $draft = Validator::make($output, [
             'title' => ['required', 'string', 'max:255'], 'excerpt' => ['required', 'string', 'max:500'],
             'markdown_content' => ['required', 'string', 'max:50000'],
@@ -101,6 +100,9 @@ class WeeklyDraftBuilder
         $draft['citation_ids'] = array_map('intval', $draft['citation_ids']);
         if (! $section && ! $this->sections->validStructure($draft['markdown_content'])) {
             throw new RuntimeException('Draft is missing a required section.');
+        }
+        if ($section) {
+            $this->sections->validateReplacement($draft['markdown_content']);
         }
         $tokens = [];
         preg_match_all('/\[\[(\d+)\]\]/', $draft['markdown_content'], $tokens);
@@ -116,18 +118,18 @@ class WeeklyDraftBuilder
         $citations = collect($draft['citation_ids'])->map(fn (int $id, int $index): array => ['article_id' => $id, 'citation_order' => $index + 1, 'is_representative' => true])->all();
         $references = collect($snapshot['articles'])->keyBy('id');
         if (! $section) {
-            $draft['markdown_content'] .= "\n\n## Nguồn tham khảo\n".collect($draft['citation_ids'])->map(fn (int $id, int $index): string => ($index + 1).'. ['.$references[$id]['title'].']('.$references[$id]['url'].')')->implode("\n");
+            $draft['markdown_content'] .= "\n\n## Nguồn tham khảo\n".collect($draft['citation_ids'])->map(fn (int $id, int $index): string => ($index + 1).'. '.$this->sections->reference($references[$id]['title'], $references[$id]['url']))->implode("\n");
         }
         $draft['quality_warning'] = ($snapshot['eligible_article_count'] ?? count($snapshot['articles'])) < config('ai_weekly.minimum_articles') || ($snapshot['eligible_source_count'] ?? count(array_unique(array_column($snapshot['articles'], 'source_name')))) < config('ai_weekly.minimum_sources') ? 'Nguồn tuần này còn hạn chế.' : null;
 
         if (($payload['mode'] ?? null) === 'candidate') {
             $payload['candidate'] = ['draft' => $draft, 'citations' => $citations, 'revision' => $payload['revision'], 'section' => $section];
-            $run->update(['payload' => $payload]);
+            $run->withinAttempt($attempt, fn (AutomationRun $locked): bool => $locked->update(['payload' => $payload]));
 
             return;
         }
 
-        DB::transaction(function () use ($run, $snapshot, $draft, $citations): void {
+        $run->withinAttempt($attempt, function () use ($run, $snapshot, $draft, $citations): void {
             $review = WeeklyReview::query()->createOrFirst(['week_start' => $snapshot['week_start']], [
                 'week_end' => $snapshot['week_end'], 'title' => $draft['title'], 'excerpt' => $draft['excerpt'],
                 'markdown_content' => $draft['markdown_content'], 'status' => 'REVIEW',

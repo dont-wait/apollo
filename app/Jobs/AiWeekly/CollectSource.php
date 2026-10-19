@@ -3,6 +3,7 @@
 namespace App\Jobs\AiWeekly;
 
 use App\AiWeekly\ArticleNormalizer;
+use App\AiWeekly\PipelineFailure;
 use App\AiWeekly\SourceFetcher;
 use App\AiWeekly\SourceRequestException;
 use App\Models\AiArticle;
@@ -44,23 +45,26 @@ class CollectSource implements ShouldQueue
             return;
         }
 
-        $run->update(['status' => 'RUNNING', 'started_at' => $run->started_at ?? now(), 'locked_at' => now()]);
+        if (! $run->withinAttempt($this->attempt, fn (AutomationRun $locked): bool => $locked->update(['status' => 'RUNNING', 'started_at' => $locked->started_at ?? now(), 'locked_at' => now()]))) {
+            return;
+        }
         try {
             $items = $fetcher->fetch($source);
         } catch (SourceRequestException $exception) {
             $this->record([
                 'status' => 'FAILED', 'retryable' => $exception->retryable,
                 'retry_after_at' => $exception->retryAfterSeconds === null ? null : now()->addSeconds($exception->retryAfterSeconds)->toIso8601String(),
-                'error' => 'Source request failed.',
+                'error' => 'Source request failed.', 'http_status' => $exception->statusCode,
             ]);
 
             return;
         } catch (RuntimeException $exception) {
-            $this->record(['status' => 'FAILED', 'retryable' => false, 'error' => 'Source URL, response or feed is invalid.']);
+            $this->record(['status' => 'FAILED', 'retryable' => false, 'error' => PipelineFailure::message($exception)]);
 
             return;
         }
         $new = $duplicate = $invalid = 0;
+        $itemErrors = [];
         foreach ($items as $item) {
             try {
                 if (! is_array($item) || ! is_string($item['title'] ?? null) || trim($item['title']) === '' || ! is_string($item['url'] ?? null)) {
@@ -71,47 +75,57 @@ class CollectSource implements ShouldQueue
                 $canonical = $normalizer->canonicalUrl($item['url']);
                 $fingerprint = $normalizer->titleFingerprint($item['title']);
                 $published = ! empty($item['published_at']) ? CarbonImmutable::parse($item['published_at'])->utc() : null;
-                $sameStory = AiArticle::query()
-                    ->where('source_id', $source->id)
-                    ->where('title_fingerprint', $fingerprint)
-                    ->when($published, fn ($query) => $query->whereDate('published_at', $published->toDateString()))
-                    ->when(! $published, fn ($query) => $query->whereNull('published_at'))
-                    ->get()->first(fn (AiArticle $candidate): bool => (! empty($item['content']) && $candidate->raw_content === $item['content'])
+                $inserted = $run->withinAttempt($this->attempt, function () use ($source, $fingerprint, $published, $item, $canonical, $run): int {
+                    AiSource::query()->lockForUpdate()->findOrFail($source->id);
+                    $sameStory = AiArticle::query()
+                        ->where('source_id', $source->id)
+                        ->where('title_fingerprint', $fingerprint)
+                        ->when($published, fn ($query) => $query->whereDate('published_at', $published->toDateString()))
+                        ->when(! $published, fn ($query) => $query->whereNull('published_at'))
+                        ->get()->first(fn (AiArticle $candidate): bool => (! empty($item['content']) && $candidate->raw_content === $item['content'])
                         || (! empty($item['summary']) && $candidate->raw_summary === $item['summary'])
-                    );
-                $inserted = DB::table('ai_articles')->insertOrIgnore([
-                    'source_id' => $source->id,
-                    'collection_run_id' => $run->id,
-                    'duplicate_of' => $sameStory?->duplicate_of ?? $sameStory?->id,
-                    'title' => trim($item['title']),
-                    'url' => $item['url'],
-                    'canonical_url' => $canonical,
-                    'canonical_url_hash' => hash('sha256', $canonical),
-                    'title_fingerprint' => $fingerprint,
-                    'author' => $item['author'] ?? null,
-                    'published_at' => $published,
-                    'raw_summary' => $item['summary'] ?? null,
-                    'raw_content' => $item['content'] ?? null,
-                    'status' => 'COLLECTED',
-                    'collected_at' => now(),
-                ]);
+                        );
+
+                    return DB::table('ai_articles')->insertOrIgnore([
+                        'source_id' => $source->id,
+                        'collection_run_id' => $run->id,
+                        'duplicate_of' => $sameStory?->duplicate_of ?? $sameStory?->id,
+                        'title' => trim($item['title']),
+                        'url' => $item['url'],
+                        'canonical_url' => $canonical,
+                        'canonical_url_hash' => hash('sha256', $canonical),
+                        'title_fingerprint' => $fingerprint,
+                        'author' => $item['author'] ?? null,
+                        'published_at' => $published,
+                        'raw_summary' => $item['summary'] ?? null,
+                        'raw_content' => $item['content'] ?? null,
+                        'status' => 'COLLECTED',
+                        'collected_at' => now(),
+                    ]);
+                });
+                if ($inserted === null) {
+                    return;
+                }
                 if ($inserted) {
                     $new++;
                 } else {
                     $duplicate++;
                 }
-            } catch (Throwable) {
+            } catch (Throwable $exception) {
                 $invalid++;
+                if (count($itemErrors) < 10) {
+                    $itemErrors[] = PipelineFailure::message($exception);
+                }
             }
         }
 
-        $source->update(['last_fetched_at' => now()]);
-        $this->record(['status' => 'SUCCESS', 'new' => $new, 'duplicate' => $duplicate, 'invalid' => $invalid]);
+        $run->withinAttempt($this->attempt, fn (): bool => $source->update(['last_fetched_at' => now()]));
+        $this->record(['status' => 'SUCCESS', 'new' => $new, 'duplicate' => $duplicate, 'invalid' => $invalid, 'item_errors' => $itemErrors]);
     }
 
     public function failed(?Throwable $exception): void
     {
-        $this->record(['status' => 'FAILED', 'retryable' => true, 'error' => 'Source fetch or parse failed.']);
+        $this->record(['status' => 'FAILED', 'retryable' => true, 'error' => $exception ? PipelineFailure::message($exception) : 'Source fetch or parse failed.']);
     }
 
     /** @param array<string, mixed> $result */

@@ -2,13 +2,12 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\AiWeekly\DraftPostCreator;
 use App\AiWeekly\RunCoordinator;
 use App\AiWeekly\SectionEditor;
 use App\Http\Controllers\Controller;
 use App\Jobs\AiWeekly\GenerateWeeklyReview;
 use App\Models\AutomationRun;
-use App\Models\Post;
-use App\Models\Tag;
 use App\Models\WeeklyReview;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -16,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class WeeklyReviewController extends Controller
@@ -36,6 +36,7 @@ class WeeklyReviewController extends Controller
         }
 
         $previewHtml = Str::markdown($review->markdown_content, ['html_input' => 'strip', 'allow_unsafe_links' => false]);
+        $previewHtml = preg_replace('/<img\b[^>]*>/i', '', $previewHtml);
 
         return view('admin.ai-weekly.review', compact('review', 'candidateRun', 'previewHtml'));
     }
@@ -53,7 +54,7 @@ class WeeklyReviewController extends Controller
         return response()->json(['run_id' => $run->id], 202);
     }
 
-    public function update(Request $request, WeeklyReview $review): JsonResponse
+    public function update(Request $request, WeeklyReview $review, SectionEditor $sections): JsonResponse
     {
         $data = $request->validate([
             'revision' => ['required', 'integer', 'min:1'], 'title' => ['required', 'string', 'max:255'],
@@ -61,17 +62,23 @@ class WeeklyReviewController extends Controller
         ]);
         $data['revision'] = (int) $data['revision'];
 
-        return DB::transaction(function () use ($review, $data): JsonResponse {
+        return DB::transaction(function () use ($review, $data, $sections): JsonResponse {
             $locked = WeeklyReview::query()->lockForUpdate()->findOrFail($review->id);
             if (! in_array($locked->status, ['DRAFT', 'REVIEW'], true) || $locked->revision !== $data['revision']) {
                 return response()->json(['message' => 'Review đã thay đổi hoặc không thể sửa.'], 409);
             }
 
+            try {
+                $content = $sections->synchronize($locked, strip_tags($data['markdown_content']));
+            } catch (\RuntimeException $exception) {
+                throw ValidationException::withMessages(['markdown_content' => $exception->getMessage()]);
+            }
             $locked->update([
                 'title' => $data['title'], 'excerpt' => $data['excerpt'] ?? null,
-                'markdown_content' => strip_tags($data['markdown_content']), 'revision' => $locked->revision + 1,
+                'markdown_content' => $content['markdown'], 'revision' => $locked->revision + 1,
                 'reviewed_by' => auth()->id(), 'reviewed_at' => now(),
             ]);
+            $locked->sourceArticles()->sync($content['citations']);
 
             return response()->json(['data' => $locked]);
         });
@@ -145,32 +152,15 @@ class WeeklyReviewController extends Controller
         });
     }
 
-    public function convert(Request $request, WeeklyReview $review): JsonResponse
+    public function convert(Request $request, WeeklyReview $review, DraftPostCreator $drafts): JsonResponse
     {
-        return DB::transaction(function () use ($request, $review): JsonResponse {
-            $locked = WeeklyReview::query()->lockForUpdate()->findOrFail($review->id);
-            $existing = Post::withTrashed()->where('weekly_review_id', $locked->id)->first();
-            if ($existing) {
-                return response()->json(['data' => $existing]);
-            }
-            if (! in_array($locked->status, ['DRAFT', 'REVIEW'], true) || ! $locked->sourceArticles()->exists()) {
-                return response()->json(['message' => 'Review chưa hợp lệ để chuyển.'], 409);
-            }
+        try {
+            $post = $drafts->create($review, $request->user());
+        } catch (\DomainException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 409);
+        }
 
-            $category = $locked->suggestedCategory;
-            $post = Post::create([
-                'author_id' => $request->user()->id, 'weekly_review_id' => $locked->id,
-                'category_id' => $category?->status === 'ACTIVE' ? $category->id : null,
-                'title' => $locked->title, 'slug' => Str::limit(Str::slug($locked->title), 200, '').'-weekly-'.$locked->id,
-                'excerpt' => $locked->excerpt, 'markdown_content' => $locked->markdown_content,
-                'status' => 'DRAFT', 'source_type' => 'AI_WEEKLY',
-            ]);
-            $tagIds = Tag::query()->whereIn('name', $locked->suggested_tags ?? [])->pluck('id');
-            $post->tags()->sync($tagIds);
-            $locked->update(['status' => 'CONVERTED', 'reviewed_by' => $request->user()->id, 'reviewed_at' => now()]);
-
-            return response()->json(['data' => $post], 201);
-        });
+        return response()->json(['data' => $post], $post->wasRecentlyCreated ? 201 : 200);
     }
 
     /** @return array<string, mixed> */
