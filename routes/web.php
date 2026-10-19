@@ -5,11 +5,13 @@ use App\Http\Controllers\Admin\AiSourceController;
 use App\Http\Controllers\Admin\ArticleController;
 use App\Http\Controllers\Admin\AutomationRunController;
 use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Admin\CommentController as AdminCommentController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\TagController;
 use App\Http\Controllers\Admin\WeeklyReviewController;
 use App\Http\Controllers\ArticleController as PublicArticleController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CommentController;
 use App\Http\Controllers\HomeController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Support\Facades\Route;
@@ -18,6 +20,26 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 
 Route::get('/articles/{article:slug}', [PublicArticleController::class, 'show'])
     ->name('articles.show');
+
+Route::prefix('articles/{article:slug}/comments')
+    ->name('articles.comments.')
+    ->group(function (): void {
+        Route::get('/', [CommentController::class, 'index'])->name('index');
+        Route::post('/', [CommentController::class, 'store'])
+            ->middleware(['auth', 'throttle:comments'])
+            ->name('store');
+        Route::patch('/{comment}', [CommentController::class, 'update'])
+            ->middleware(['auth', 'throttle:comments'])
+            ->scopeBindings()
+            ->name('update');
+        Route::delete('/{comment}', [CommentController::class, 'destroy'])
+            ->middleware('auth')
+            ->scopeBindings()
+            ->name('destroy');
+        Route::get('/{comment}/replies', [CommentController::class, 'replies'])
+            ->scopeBindings()
+            ->name('replies');
+    });
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -98,4 +120,12 @@ Route::prefix('admin')
         Route::post('/weekly-reviews/{review}/regenerate', [WeeklyReviewController::class, 'regenerate'])->name('weekly-reviews.regenerate');
         Route::post('/weekly-reviews/{review}/apply-candidate', [WeeklyReviewController::class, 'applyCandidate'])->name('weekly-reviews.apply-candidate');
         Route::post('/weekly-reviews/{review}/convert-to-post', [WeeklyReviewController::class, 'convert'])->name('weekly-reviews.convert');
+        Route::get('/comments', [AdminCommentController::class, 'index'])
+            ->name('comments.index');
+
+        Route::patch('/comments/{comment}/status', [AdminCommentController::class, 'updateStatus'])
+            ->name('comments.update-status');
+
+        Route::patch('/comments/bulk-status', [AdminCommentController::class, 'bulkUpdateStatus'])
+            ->name('comments.bulk-status');
     });
