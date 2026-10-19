@@ -84,7 +84,11 @@
             </nav>
             <nav class="space-y-1" data-active-classes="bg-surface-container-high text-primary border-l-2 border-primary font-semibold">
                 <div class="px-3 pb-1 font-label-sm text-label-sm text-outline tracking-wider uppercase">Community</div>
-                <a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all font-body-sm text-body-sm" data-path="admin-users" href="#">
+                <a @class([
+                    'flex items-center gap-3 px-3 py-2 rounded transition-all font-body-sm text-body-sm',
+                    'bg-surface-container-high text-primary border-l-2 border-primary font-semibold' => request()->routeIs('admin.users.*'),
+                    'text-on-surface-variant hover:bg-surface-container hover:text-on-surface' => ! request()->routeIs('admin.users.*'),
+                ]) @if (request()->routeIs('admin.users.*')) aria-current="page" @endif data-path="admin-users" href="{{ route('admin.users.index') }}">
                     <span class="material-symbols-outlined text-[18px]">group</span>
                     <span>Users</span>
                 </a>

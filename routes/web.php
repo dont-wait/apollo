@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CommentController as AdminCommentController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\TagController;
+use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\ArticleController as PublicArticleController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CommentController;
@@ -62,6 +63,7 @@ Route::prefix('admin')
         })->name('dashboard');
 
         Route::resource('articles', ArticleController::class)->except(['show']);
+        Route::resource('users', UserController::class)->except(['show']);
 
         Route::get('/categories', [CategoryController::class, 'index'])
             ->name('categories.index');
