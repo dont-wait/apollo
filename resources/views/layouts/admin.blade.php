@@ -92,7 +92,7 @@
                     <span class="material-symbols-outlined text-[18px]">group</span>
                     <span>Users</span>
                 </a>
-                <a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all font-body-sm text-body-sm" data-path="comment-moderation" href="#">
+                <a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all font-body-sm text-body-sm" data-path="comment-moderation" href="{{ route('admin.comments.index') }}">
                     <span class="material-symbols-outlined text-[18px]">rate_review</span>
                     <span>Comments Moderation</span>
                 </a>
