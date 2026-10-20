@@ -7,6 +7,8 @@
         $totalAssets = $media->count();
         $totalBytes = $media->sum('size_bytes');
 
+        $storageLabel = strtoupper((string) config('filesystems.media_disk', 'local'));
+
         $formatBytes = function ($bytes) {
             return match (true) {
                 $bytes >= 1073741824 => number_format($bytes / 1073741824, 2) . ' GB',
@@ -15,9 +17,6 @@
                 default => $bytes . ' B',
             };
         };
-
-        $mediaDisk = config('filesystems.media_disk', 'local');
-        $storageLabel = strtoupper((string) $mediaDisk);
     @endphp
 
     <div
@@ -1126,21 +1125,6 @@
             let pendingReplaceUrl = null;
             let pendingReplaceFileName = null;
 
-            const confirmModal =
-                document.getElementById('confirmModal');
-
-            const confirmModalTitle =
-                document.getElementById('confirmModalTitle');
-
-            const confirmModalMessage =
-                document.getElementById('confirmModalMessage');
-
-            const confirmModalCancel =
-                document.getElementById('confirmModalCancel');
-
-            const confirmModalConfirm =
-                document.getElementById('confirmModalConfirm');
-
             const renameMediaModal =
                 document.getElementById('renameMediaModal');
 
@@ -1187,125 +1171,18 @@
 
             let activeFilter = 'all';
 
-            function showConfirmModal({
-                title = 'Confirm Action',
-                message,
-                confirmText = 'Confirm',
-            }) {
-                return new Promise((resolve) => {
-                    if (!confirmModal) {
-                        resolve(false);
-                        return;
-                    }
-
-                    confirmModalTitle.textContent = title;
-                    confirmModalMessage.textContent = message;
-                    confirmModalConfirm.textContent = confirmText;
-
-                    confirmModal.classList.remove('hidden');
-                    confirmModal.classList.add('flex');
-                    confirmModal.setAttribute(
-                        'aria-hidden',
-                        'false'
-                    );
-
-                    const closeModal = (result) => {
-                        confirmModal.classList.add('hidden');
-                        confirmModal.classList.remove('flex');
-                        confirmModal.setAttribute(
-                            'aria-hidden',
-                            'true'
-                        );
-
-                        confirmModalCancel.removeEventListener(
-                            'click',
-                            handleCancel
-                        );
-
-                        confirmModalConfirm.removeEventListener(
-                            'click',
-                            handleConfirm
-                        );
-
-                        confirmModal.removeEventListener(
-                            'click',
-                            handleBackdrop
-                        );
-
-                        document.removeEventListener(
-                            'keydown',
-                            handleEscape
-                        );
-
-                        resolve(result);
-                    };
-
-                    const handleCancel = () => {
-                        closeModal(false);
-                    };
-
-                    const handleConfirm = () => {
-                        closeModal(true);
-                    };
-
-                    const handleBackdrop = (event) => {
-                        if (event.target === confirmModal) {
-                            closeModal(false);
-                        }
-                    };
-
-                    const handleEscape = (event) => {
-                        if (event.key === 'Escape') {
-                            closeModal(false);
-                        }
-                    };
-
-                    confirmModalCancel.addEventListener(
-                        'click',
-                        handleCancel
-                    );
-
-                    confirmModalConfirm.addEventListener(
-                        'click',
-                        handleConfirm
-                    );
-
-                    confirmModal.addEventListener(
-                        'click',
-                        handleBackdrop
-                    );
-
-                    document.addEventListener(
-                        'keydown',
-                        handleEscape
-                    );
-
-                    confirmModalConfirm.focus();
-                });
-            }
-
-            async function showMessageModal({
-                title = 'ThÙng b·o',
-                message,
-                confirmText = '–Ûng',
-            }) {
-                confirmModalCancel.classList.add('hidden');
-
-                await showConfirmModal({
-                    title,
-                    message,
-                    confirmText,
-                });
-
-                confirmModalCancel.classList.remove('hidden');
-            }
-
             function showRenameMediaModal({
                 currentName,
                 renameUrl,
             }) {
                 return new Promise((resolve) => {
-                    if (!renameMediaModal) {
+                    if (
+                        !renameMediaModal ||
+                        !renameMediaInput ||
+                        !renameMediaError ||
+                        !renameMediaCancel ||
+                        !renameMediaSave
+                    ) {
                         resolve(null);
                         return;
                     }
@@ -1315,28 +1192,17 @@
 
                     const nameWithoutExtension =
                         extensionIndex > 0
-                            ? currentName.slice(
-                                0,
-                                extensionIndex
-                            )
+                            ? currentName.slice(0, extensionIndex)
                             : currentName;
 
                     renameMediaInput.value =
                         nameWithoutExtension;
 
                     renameMediaError.textContent = '';
-                    renameMediaError.classList.add(
-                        'hidden'
-                    );
+                    renameMediaError.classList.add('hidden');
 
-                    renameMediaModal.classList.remove(
-                        'hidden'
-                    );
-
-                    renameMediaModal.classList.add(
-                        'flex'
-                    );
-
+                    renameMediaModal.classList.remove('hidden');
+                    renameMediaModal.classList.add('flex');
                     renameMediaModal.setAttribute(
                         'aria-hidden',
                         'false'
@@ -1346,14 +1212,8 @@
                     renameMediaInput.select();
 
                     const closeModal = (result) => {
-                        renameMediaModal.classList.add(
-                            'hidden'
-                        );
-
-                        renameMediaModal.classList.remove(
-                            'flex'
-                        );
-
+                        renameMediaModal.classList.add('hidden');
+                        renameMediaModal.classList.remove('flex');
                         renameMediaModal.setAttribute(
                             'aria-hidden',
                             'true'
@@ -1392,7 +1252,7 @@
 
                         if (!name) {
                             renameMediaError.textContent =
-                                'TÍn media khÙng du?c d? tr?ng.';
+                                'T√™n media kh√¥ng ƒë∆∞·ª£c ƒë·ªÉ tr·ªëng.';
 
                             renameMediaError.classList.remove(
                                 'hidden'
@@ -1408,10 +1268,7 @@
                     };
 
                     const handleBackdrop = (event) => {
-                        if (
-                            event.target ===
-                            renameMediaModal
-                        ) {
+                        if (event.target === renameMediaModal) {
                             closeModal(null);
                         }
                     };
@@ -1535,11 +1392,11 @@
                     }
 
                     const confirmed =
-                        await showConfirmModal({
-                            title: 'Thay th? media',
+                        await window.showConfirmModal({
+                            title: 'Thay th·∫ø media',
                             message:
-                                `B?n cÛ ch?c mu?n thay "${currentFileName}" b?ng "${file.name}" khÙng?`,
-                            confirmText: 'Thay th?',
+                                `B·∫°n c√≥ ch·∫Øc mu·ªën thay "${currentFileName}" b·∫±ng "${file.name}" kh√¥ng?`,
+                            confirmText: 'Thay th·∫ø',
                         });
 
                     if (!confirmed) {
@@ -1548,10 +1405,7 @@
 
                     const formData = new FormData();
 
-                    formData.append(
-                        'file',
-                        file
-                    );
+                    formData.append('file', file);
 
                     try {
                         const response = await fetch(
@@ -1573,14 +1427,15 @@
                             const validationMessage =
                                 result.errors?.file?.[0];
 
-                            await showMessageModal({
+                            await window.showConfirmModal({
                                 title:
-                                    'KhÙng th? thay th? media',
+                                    'Kh√¥ng th·ªÉ thay th·∫ø media',
                                 message:
                                     validationMessage ??
                                     result.message ??
-                                    'KhÙng th? thay th? media.',
-                                confirmText: '–Ûng',
+                                    'Kh√¥ng th·ªÉ thay th·∫ø media.',
+                                confirmText: 'ƒê√≥ng',
+                                showCancel: false,
                             });
 
                             return;
@@ -1588,96 +1443,12 @@
 
                         window.location.reload();
                     } catch (error) {
-                        await showMessageModal({
-                            title: 'L?i',
+                        await window.showConfirmModal({
+                            title: 'L·ªói',
                             message:
-                                'CÛ l?i x?y ra khi thay th? media.',
-                            confirmText: '–Ûng',
-                        });
-                    }
-                }
-            );
-
-            replaceMediaFileInput?.addEventListener(
-                'change',
-                async () => {
-                    const file =
-                        replaceMediaFileInput.files?.[0];
-
-                    const replaceUrl =
-                        pendingReplaceUrl;
-
-                    const currentFileName =
-                        pendingReplaceFileName;
-
-                    replaceMediaFileInput.value = '';
-
-                    pendingReplaceUrl = null;
-                    pendingReplaceFileName = null;
-
-                    if (!file || !replaceUrl) {
-                        return;
-                    }
-
-                    const confirmed =
-                        await showConfirmModal({
-                            title: 'Thay th? media',
-                            message:
-                                `B?n cÛ ch?c mu?n thay "${currentFileName}" b?ng "${file.name}" khÙng?`,
-                            confirmText: 'Thay th?',
-                        });
-
-                    if (!confirmed) {
-                        return;
-                    }
-
-                    const formData = new FormData();
-
-                    formData.append(
-                        'file',
-                        file
-                    );
-
-                    try {
-                        const response = await fetch(
-                            replaceUrl,
-                            {
-                                method: 'POST',
-                                headers: {
-                                    'X-CSRF-TOKEN': csrf,
-                                    'Accept': 'application/json',
-                                },
-                                body: formData,
-                            }
-                        );
-
-                        const result =
-                            await response.json();
-
-                        if (!response.ok) {
-                            const validationMessage =
-                                result.errors?.file?.[0];
-
-                            await showMessageModal({
-                                title:
-                                    'KhÙng th? thay th? media',
-                                message:
-                                    validationMessage ??
-                                    result.message ??
-                                    'KhÙng th? thay th? media.',
-                                confirmText: '–Ûng',
-                            });
-
-                            return;
-                        }
-
-                        window.location.reload();
-                    } catch (error) {
-                        await showMessageModal({
-                            title: 'L?i',
-                            message:
-                                'CÛ l?i x?y ra khi thay th? media.',
-                            confirmText: '–Ûng',
+                                'C√≥ l·ªói x·∫£y ra khi thay th·∫ø media.',
+                            confirmText: 'ƒê√≥ng',
+                            showCancel: false,
                         });
                     }
                 }
@@ -2039,12 +1810,10 @@
                             event.currentTarget;
 
                         pendingReplaceUrl =
-                            button.dataset.replaceUrl ??
-                            null;
+                            button.dataset.replaceUrl ?? null;
 
                         pendingReplaceFileName =
-                            button.dataset.fileName ??
-                            null;
+                            button.dataset.fileName ?? null;
 
                         if (!pendingReplaceUrl) {
                             return;
@@ -2094,8 +1863,7 @@
                                     method: 'PATCH',
                                     headers: {
                                         'X-CSRF-TOKEN': csrf,
-                                        'Accept':
-                                            'application/json',
+                                        'Accept': 'application/json',
                                         'Content-Type':
                                             'application/json',
                                     },
@@ -2112,14 +1880,15 @@
                                 const validationMessage =
                                     result.errors?.name?.[0];
 
-                                await showMessageModal({
+                                await window.showConfirmModal({
                                     title:
-                                        'KhÙng th? d?i tÍn',
+                                        'Kh√¥ng th·ªÉ ƒë·ªïi t√™n',
                                     message:
                                         validationMessage ??
                                         result.message ??
-                                        'KhÙng th? d?i tÍn media.',
-                                    confirmText: '–Ûng',
+                                        'Kh√¥ng th·ªÉ ƒë·ªïi t√™n media.',
+                                    confirmText: 'ƒê√≥ng',
+                                    showCancel: false,
                                 });
 
                                 return;
@@ -2127,11 +1896,12 @@
 
                             window.location.reload();
                         } catch (error) {
-                            await showMessageModal({
-                                title: 'L?i',
+                            await window.showConfirmModal({
+                                title: 'L·ªói',
                                 message:
-                                    'CÛ l?i x?y ra khi d?i tÍn media.',
-                                confirmText: '–Ûng',
+                                    'C√≥ l·ªói x·∫£y ra khi ƒë·ªïi t√™n media.',
+                                confirmText: 'ƒê√≥ng',
+                                showCancel: false,
                             });
                         } finally {
                             button.disabled = false;
@@ -2160,11 +1930,11 @@
                         }
 
                         const confirmed =
-                            await showConfirmModal({
-                                title: 'XÛa media',
+                            await window.showConfirmModal({
+                                title: 'X√≥a media',
                                 message:
-                                    `B?n cÛ ch?c mu?n xÛa "${fileName}" khÙng?`,
-                                confirmText: 'XÛa',
+                                    `B·∫°n c√≥ ch·∫Øc mu·ªën x√≥a "${fileName}" kh√¥ng?`,
+                                confirmText: 'X√≥a',
                             });
 
                         if (!confirmed) {
@@ -2180,8 +1950,7 @@
                                     method: 'DELETE',
                                     headers: {
                                         'X-CSRF-TOKEN': csrf,
-                                        'Accept':
-                                            'application/json',
+                                        'Accept': 'application/json',
                                     },
                                 }
                             );
@@ -2190,13 +1959,14 @@
                                 await response.json();
 
                             if (!response.ok) {
-                                await showMessageModal({
+                                await window.showConfirmModal({
                                     title:
-                                        'KhÙng th? xÛa media',
+                                        'Kh√¥ng th·ªÉ x√≥a media',
                                     message:
                                         result.message ??
-                                        'KhÙng th? xÛa media.',
-                                    confirmText: '–Ûng',
+                                        'Kh√¥ng th·ªÉ x√≥a media.',
+                                    confirmText: 'ƒê√≥ng',
+                                    showCancel: false,
                                 });
 
                                 return;
@@ -2204,11 +1974,12 @@
 
                             window.location.reload();
                         } catch (error) {
-                            await showMessageModal({
-                                title: 'L?i',
+                            await window.showConfirmModal({
+                                title: 'L·ªói',
                                 message:
-                                    'CÛ l?i x?y ra khi xÛa media.',
-                                confirmText: '–Ûng',
+                                    'C√≥ l·ªói x·∫£y ra khi x√≥a media.',
+                                confirmText: 'ƒê√≥ng',
+                                showCancel: false,
                             });
                         } finally {
                             button.disabled = false;

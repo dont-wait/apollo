@@ -2,7 +2,15 @@
 
 namespace App\Providers;
 
+use App\Models\Category;
+use App\Models\Tag;
+use App\Observers\RelatedPostSearchObserver;
+use GuzzleHttp\Client as HttpClient;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Meilisearch\Client;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -11,7 +19,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(RelatedPostSearchObserver::class);
+        $this->app->singleton(Client::class, fn (): Client => new Client(
+            config('scout.meilisearch.host'),
+            config('scout.meilisearch.key'),
+            new HttpClient(['connect_timeout' => 2, 'timeout' => 5]),
+        ));
     }
 
     /**
@@ -19,6 +32,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        RateLimiter::for('comments', function (Request $request): array {
+            return [
+                Limit::perMinute(10)->by('user:'.$request->user()->id),
+                Limit::perMinute(30)->by('ip:'.$request->ip()),
+            ];
+        });
+
+        Category::observe(RelatedPostSearchObserver::class);
+        Tag::observe(RelatedPostSearchObserver::class);
     }
 }
