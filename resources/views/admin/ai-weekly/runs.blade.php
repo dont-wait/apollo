@@ -62,7 +62,7 @@
                                     </div>
                                 </td>
                                 <td class="whitespace-nowrap px-4 py-5 font-mono text-xs text-on-surface-variant" x-text="`${run.attempt}/${run.max_attempts}`"></td>
-                                <td class="whitespace-nowrap px-5 py-5 text-[11px] text-outline"><span x-text="run.created_at"></span><a :href="run.url" class="mt-2 inline-flex items-center gap-1 text-primary">Chi tiết<span class="material-symbols-outlined text-sm" aria-hidden="true">arrow_outward</span></a></td>
+                                <td class="whitespace-nowrap px-5 py-5 text-[11px] text-outline"><span class="block" x-text="run.created_at"></span><a :href="run.url" class="mt-2 inline-flex items-center gap-1 text-primary">Chi tiết<span class="material-symbols-outlined text-sm" aria-hidden="true">arrow_outward</span></a></td>
                             </tr>
                         </template>
                         <tr x-cloak x-show="listing.records.length === 0"><td colspan="5" class="px-6 py-14 text-center"><span class="material-symbols-outlined mb-3 text-4xl text-outline" aria-hidden="true">inbox</span><p class="text-sm font-medium">Chưa có tác vụ phù hợp</p><p class="mt-2 text-xs text-outline">Khởi chạy một tác vụ hoặc điều chỉnh bộ lọc để xem kết quả.</p></td></tr>
