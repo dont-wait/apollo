@@ -41,8 +41,13 @@ class AutomationRun extends Model
         $payload = $this->payload ?? [];
         $active = in_array($this->status, ['PENDING', 'RUNNING'], true);
         $results = $this->run_type === 'COLLECT' ? ($payload['sources'] ?? []) : ($payload['article_results'] ?? []);
-        $completed = count(array_filter($results, fn (array $item): bool => in_array($item['status'] ?? '', ['SUCCESS', 'FAILED', 'SKIPPED'], true)));
-        $failed = count(array_filter($results, fn (array $item): bool => ($item['status'] ?? '') === 'FAILED'));
+        if ($this->run_type === 'ANALYZE' && $this->getAttribute('progress_completed') !== null) {
+            $completed = (int) $this->getAttribute('progress_completed');
+            $failed = (int) $this->getAttribute('progress_failed');
+        } else {
+            $completed = count(array_filter($results, fn (array $item): bool => in_array($item['status'] ?? '', ['SUCCESS', 'FAILED', 'SKIPPED'], true)));
+            $failed = count(array_filter($results, fn (array $item): bool => ($item['status'] ?? '') === 'FAILED'));
+        }
         $total = $this->run_type === 'COLLECT' ? count($results) : ($payload['total'] ?? null);
         $currentItem = $payload['current_item'] ?? null;
         if ($this->run_type === 'COLLECT') {

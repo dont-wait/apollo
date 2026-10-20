@@ -7,7 +7,7 @@ const source = readFileSync(new URL('../resources/js/admin/ai-weekly.js', import
 const activeRun = (id = 1, status = 'RUNNING') => ({ id, status, run_type: 'ANALYZE' });
 const result = runs => ({ ok: true, json: async () => ({ current_runs: runs }) });
 
-function createMonitor(fetch, initial = [activeRun()]) {
+function createMonitor(fetch, initial = [activeRun()], listing = null) {
     const listeners = {};
     const timers = new Map();
     let timerId = 0;
@@ -18,11 +18,11 @@ function createMonitor(fetch, initial = [activeRun()]) {
     };
     runInNewContext(source, {
         window, document: { addEventListener: (name, callback) => { listeners[name] = callback; } },
-        fetch, AbortController,
+        fetch, AbortController, URL,
         CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
         FormData: class { constructor(form) { return Object.entries(form.fields); } },
     });
-    return { monitor: window.aiPipeline(initial, '/admin/automation-runs'), window, timers, listeners };
+    return { monitor: window.aiPipeline(initial, '/admin/automation-runs', listing), window, timers, listeners };
 }
 
 function deferred() {
@@ -126,4 +126,89 @@ test('repeated submit events send only one request while the first is pending', 
     await pending;
     assert.match(feedback.textContent, /Job đã được chạy trước đó/);
     assert.equal(form.dataset.submitting, undefined);
+});
+
+
+test('polling updates progress on paginated records separately from global active jobs', async () => {
+    const oldRun = activeRun(2, 'SUCCESS');
+    oldRun.progress = { completed: 3, total: 3, percent: 100 };
+    const listing = { records: [oldRun], total: 31, page: 2, filtered: true };
+    const { monitor } = createMonitor(async () => ({ ok: true, json: async () => ({ current_runs: [activeRun(9)], listing }) }), [], { records: [], total: 0, page: 2, filtered: true });
+
+    await monitor.refresh();
+
+    assert.equal(monitor.listing.records[0].id, 2);
+    assert.equal(monitor.listing.records[0].progress.percent, 100);
+    assert.equal(monitor.listing.total, 31);
+    assert.equal(monitor.runs[0].id, 9);
+    assert.equal(monitor.busy('ANALYZE'), true);
+});
+
+test('starting a job inserts its record immediately on the unfiltered first page', () => {
+    const request = deferred();
+    const { monitor } = createMonitor(() => request.promise, [], { records: [], total: 0, page: 1, filtered: false });
+
+    monitor.track({ state: activeRun(7, 'PENDING') });
+    monitor.track({ state: activeRun(7, 'RUNNING') });
+
+    assert.equal(monitor.listing.records.length, 1);
+    assert.equal(monitor.listing.records[0].status, 'RUNNING');
+    assert.equal(monitor.listing.total, 1);
+    monitor.destroy();
+    request.resolve(result([]));
+});
+
+test('starting a job preserves filtered and later-page records until the server refreshes them', () => {
+    for (const settings of [{ page: 1, filtered: true }, { page: 2, filtered: false }]) {
+        const request = deferred();
+        const { monitor } = createMonitor(() => request.promise, [], { records: [activeRun(3, 'SUCCESS')], total: 31, ...settings });
+
+        monitor.track({ state: activeRun(8, 'PENDING') });
+
+        assert.equal(monitor.listing.records.length, 1);
+        assert.equal(monitor.listing.records[0].id, 3);
+        assert.equal(monitor.listing.total, 31);
+        monitor.destroy();
+        request.resolve(result([]));
+    }
+});
+
+
+test('reusing an off-page job does not prepend it or inflate the total', () => {
+    const request = deferred();
+    const { monitor } = createMonitor(() => request.promise, [], { records: [activeRun(40, 'SUCCESS')], total: 40, page: 1, per_page: 30, last_page: 2, filtered: false });
+
+    monitor.track({ reused: true, state: activeRun(1) });
+
+    assert.equal(monitor.listing.records.length, 1);
+    assert.equal(monitor.listing.records[0].id, 40);
+    assert.equal(monitor.listing.total, 40);
+    assert.equal(monitor.busy('ANALYZE'), true);
+    monitor.destroy();
+    request.resolve(result([]));
+});
+
+test('a new job creates the next page immediately and page links preserve filters', () => {
+    const request = deferred();
+    const { monitor } = createMonitor(() => request.promise, [], { records: [], total: 30, page: 1, per_page: 30, last_page: 1, filtered: false, page_url: 'https://apollo.test/admin/automation-runs?created_from=2026-10-01&page=1' });
+
+    monitor.track({ reused: false, state: activeRun(31, 'PENDING') });
+
+    assert.equal(monitor.listing.total, 31);
+    assert.equal(monitor.listing.last_page, 2);
+    const next = new URL(monitor.pageUrl(2));
+    assert.equal(next.searchParams.get('page'), '2');
+    assert.equal(next.searchParams.get('created_from'), '2026-10-01');
+    monitor.destroy();
+    request.resolve(result([]));
+});
+
+test('polling replaces pagination metadata when the history shrinks', async () => {
+    const listing = { records: [], total: 30, page: 1, per_page: 30, last_page: 1, filtered: false, page_url: 'https://apollo.test/admin/automation-runs?page=1' };
+    const { monitor } = createMonitor(async () => ({ ok: true, json: async () => ({ current_runs: [], listing }) }), [], { ...listing, total: 31, last_page: 2 });
+
+    await monitor.refresh();
+
+    assert.equal(monitor.listing.total, 30);
+    assert.equal(monitor.listing.last_page, 1);
 });

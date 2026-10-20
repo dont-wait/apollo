@@ -43,7 +43,8 @@ document.addEventListener('submit', async (event) => {
 });
 
 
-window.aiPipeline = (initialRuns, url) => ({
+window.aiPipeline = (initialRuns, url, initialListing = null) => ({
+    listing: initialListing,
     runs: initialRuns,
     submitting: {},
     pollError: false,
@@ -79,6 +80,16 @@ window.aiPipeline = (initialRuns, url) => ({
         this.revision++;
         if (result.state) {
             this.runs = [result.state, ...this.runs.filter(run => run.id !== result.state.id)];
+            if (this.listing) {
+                const exists = this.listing.records.some(run => run.id === result.state.id);
+                if (exists) {
+                    this.listing.records = this.listing.records.map(run => run.id === result.state.id ? result.state : run);
+                } else if (!result.reused && this.listing.page === 1 && !this.listing.filtered) {
+                    this.listing.records = [result.state, ...this.listing.records].slice(0, this.listing.per_page ?? 30);
+                    this.listing.total++;
+                    this.listing.last_page = Math.max(1, Math.ceil(this.listing.total / (this.listing.per_page ?? 30)));
+                }
+            }
         }
         this.refresh();
     },
@@ -105,6 +116,7 @@ window.aiPipeline = (initialRuns, url) => ({
             const result = await response.json();
             if (!this.stopped && revision === this.revision) {
                 this.runs = result.current_runs ?? [result.state];
+                if (result.listing) this.listing = result.listing;
                 this.pollError = false;
             }
         } catch (error) {
@@ -114,6 +126,12 @@ window.aiPipeline = (initialRuns, url) => ({
             this.loading = false;
             this.schedule();
         }
+    },
+
+    pageUrl(page) {
+        const address = new URL(this.listing.page_url);
+        address.searchParams.set('page', String(page));
+        return address.href;
     },
 
     typeLabel(type) {
