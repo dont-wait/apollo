@@ -76,13 +76,24 @@ class BookmarkTest extends TestCase
     {
         $user = User::factory()->create();
         $post = Post::factory()->published()->create();
+        $user->bookmarkedPosts()->attach($post);
 
-        $response = $this->actingAs($user)
+        $firstResponse = $this->actingAs($user)
+            ->deleteJson(route('bookmarks.destroy', $post));
+        $secondResponse = $this->actingAs($user)
             ->deleteJson(route('bookmarks.destroy', $post));
 
-        $response->assertOk()->assertJson([
+        $firstResponse->assertOk()->assertJson([
             'bookmarked' => false,
             'bookmarks_count' => 0,
+        ]);
+        $secondResponse->assertOk()->assertJson([
+            'bookmarked' => false,
+            'bookmarks_count' => 0,
+        ]);
+        $this->assertDatabaseMissing('bookmarks', [
+            'user_id' => $user->id,
+            'post_id' => $post->id,
         ]);
     }
 
@@ -101,7 +112,7 @@ class BookmarkTest extends TestCase
         ]);
     }
 
-    public function test_user_cannot_unbookmark_an_unpublished_post(): void
+    public function test_user_can_unbookmark_an_unpublished_post(): void
     {
         $user = User::factory()->create();
         $post = Post::factory()->published()->create();
@@ -110,9 +121,13 @@ class BookmarkTest extends TestCase
 
         $this->actingAs($user)
             ->deleteJson(route('bookmarks.destroy', $post))
-            ->assertNotFound();
+            ->assertOk()
+            ->assertJson([
+                'bookmarked' => false,
+                'bookmarks_count' => 0,
+            ]);
 
-        $this->assertDatabaseHas('bookmarks', [
+        $this->assertDatabaseMissing('bookmarks', [
             'user_id' => $user->id,
             'post_id' => $post->id,
         ]);
@@ -167,7 +182,30 @@ class BookmarkTest extends TestCase
         $response->assertOk();
         $this->assertCount(10, $paginator->items());
         $this->assertTrue($paginator->hasPages());
-        $this->assertSame($posts->first()->id, $paginator->first()->id);
+        $this->assertSame(
+            $posts->take(10)->pluck('id')->all(),
+            collect($paginator->items())->pluck('id')->all(),
+        );
+    }
+
+    public function test_saved_articles_with_equal_bookmark_times_have_stable_order(): void
+    {
+        $this->freezeTime();
+        $user = User::factory()->create();
+        $posts = Post::factory()->published()->count(3)->create();
+
+        foreach ($posts as $post) {
+            $user->bookmarkedPosts()->attach($post, ['created_at' => now()]);
+        }
+
+        $paginator = $this->actingAs($user)
+            ->get(route('bookmarks.index'))
+            ->viewData('posts');
+
+        $this->assertSame(
+            $posts->sortByDesc('id')->pluck('id')->all(),
+            collect($paginator->items())->pluck('id')->all(),
+        );
     }
 
     public function test_home_feed_marks_bookmarked_posts_for_the_current_user(): void
