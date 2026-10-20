@@ -8,9 +8,11 @@ use App\Http\Requests\Admin\ReplaceMediaRequest;
 use App\Http\Requests\Admin\StoreMediaRequest;
 use App\MediaStorage;
 use App\Models\Media;
+use App\Services\MediaStorageCleanupService;
 use App\Services\MediaUsageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -83,17 +85,44 @@ class MediaController extends Controller
     public function destroy(
         Media $media,
         MediaStorage $mediaStorage,
-        MediaUsageService $mediaUsageService
+        MediaUsageService $mediaUsageService,
+        MediaStorageCleanupService $cleanupService
     ): JsonResponse {
-        if ($mediaUsageService->isInUse($media)) {
+
+        $cleanup = DB::transaction(function () use (
+            $media,
+            $mediaStorage,
+            $mediaUsageService,
+            $cleanupService
+        ) {
+            $lockedMedia = Media::query()
+                ->lockForUpdate()
+                ->findOrFail($media->getKey());
+
+            if ($mediaUsageService->isInUse($lockedMedia)) {
+                return null;
+            }
+
+            $cleanup = $cleanupService->schedule(
+                $mediaStorage->diskName(),
+                $lockedMedia->storage_key
+            );
+
+            $lockedMedia->delete();
+
+            return $cleanup;
+        });
+
+        if ($cleanup === null) {
             return response()->json([
                 'message' => 'Không thể xóa media vì đang được sử dụng.',
             ], 409);
         }
 
-        $mediaStorage->delete($media->storage_key);
-
-        $media->delete();
+        $cleanupService->attempt(
+            $cleanup,
+            $mediaStorage
+        );
 
         return response()->json([
             'message' => 'Xóa media thành công.',
@@ -135,7 +164,8 @@ class MediaController extends Controller
         ReplaceMediaRequest $request,
         Media $media,
         MediaStorage $mediaStorage,
-        MediaUsageService $mediaUsageService
+        MediaUsageService $mediaUsageService,
+        MediaStorageCleanupService $cleanupService
     ): JsonResponse {
         if ($mediaUsageService->isUsedInMarkdown($media)) {
             return response()->json([
@@ -144,6 +174,14 @@ class MediaController extends Controller
         }
 
         $file = $request->file('file');
+        if (
+            $mediaUsageService->isUsedAsThumbnail($media)
+            && ! str_starts_with($file->getMimeType() ?? '', 'image/')
+        ) {
+            throw ValidationException::withMessages([
+                'file' => 'Media đang được dùng làm thumbnail nên chỉ có thể thay thế bằng file ảnh.',
+            ]);
+        }
 
         $width = null;
         $height = null;
@@ -162,29 +200,91 @@ class MediaController extends Controller
             [$width, $height] = $dimensions;
         }
 
-        $oldStorageKey = $media->storage_key;
+        $disk = $mediaStorage->diskName();
 
-        $attributes = $mediaStorage->store($file);
+        $newStorageKey = $mediaStorage->generateStorageKey(
+            $file
+        );
+
+        /*
+         * Create a durable cleanup record before uploading.
+         * If the request is interrupted after the upload,
+         * the orphaned object can still be removed later.
+         */
+        $newCleanup = $cleanupService->schedule(
+            $disk,
+            $newStorageKey,
+            now()->addHour()
+        );
 
         try {
-            $media->update([
-                'file_name' => $attributes['file_name'],
-                'mime_type' => $attributes['mime_type'],
-                'size_bytes' => $attributes['size_bytes'],
-                'storage_key' => $attributes['storage_key'],
-                'url' => $attributes['url'],
-                'width' => $width,
-                'height' => $height,
-            ]);
+            $attributes = $mediaStorage->storeAt(
+                $file,
+                $newStorageKey
+            );
         } catch (\Throwable $exception) {
-            $mediaStorage->delete(
-                $attributes['storage_key']
+            $cleanupService->attempt(
+                $newCleanup,
+                $mediaStorage
             );
 
             throw $exception;
         }
 
-        $mediaStorage->delete($oldStorageKey);
+        try {
+            $oldCleanup = DB::transaction(function () use (
+                $media,
+                $attributes,
+                $width,
+                $height,
+                $cleanupService,
+                $disk,
+                $newStorageKey
+            ) {
+                $lockedMedia = Media::query()
+                    ->lockForUpdate()
+                    ->findOrFail($media->getKey());
+
+                $oldStorageKey = $lockedMedia->storage_key;
+
+                $lockedMedia->update([
+                    'file_name' => $attributes['file_name'],
+                    'mime_type' => $attributes['mime_type'],
+                    'size_bytes' => $attributes['size_bytes'],
+                    'storage_key' => $attributes['storage_key'],
+                    'url' => $attributes['url'],
+                    'width' => $width,
+                    'height' => $height,
+                ]);
+
+                $cleanupService->cancel(
+                    $disk,
+                    $newStorageKey
+                );
+
+                return $cleanupService->schedule(
+                    $disk,
+                    $oldStorageKey
+                );
+            });
+        } catch (\Throwable $exception) {
+            $cleanupService->attempt(
+                $newCleanup,
+                $mediaStorage
+            );
+
+            throw $exception;
+        }
+
+        /*
+         * The database already points to the new object here.
+         * Cleanup failure must not turn a successful replacement
+         * into an HTTP error. The durable cleanup record will retry.
+         */
+        $cleanupService->attempt(
+            $oldCleanup,
+            $mediaStorage
+        );
 
         return response()->json([
             'message' => 'Thay thế media thành công.',

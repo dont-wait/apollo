@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\MediaStorage;
 use App\Models\Media;
 use App\Models\Post;
 use App\Models\User;
@@ -601,5 +602,179 @@ class AdminMediaTest extends TestCase
         $disk->assertExists('media/old.jpg');
 
         $this->assertCount(1, $disk->allFiles());
+    }
+
+    public function test_delete_keeps_durable_cleanup_when_storage_delete_fails(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'ADMIN',
+        ]);
+
+        $media = Media::create([
+            'uploaded_by' => $admin->id,
+            'file_name' => 'delete-fails.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 1024,
+            'storage_key' => 'media/delete-fails.jpg',
+            'url' => '/storage/media/delete-fails.jpg',
+            'width' => 800,
+            'height' => 600,
+        ]);
+
+        $mediaStorage = \Mockery::mock(MediaStorage::class);
+
+        $mediaStorage
+            ->shouldReceive('diskName')
+            ->once()
+            ->andReturn('media-test');
+
+        $mediaStorage
+            ->shouldReceive('deleteIfExistsFromDisk')
+            ->once()
+            ->with(
+                'media-test',
+                'media/delete-fails.jpg'
+            )
+            ->andThrow(
+                new \RuntimeException('Storage unavailable.')
+            );
+
+        $this->app->instance(
+            MediaStorage::class,
+            $mediaStorage
+        );
+
+        $response = $this
+            ->actingAs($admin)
+            ->deleteJson("/admin/media/{$media->id}");
+
+        $response->assertOk();
+
+        $response->assertJson([
+            'message' => 'Xóa media thành công.',
+        ]);
+
+        $this->assertDatabaseMissing('media', [
+            'id' => $media->id,
+        ]);
+
+        $this->assertDatabaseHas(
+            'media_storage_cleanups',
+            [
+                'disk' => 'media-test',
+                'storage_key' => 'media/delete-fails.jpg',
+                'attempts' => 1,
+            ]
+        );
+    }
+
+    public function test_replace_succeeds_and_keeps_cleanup_when_old_storage_delete_fails(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'ADMIN',
+        ]);
+
+        $media = Media::create([
+            'uploaded_by' => $admin->id,
+            'file_name' => 'old.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 1024,
+            'storage_key' => 'media/old.jpg',
+            'url' => '/storage/media/old.jpg',
+            'width' => 800,
+            'height' => 600,
+        ]);
+
+        $newFile = UploadedFile::fake()->image(
+            'new.jpg',
+            1200,
+            900
+        );
+
+        $mediaStorage = \Mockery::mock(MediaStorage::class);
+
+        $mediaStorage
+            ->shouldReceive('diskName')
+            ->once()
+            ->andReturn('media-test');
+
+        $mediaStorage
+            ->shouldReceive('generateStorageKey')
+            ->once()
+            ->with(\Mockery::type(UploadedFile::class))
+            ->andReturn('media/new-key.jpg');
+
+        $mediaStorage
+            ->shouldReceive('storeAt')
+            ->once()
+            ->with(
+                \Mockery::type(UploadedFile::class),
+                'media/new-key.jpg'
+            )
+            ->andReturn([
+                'file_name' => 'new.jpg',
+                'mime_type' => 'image/jpeg',
+                'size_bytes' => 1024,
+                'storage_key' => 'media/new-key.jpg',
+                'url' => '/storage/media/new-key.jpg',
+            ]);
+
+        $mediaStorage
+            ->shouldReceive('deleteIfExistsFromDisk')
+            ->once()
+            ->with(
+                'media-test',
+                'media/old.jpg'
+            )
+            ->andThrow(
+                new \RuntimeException('Storage unavailable.')
+            );
+
+        $this->app->instance(
+            MediaStorage::class,
+            $mediaStorage
+        );
+
+        $response = $this
+            ->actingAs($admin)
+            ->post(
+                "/admin/media/{$media->id}/replace",
+                [
+                    'file' => $newFile,
+                ],
+                [
+                    'Accept' => 'application/json',
+                ]
+            );
+
+        $response->assertOk();
+
+        $response->assertJson([
+            'message' => 'Thay thế media thành công.',
+        ]);
+
+        $media->refresh();
+
+        $this->assertSame(
+            'media/new-key.jpg',
+            $media->storage_key
+        );
+
+        $this->assertDatabaseHas(
+            'media_storage_cleanups',
+            [
+                'disk' => 'media-test',
+                'storage_key' => 'media/old.jpg',
+                'attempts' => 1,
+            ]
+        );
+
+        $this->assertDatabaseMissing(
+            'media_storage_cleanups',
+            [
+                'disk' => 'media-test',
+                'storage_key' => 'media/new-key.jpg',
+            ]
+        );
     }
 }
