@@ -2,9 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\SyncPostSearch;
 use App\Models\Category;
+use App\Models\Post;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class AdminCategoryTest extends TestCase
@@ -74,6 +77,39 @@ class AdminCategoryTest extends TestCase
         $response->assertOk();
         $response->assertSee('Artificial Intelligence');
         $response->assertSee('Categories &amp; Tags', false);
+    }
+
+    public function test_category_post_counts_include_direct_posts_and_exclude_deleted_and_child_posts(): void
+    {
+        Queue::fake([SyncPostSearch::class]);
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $category = Category::factory()->create();
+        $child = Category::factory()->create(['parent_id' => $category->id]);
+        $empty = Category::factory()->create();
+        Post::factory()->create(['author_id' => $admin->id, 'category_id' => $category->id]);
+        Post::factory()->published()->create(['author_id' => $admin->id, 'category_id' => $category->id]);
+        Post::factory()->create(['author_id' => $admin->id, 'category_id' => $category->id])->delete();
+        Post::factory()->published()->create(['author_id' => $admin->id, 'category_id' => $child->id]);
+
+        $response = $this->actingAs($admin)->getJson('/admin/categories')->assertOk();
+
+        $categories = collect($response->json('data'))->keyBy('id');
+        $this->assertSame(2, $categories[$category->id]['posts_count']);
+        $this->assertSame(1, $categories[$category->id]['children_count']);
+        $this->assertSame(1, $categories[$child->id]['posts_count']);
+        $this->assertSame(0, $categories[$empty->id]['posts_count']);
+    }
+
+    public function test_category_page_receives_post_counts_for_rendering(): void
+    {
+        Queue::fake([SyncPostSearch::class]);
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $category = Category::factory()->create();
+        Post::factory()->create(['author_id' => $admin->id, 'category_id' => $category->id]);
+
+        $this->actingAs($admin)->get('/admin/categories')
+            ->assertOk()
+            ->assertViewHas('categories', fn ($categories): bool => $categories->firstWhere('id', $category->id)->posts_count === 1);
     }
 
     public function test_admin_can_create_category(): void
