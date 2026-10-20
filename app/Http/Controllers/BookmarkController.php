@@ -6,6 +6,7 @@ use App\Models\Post;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class BookmarkController extends Controller
@@ -18,6 +19,7 @@ class BookmarkController extends Controller
             ->with(['author:id,name', 'category:id,name', 'tags:id,name', 'thumbnail:id,url'])
             ->withCount('bookmarks')
             ->orderByPivotDesc('created_at')
+            ->orderByDesc('posts.id')
             ->paginate(10)
             ->withQueryString();
 
@@ -29,10 +31,16 @@ class BookmarkController extends Controller
 
     public function store(Request $request, Post $post): JsonResponse
     {
-        $this->ensurePublished($post);
-
         try {
-            $request->user()->bookmarkedPosts()->syncWithoutDetachingOrFail([$post->id]);
+            DB::transaction(function () use ($request, $post): void {
+                $lockedPost = Post::query()
+                    ->with('category')
+                    ->lockForUpdate()
+                    ->findOrFail($post->id);
+
+                $this->ensurePublished($lockedPost);
+                $request->user()->bookmarkedPosts()->syncWithoutDetachingOrFail([$lockedPost->id]);
+            });
         } catch (UniqueConstraintViolationException) {
             // A concurrent request may have created the same bookmark already.
         }
@@ -42,7 +50,6 @@ class BookmarkController extends Controller
 
     public function destroy(Request $request, Post $post): JsonResponse
     {
-        $this->ensurePublished($post);
         $request->user()->bookmarkedPosts()->detachOrFail($post->id);
 
         return $this->bookmarkResponse($request, $post);
@@ -57,11 +64,18 @@ class BookmarkController extends Controller
 
     private function bookmarkResponse(Request $request, Post $post): JsonResponse
     {
-        $post->loadCount('bookmarks');
+        $post->loadMissing('category');
+
+        [$bookmarked, $bookmarksCount] = DB::transaction(function () use ($request, $post): array {
+            return [
+                $request->user()->bookmarkedPosts()->whereKey($post->id)->exists(),
+                $post->isPublished() ? $post->bookmarks()->count() : 0,
+            ];
+        });
 
         return response()->json([
-            'bookmarked' => $request->user()->bookmarkedPosts()->whereKey($post->id)->exists(),
-            'bookmarks_count' => (int) $post->bookmarks_count,
+            'bookmarked' => $bookmarked,
+            'bookmarks_count' => (int) $bookmarksCount,
         ]);
     }
 
