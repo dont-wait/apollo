@@ -86,7 +86,9 @@ class AiPipelineProgressTest extends TestCase
         $this->actingAs(User::factory()->admin()->create());
 
         $this->getJson('/admin/automation-runs?status=SUCCESS')->assertOk()
-            ->assertJsonCount(0, 'data')->assertJsonPath('current_runs.0.id', $run->id)
+            ->assertJsonCount(0, 'data')->assertJsonCount(0, 'listing.records')
+            ->assertJsonPath('listing.filtered', true)->assertJsonPath('listing.total', 0)
+            ->assertJsonPath('current_runs.0.id', $run->id)
             ->assertJsonPath('current_runs.0.progress.completed', 2)
             ->assertJsonPath('current_runs.0.progress.total', 3)
             ->assertJsonPath('current_runs.0.progress.failed', 1)
@@ -165,6 +167,21 @@ class AiPipelineProgressTest extends TestCase
 
         $this->assertSame('FAILED', $run->fresh()->status);
         $this->assertSame('FAILED', $run->fresh()->payload['sources'][1]['status']);
+    }
+
+    public function test_paginated_records_include_progress_without_hiding_global_active_jobs(): void
+    {
+        $oldest = AutomationRun::factory()->create(['status' => 'SUCCESS', 'created_at' => now()->subDay(), 'payload' => ['sources' => [1 => ['status' => 'SUCCESS']]]]);
+        AutomationRun::factory()->count(30)->create(['status' => 'SUCCESS']);
+        $active = AutomationRun::factory()->create(['status' => 'RUNNING']);
+        $this->actingAs(User::factory()->admin()->create());
+
+        $this->getJson('/admin/automation-runs?status=SUCCESS&page=2')->assertOk()
+            ->assertJsonPath('listing.page', 2)->assertJsonPath('listing.total', 31)
+            ->assertJsonCount(1, 'listing.records')->assertJsonPath('listing.records.0.id', $oldest->id)
+            ->assertJsonPath('listing.records.0.progress.completed', 1)
+            ->assertJsonPath('listing.records.0.progress.percent', 100)
+            ->assertJsonPath('current_runs.0.id', $active->id);
     }
 
     public function test_progress_endpoints_require_an_admin(): void

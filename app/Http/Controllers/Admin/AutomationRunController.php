@@ -32,9 +32,15 @@ class AutomationRunController extends Controller
             ->concat(AutomationRun::query()->whereNotIn('status', ['PENDING', 'RUNNING'])->orderByDesc('id')->limit(5)->get())
             ->unique('id')->map(fn (AutomationRun $run): array => $this->runState($run))->values()->all();
 
+        $listing = [
+            'records' => $runs->getCollection()->map(fn (AutomationRun $run): array => $this->runState($run))->all(),
+            'total' => $runs->total(), 'page' => $runs->currentPage(),
+            'filtered' => count(array_filter($filter, fn (mixed $value): bool => $value !== null && $value !== '')) > 0,
+        ];
+
         return $request->expectsJson()
-            ? response()->json($runs->toArray() + ['current_runs' => $monitorRuns])
-            : view('admin.ai-weekly.runs', compact('runs', 'monitorRuns'));
+            ? response()->json($runs->toArray() + ['current_runs' => $monitorRuns, 'listing' => $listing])
+            : view('admin.ai-weekly.runs', compact('runs', 'monitorRuns', 'listing'));
     }
 
     public function show(Request $request, AutomationRun $run): JsonResponse|View
@@ -83,6 +89,7 @@ class AutomationRunController extends Controller
         return [
             'id' => $run->id, 'run_type' => $run->run_type, 'status' => $run->status,
             'attempt' => $run->attempt, 'max_attempts' => $run->max_attempts,
+            'created_at' => $run->created_at?->format('d/m/Y H:i:s'),
             'started_at' => $run->started_at?->format('d/m/Y H:i:s'),
             'finished_at' => $run->finished_at?->format('d/m/Y H:i:s'),
             'progress' => $run->progress(), 'error_message' => $run->error_message,
