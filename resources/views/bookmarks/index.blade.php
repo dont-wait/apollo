@@ -4,7 +4,12 @@
 
 @section('content')
     <div x-data="savedBookmarks({{ $posts->count() }})">
-        <header class="flex flex-col justify-between gap-4 border-b border-outline-variant/30 pb-8 sm:flex-row sm:items-end">
+        <a class="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-on-surface-variant transition-colors hover:text-primary" href="{{ route('home') }}#articles">
+            <span class="material-symbols-outlined text-[16px]" aria-hidden="true">arrow_back</span>
+            Back to articles
+        </a>
+
+        <header class="mt-8 flex flex-col justify-between gap-4 border-b border-outline-variant/30 pb-8 sm:flex-row sm:items-end">
             <div>
                 <p class="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">Your library</p>
                 <h1 class="mt-2 font-display text-3xl font-semibold tracking-tight text-on-surface">Saved Articles</h1>

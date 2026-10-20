@@ -143,6 +143,7 @@ class BookmarkTest extends TestCase
 
         $response->assertOk()
             ->assertViewIs('bookmarks.index')
+            ->assertSee(route('home').'#articles', false)
             ->assertSee($savedPost->title, false)
             ->assertDontSee($otherPost->title, false)
             ->assertDontSee($hiddenPost->title, false);
