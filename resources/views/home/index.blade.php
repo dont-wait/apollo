@@ -251,10 +251,19 @@
                                                 <span x-text="post.views"></span>
                                             </span>
                                             <button
+                                                class="inline-flex items-center gap-1 rounded px-1 py-0.5 text-outline transition-colors hover:text-primary"
+                                                type="button"
+                                                aria-label="Copy article link"
+                                                title="Copy article link"
+                                                @click="copyLink(post.url)"
+                                            >
+                                                <span class="material-symbols-outlined text-[15px]" aria-hidden="true">content_copy</span>
+                                            </button>
+                                            <button
                                                 class="inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
                                                 :class="isBookmarked(post.id) ? 'text-primary' : 'text-outline'"
                                                 type="button"
-                                                :disabled="bookmarkingPostId === post.id"
+                                                :disabled="pendingBookmarkPosts[post.id]"
                                                 :aria-label="isBookmarked(post.id) ? 'Remove bookmark' : 'Save article'"
                                                 :aria-pressed="isBookmarked(post.id)"
                                                 @click="toggleBookmark(post)"

@@ -45,6 +45,7 @@
                             'postId' => $article->id,
                             'bookmarked' => $isBookmarked,
                             'count' => $article->bookmarks_count,
+                            'url' => url()->current(),
                             'storeUrl' => route('bookmarks.store', ['post' => '__POST__']),
                             'destroyUrl' => route('bookmarks.destroy', ['post' => '__POST__']),
                         ]))"
@@ -61,7 +62,16 @@
                             <span class="material-symbols-outlined text-[16px]" x-text="bookmarked ? 'bookmark' : 'bookmark_border'" aria-hidden="true"></span>
                             <span x-text="count"></span>
                         </button>
-                        <span x-cloak x-show="error" class="normal-case tracking-normal text-error" role="alert">Unable to update bookmark. Please try again.</span>
+                        <button
+                            class="inline-flex items-center rounded px-1 py-0.5 text-on-surface-variant transition-colors hover:text-primary"
+                            type="button"
+                            aria-label="Copy article link"
+                            title="Copy article link"
+                            @click="copyLink()"
+                        >
+                            <span class="material-symbols-outlined text-[16px]" aria-hidden="true">content_copy</span>
+                        </button>
+                        <span x-cloak x-show="statusMessage" class="normal-case tracking-normal" :class="statusIsError ? 'text-error' : 'text-tertiary'" role="status" aria-live="polite" x-text="statusMessage"></span>
                     </span>
                 @else
                     <a class="inline-flex items-center gap-1.5 transition-colors hover:text-primary" href="{{ route('login', ['redirect' => request()->getRequestUri()]) }}">
