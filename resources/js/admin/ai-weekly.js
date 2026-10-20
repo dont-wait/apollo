@@ -84,9 +84,10 @@ window.aiPipeline = (initialRuns, url, initialListing = null) => ({
                 const exists = this.listing.records.some(run => run.id === result.state.id);
                 if (exists) {
                     this.listing.records = this.listing.records.map(run => run.id === result.state.id ? result.state : run);
-                } else if (this.listing.page === 1 && !this.listing.filtered) {
-                    this.listing.records = [result.state, ...this.listing.records].slice(0, 30);
+                } else if (!result.reused && this.listing.page === 1 && !this.listing.filtered) {
+                    this.listing.records = [result.state, ...this.listing.records].slice(0, this.listing.per_page ?? 30);
                     this.listing.total++;
+                    this.listing.last_page = Math.max(1, Math.ceil(this.listing.total / (this.listing.per_page ?? 30)));
                 }
             }
         }
@@ -125,6 +126,12 @@ window.aiPipeline = (initialRuns, url, initialListing = null) => ({
             this.loading = false;
             this.schedule();
         }
+    },
+
+    pageUrl(page) {
+        const address = new URL(this.listing.page_url);
+        address.searchParams.set('page', String(page));
+        return address.href;
     },
 
     typeLabel(type) {

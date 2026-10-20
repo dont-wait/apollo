@@ -3,7 +3,7 @@
 @section('title', 'AI Pipeline - Apollo Admin')
 
 @section('content')
-<div x-data="aiPipeline(@js($monitorRuns), @js(route('admin.automation-runs.index', request()->query())), @js($listing))" @ai-run-submitting.window="setSubmitting($event.detail)" @ai-run-started.window="track($event.detail)" class="-m-8 min-h-full bg-background p-4 text-on-surface sm:p-8">
+<div x-data="aiPipeline(@js($monitorRuns), @js($pollUrl), @js($listing))" @ai-run-submitting.window="setSubmitting($event.detail)" @ai-run-started.window="track($event.detail)" class="-m-8 min-h-full bg-background p-4 text-on-surface sm:p-8">
     <div class="mx-auto max-w-[1440px] space-y-6">
         @include('admin.ai-weekly.nav')
         <header class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -69,9 +69,13 @@
                     </tbody>
                 </table>
             </div>
-            @if ($runs->hasPages())
-                <div class="border-t border-outline-variant/50 p-4">{{ $runs->withQueryString()->links() }}</div>
-            @endif
+            <nav x-cloak x-show="listing.last_page > 1" aria-label="Phân trang lịch sử tác vụ" class="flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant/50 p-4 text-xs">
+                <span class="text-outline" x-text="`Trang ${listing.page} / ${listing.last_page} · ${listing.total} tác vụ`"></span>
+                <div class="flex items-center gap-2">
+                    <template x-if="listing.page > 1"><a :href="pageUrl(listing.page - 1)" rel="prev" class="rounded border border-outline-variant px-3 py-2 text-on-surface-variant transition hover:border-primary hover:text-primary">Trang trước</a></template>
+                    <template x-if="listing.page < listing.last_page"><a :href="pageUrl(listing.page + 1)" rel="next" class="rounded border border-outline-variant px-3 py-2 text-on-surface-variant transition hover:border-primary hover:text-primary">Trang sau</a></template>
+                </div>
+            </nav>
         </section>
     </div>
 </div>

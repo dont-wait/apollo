@@ -25,6 +25,9 @@
     <label class="grid gap-2 text-xs font-medium text-on-surface-variant sm:col-span-2">Adapter API
         <select name="adapter_key" class="min-w-0 rounded border border-outline-variant bg-surface-container-lowest px-3 py-2.5 font-mono text-xs text-on-surface outline-none focus:border-primary">
             <option value="">Không sử dụng</option>
+            @if ($source?->adapter_key && ! array_key_exists($source->adapter_key, config('ai_weekly.api_adapters', [])))
+                <option value="{{ $source->adapter_key }}" selected>{{ $source->adapter_key }} (không có trong cấu hình)</option>
+            @endif
             @foreach (array_keys(config('ai_weekly.api_adapters', [])) as $adapter)
                 <option value="{{ $adapter }}" @selected($source?->adapter_key === $adapter)>{{ $adapter }}</option>
             @endforeach

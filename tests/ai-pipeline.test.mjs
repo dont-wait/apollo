@@ -18,7 +18,7 @@ function createMonitor(fetch, initial = [activeRun()], listing = null) {
     };
     runInNewContext(source, {
         window, document: { addEventListener: (name, callback) => { listeners[name] = callback; } },
-        fetch, AbortController,
+        fetch, AbortController, URL,
         CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
         FormData: class { constructor(form) { return Object.entries(form.fields); } },
     });
@@ -171,4 +171,44 @@ test('starting a job preserves filtered and later-page records until the server 
         monitor.destroy();
         request.resolve(result([]));
     }
+});
+
+
+test('reusing an off-page job does not prepend it or inflate the total', () => {
+    const request = deferred();
+    const { monitor } = createMonitor(() => request.promise, [], { records: [activeRun(40, 'SUCCESS')], total: 40, page: 1, per_page: 30, last_page: 2, filtered: false });
+
+    monitor.track({ reused: true, state: activeRun(1) });
+
+    assert.equal(monitor.listing.records.length, 1);
+    assert.equal(monitor.listing.records[0].id, 40);
+    assert.equal(monitor.listing.total, 40);
+    assert.equal(monitor.busy('ANALYZE'), true);
+    monitor.destroy();
+    request.resolve(result([]));
+});
+
+test('a new job creates the next page immediately and page links preserve filters', () => {
+    const request = deferred();
+    const { monitor } = createMonitor(() => request.promise, [], { records: [], total: 30, page: 1, per_page: 30, last_page: 1, filtered: false, page_url: 'https://apollo.test/admin/automation-runs?created_from=2026-10-01&page=1' });
+
+    monitor.track({ reused: false, state: activeRun(31, 'PENDING') });
+
+    assert.equal(monitor.listing.total, 31);
+    assert.equal(monitor.listing.last_page, 2);
+    const next = new URL(monitor.pageUrl(2));
+    assert.equal(next.searchParams.get('page'), '2');
+    assert.equal(next.searchParams.get('created_from'), '2026-10-01');
+    monitor.destroy();
+    request.resolve(result([]));
+});
+
+test('polling replaces pagination metadata when the history shrinks', async () => {
+    const listing = { records: [], total: 30, page: 1, per_page: 30, last_page: 1, filtered: false, page_url: 'https://apollo.test/admin/automation-runs?page=1' };
+    const { monitor } = createMonitor(async () => ({ ok: true, json: async () => ({ current_runs: [], listing }) }), [], { ...listing, total: 31, last_page: 2 });
+
+    await monitor.refresh();
+
+    assert.equal(monitor.listing.total, 30);
+    assert.equal(monitor.listing.last_page, 1);
 });

@@ -184,6 +184,59 @@ class AiPipelineProgressTest extends TestCase
             ->assertJsonPath('current_runs.0.id', $active->id);
     }
 
+    public function test_polling_projects_large_analysis_payloads_and_preserves_the_regular_json_contract(): void
+    {
+        $results = array_fill(1, 2000, ['status' => 'SUCCESS']);
+        for ($id = 1; $id <= 3; $id++) {
+            $results[$id] = ['status' => 'FAILED', 'error' => str_repeat('error ', 100)];
+        }
+        $run = AutomationRun::factory()->create(['run_type' => 'ANALYZE', 'status' => 'PARTIAL',
+            'payload' => ['article_results' => $results, 'failed' => 3, 'total' => 2000, 'current_item' => 'Last article']]);
+        AutomationRun::factory()->create(['run_type' => 'GENERATE_REVIEW', 'status' => 'RUNNING',
+            'payload' => ['stage' => 'generating', 'snapshot' => ['content' => str_repeat('source content ', 10000)]]]);
+        $this->actingAs(User::factory()->admin()->create());
+
+        $response = $this->getJson('/admin/automation-runs?monitor=1')->assertOk()->assertJsonMissingPath('data');
+
+        $record = collect($response->json('listing.records'))->firstWhere('id', $run->id);
+        $this->assertSame($run->progress(), $record['progress']);
+        $this->assertLessThan(10000, strlen($response->getContent()));
+        $this->get('/admin/automation-runs')->assertOk()->assertViewHas('runs', function ($runs) use ($run): bool {
+            $record = $runs->getCollection()->firstWhere('id', $run->id);
+
+            return strlen($record->getRawOriginal('payload')) < 1000 && $record->progress() === $run->progress();
+        });
+        $this->getJson('/admin/automation-runs?run_type=ANALYZE')->assertOk()->assertJsonCount(2000, 'data.0.payload.article_results');
+    }
+
+    public function test_polling_updates_page_count_and_preserves_filters_in_navigation_urls(): void
+    {
+        AutomationRun::factory()->count(30)->create(['status' => 'SUCCESS']);
+        $this->actingAs(User::factory()->admin()->create());
+        $this->getJson('/admin/automation-runs?monitor=1&status=SUCCESS')->assertOk()->assertJsonPath('listing.last_page', 1);
+        $extra = AutomationRun::factory()->create(['status' => 'SUCCESS']);
+
+        $response = $this->getJson('/admin/automation-runs?monitor=1&status=SUCCESS')->assertOk()
+            ->assertJsonPath('listing.last_page', 2)->assertJsonPath('listing.per_page', 30);
+
+        parse_str(parse_url($response->json('listing.page_url'), PHP_URL_QUERY), $query);
+        $this->assertSame('SUCCESS', $query['status']);
+        $this->assertArrayNotHasKey('monitor', $query);
+        $this->getJson('/admin/automation-runs?monitor=1&status=SUCCESS&page=2')->assertOk()
+            ->assertJsonPath('listing.page', 2)->assertJsonCount(1, 'listing.records');
+        $extra->delete();
+        $this->getJson('/admin/automation-runs?monitor=1&status=SUCCESS&page=2')->assertOk()
+            ->assertJsonPath('listing.page', 1)->assertJsonPath('listing.last_page', 1)->assertJsonCount(30, 'listing.records');
+    }
+
+    public function test_source_editor_preserves_an_adapter_missing_from_configuration(): void
+    {
+        AiSource::factory()->create(['source_type' => 'WEBSITE', 'adapter_key' => 'retired_adapter']);
+        $this->actingAs(User::factory()->admin()->create());
+
+        $this->get('/admin/ai-sources')->assertOk()->assertSee('<option value="retired_adapter" selected>', false);
+    }
+
     public function test_progress_endpoints_require_an_admin(): void
     {
         $run = AutomationRun::factory()->create();
