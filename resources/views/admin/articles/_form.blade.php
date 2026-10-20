@@ -126,24 +126,22 @@
                 <button type="button" role="tab" id="markdown-preview-tab" aria-controls="markdown-preview-panel" aria-selected="false" data-markdown-tab="preview" class="rounded-t-lg border-b-2 border-transparent px-4 py-2 text-sm font-medium text-[#87929a] transition hover:text-[#e1e2ea] aria-selected:border-sky-400 aria-selected:text-[#e1e2ea]">Preview</button>
             </div>
             <div id="markdown-write-panel" role="tabpanel" aria-labelledby="markdown-write-tab" data-markdown-panel="write">
-                <section class="space-y-3 rounded-b-lg border border-t-0 border-[#32353b] bg-[#111319] p-3" aria-label="Lệnh Markdown">
-                    <div class="flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                            <h3 class="text-sm font-medium text-[#e1e2ea]">Lệnh Markdown</h3>
-                            <p class="text-xs text-[#87929a]">Gõ / trong editor để lọc lệnh. Chọn bằng Enter, Tab hoặc chuột.</p>
-                        </div>
+                <section data-markdown-command-menu hidden aria-label="Lệnh Markdown" class="fixed z-50 w-80 max-w-[calc(100vw-1rem)] space-y-3 overflow-y-auto rounded-lg border border-[#32353b] bg-[#111319] p-3 shadow-xl">
+                    <div class="flex items-center justify-between gap-2">
+                        <h3 data-markdown-command-title class="text-sm font-medium text-[#e1e2ea]">Lệnh Markdown</h3>
                         <span data-markdown-command-filter class="font-mono text-xs text-sky-300"></span>
                     </div>
-                    <div id="markdown-suggestions" data-markdown-suggestions role="listbox" aria-label="Lệnh Markdown" class="grid max-h-40 grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3"></div>
+                    <div id="markdown-suggestions" data-markdown-suggestions role="listbox" aria-label="Lệnh Markdown" class="grid max-h-56 gap-1 overflow-y-auto"></div>
                     <p data-markdown-no-commands hidden class="text-sm text-[#87929a]">Không tìm thấy lệnh phù hợp.</p>
-                    <div data-table-config hidden class="grid gap-3 rounded-lg border border-[#32353b] bg-[#0b0e13] p-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
-                        <label class="space-y-1 text-sm">Số cột<input data-table-columns type="number" min="1" max="12" value="3" class="w-full rounded-lg border border-[#32353b] bg-[#191c21] px-3 py-2 text-[#e1e2ea]"></label>
-                        <label class="space-y-1 text-sm">Số dòng<input data-table-rows type="number" min="1" max="30" value="3" class="w-full rounded-lg border border-[#32353b] bg-[#191c21] px-3 py-2 text-[#e1e2ea]"></label>
-                        <button type="button" data-table-insert class="rounded-lg bg-sky-500 px-3 py-2 text-sm font-medium text-slate-950 hover:bg-sky-400">Chèn bảng</button>
-                        <button type="button" data-table-cancel class="rounded-lg px-3 py-2 text-sm text-[#bdc8d1] hover:bg-[#272a30]">Hủy</button>
+                    <div data-markdown-command-config hidden class="space-y-3">
+                        <div data-markdown-command-fields class="grid gap-3"></div>
+                        <div class="flex justify-end gap-2">
+                            <button type="button" data-markdown-command-cancel class="rounded-lg px-3 py-2 text-sm text-[#bdc8d1] hover:bg-[#272a30]">Hủy</button>
+                            <button type="button" data-markdown-command-insert class="rounded-lg bg-sky-500 px-3 py-2 text-sm font-medium text-slate-950 hover:bg-sky-400">Chèn</button>
+                        </div>
                     </div>
                 </section>
-                <textarea id="markdown_content" name="markdown_content" rows="18" required aria-controls="markdown-suggestions" class="w-full rounded-b-lg border border-[#32353b] bg-[#0b0e13] px-3 py-3 font-mono text-sm leading-6 text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none" placeholder="# Tiêu đề bài viết">{{ old('markdown_content', $article?->markdown_content) }}</textarea>
+                <textarea id="markdown_content" name="markdown_content" rows="18" required aria-controls="markdown-suggestions" aria-expanded="false" aria-autocomplete="list" class="w-full rounded-b-lg border border-[#32353b] bg-[#0b0e13] px-3 py-3 font-mono text-sm leading-6 text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none" placeholder="# Tiêu đề bài viết">{{ old('markdown_content', $article?->markdown_content) }}</textarea>
             </div>
             <div id="markdown-preview-panel" role="tabpanel" aria-labelledby="markdown-preview-tab" data-markdown-panel="preview" hidden>
                 <p data-markdown-preview-empty class="min-h-[27rem] rounded-b-lg border border-[#32353b] bg-[#0b0e13] px-4 py-3 text-sm text-[#87929a]">Chưa có nội dung để xem trước</p>
@@ -189,18 +187,27 @@
         };
 
         const suggestions = document.querySelector('[data-markdown-suggestions]');
-        const tableConfig = document.querySelector('[data-table-config]');
-        const tableColumns = document.querySelector('[data-table-columns]');
-        const tableRows = document.querySelector('[data-table-rows]');
+        const commandMenu = document.querySelector('[data-markdown-command-menu]');
+        const commandTitle = document.querySelector('[data-markdown-command-title]');
+        const commandConfig = document.querySelector('[data-markdown-command-config]');
+        const commandFields = document.querySelector('[data-markdown-command-fields]');
         const noCommands = document.querySelector('[data-markdown-no-commands]');
         const commandFilter = document.querySelector('[data-markdown-command-filter]');
         let suggestionItems = [];
         let activeSuggestion = 0;
         let replacementRange = null;
-        let tableInsertionPoint = null;
+        let selectedCommand = null;
 
         const snippets = [
-            { trigger: 'table', label: 'Bảng', description: 'Chọn số cột và dòng', value: '', table: true },
+            { trigger: 'table', label: 'Bảng', description: 'Chọn số cột và dòng', fields: [
+                { name: 'columns', label: 'Số cột', type: 'number', value: '3', min: 1, max: 12 },
+                { name: 'rows', label: 'Số dòng nội dung', type: 'number', value: '3', min: 1, max: 30 },
+            ], build: ({ columns, rows }) => {
+                const header = `| ${Array.from({ length: Number(columns) }, (_, index) => `Cột ${index + 1}`).join(' | ')} |`;
+                const divider = `| ${Array.from({ length: Number(columns) }, () => '---').join(' | ')} |`;
+                const body = Array.from({ length: Number(rows) }, () => `| ${Array.from({ length: Number(columns) }, () => ' ').join(' | ')} |`);
+                return [header, divider, ...body].join('\n');
+            } },
             { trigger: 'h1', label: 'Tiêu đề lớn', description: 'Tiêu đề cấp 1', value: '# Tiêu đề' },
             { trigger: 'h2', label: 'Tiêu đề', description: 'Tiêu đề cấp 2', value: '## Tiêu đề' },
             { trigger: 'h3', label: 'Tiêu đề nhỏ', description: 'Tiêu đề cấp 3', value: '### Tiêu đề' },
@@ -208,34 +215,120 @@
             { trigger: 'italic', label: 'In nghiêng', description: 'Văn bản nhấn nhẹ', value: '*văn bản*' },
             { trigger: 'strike', label: 'Gạch ngang', description: 'Văn bản đã xóa', value: '~~văn bản~~' },
             { trigger: 'inline-code', label: 'Mã nội dòng', description: 'Đoạn mã trong câu', value: '`code`' },
-            { trigger: 'code', label: 'Khối mã', description: 'Khối mã có ngôn ngữ', value: '```javascript\ncode\n```' },
+            { trigger: 'code', label: 'Khối mã', description: 'Chọn ngôn ngữ', fields: [
+                { name: 'language', label: 'Ngôn ngữ', type: 'text', value: 'javascript', pattern: '[a-zA-Z0-9_+#.\\-]*' },
+            ], build: ({ language }) => `\`\`\`${language}\ncode\n\`\`\`` },
             { trigger: 'quote', label: 'Trích dẫn', description: 'Blockquote', value: '> Nội dung trích dẫn' },
             { trigger: 'bullet-list', label: 'Danh sách', description: 'Danh sách gạch đầu dòng', value: '- Mục 1\n- Mục 2' },
             { trigger: 'numbered-list', label: 'Danh sách số', description: 'Danh sách có thứ tự', value: '1. Mục 1\n2. Mục 2' },
             { trigger: 'task-list', label: 'Danh sách việc', description: 'Danh sách checkbox', value: '- [ ] Việc cần làm' },
-            { trigger: 'link', label: 'Liên kết', description: 'Liên kết tới trang web', value: '[văn bản liên kết](https://)' },
-            { trigger: 'image', label: 'Hình ảnh', description: 'Chèn ảnh từ URL', value: '![mô tả ảnh](https://)' },
+            { trigger: 'link', label: 'Liên kết', description: 'Nhập văn bản và URL', fields: [
+                { name: 'text', label: 'Văn bản liên kết', type: 'text', value: '' },
+                { name: 'url', label: 'URL', type: 'url', value: '', required: true },
+            ], build: ({ text, url }) => `[${escapeMarkdownLabel(text)}](<${escapeMarkdownUrl(url)}>)` },
+            { trigger: 'image', label: 'Hình ảnh', description: 'Nhập mô tả và URL ảnh', fields: [
+                { name: 'text', label: 'Mô tả ảnh', type: 'text', value: '' },
+                { name: 'url', label: 'URL ảnh', type: 'url', value: '', required: true },
+            ], build: ({ text, url }) => `![${escapeMarkdownLabel(text)}](<${escapeMarkdownUrl(url)}>)` },
             { trigger: 'hr', label: 'Đường phân cách', description: 'Ngăn cách các phần', value: '\n---\n' },
         ];
 
+        const escapeMarkdownLabel = (text) => text.replace(/[\\[\]]/g, '\\$&');
+        const escapeMarkdownUrl = (url) => url.replace(/</g, '%3C').replace(/>/g, '%3E');
+
+        const closeCommands = () => {
+            commandMenu.hidden = true;
+            commandConfig.hidden = true;
+            commandFields.replaceChildren();
+            selectedCommand = null;
+            replacementRange = null;
+            suggestionItems = [];
+            markdownInput.setAttribute('aria-expanded', 'false');
+            markdownInput.removeAttribute('aria-activedescendant');
+        };
+
+        const positionCommands = () => {
+            if (commandMenu.hidden) {
+                return;
+            }
+
+            const rect = markdownInput.getBoundingClientRect();
+            const style = getComputedStyle(markdownInput);
+            const mirror = document.createElement('div');
+            for (const property of ['boxSizing', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing', 'lineHeight', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth', 'wordSpacing', 'tabSize', 'textIndent']) {
+                mirror.style[property] = style[property];
+            }
+            Object.assign(mirror.style, {
+                position: 'fixed', visibility: 'hidden', top: '0', left: '0',
+                width: `${markdownInput.clientWidth + parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth)}px`,
+                borderStyle: 'solid', whiteSpace: 'pre-wrap', overflowWrap: 'break-word',
+            });
+            mirror.textContent = markdownInput.value.slice(0, replacementRange.end);
+            const caret = document.createElement('span');
+            caret.textContent = markdownInput.value.slice(replacementRange.end) || '.';
+            mirror.append(caret);
+            document.body.append(mirror);
+            const caretRect = caret.getClientRects()[0];
+            const caretX = rect.left + caretRect.left - markdownInput.scrollLeft;
+            const caretY = rect.top + caretRect.top - markdownInput.scrollTop;
+            const lineHeight = parseFloat(style.lineHeight);
+            mirror.remove();
+
+            if (caretY + lineHeight < rect.top || caretY > rect.bottom || rect.bottom < 0 || rect.top > window.innerHeight) {
+                closeCommands();
+                return;
+            }
+
+            const below = window.innerHeight - Math.max(0, caretY + lineHeight) - 16;
+            const above = Math.min(window.innerHeight, caretY) - 16;
+            const openBelow = below >= Math.min(commandMenu.scrollHeight, 280) || below >= above;
+            commandMenu.style.maxHeight = `${Math.max(0, openBelow ? below : above)}px`;
+            const height = commandMenu.getBoundingClientRect().height;
+            commandMenu.style.left = `${Math.max(8, Math.min(caretX, window.innerWidth - commandMenu.offsetWidth - 8))}px`;
+            commandMenu.style.top = `${Math.max(8, openBelow ? caretY + lineHeight + 4 : caretY - height - 4)}px`;
+        };
+
+        const highlightSuggestion = () => {
+            [...suggestions.children].forEach((item, index) => item.setAttribute('aria-selected', String(index === activeSuggestion)));
+            const activeItem = suggestions.children[activeSuggestion];
+            if (activeItem) {
+                markdownInput.setAttribute('aria-activedescendant', activeItem.id);
+                activeItem.scrollIntoView({ block: 'nearest' });
+            } else {
+                markdownInput.removeAttribute('aria-activedescendant');
+            }
+        };
+
         const showSuggestions = () => {
-            if (!suggestions) return;
+            if (document.activeElement !== markdownInput || markdownInput.selectionStart !== markdownInput.selectionEnd) {
+                closeCommands();
+                return;
+            }
             const cursor = markdownInput.selectionStart;
             const lineStart = markdownInput.value.lastIndexOf('\n', cursor - 1) + 1;
             const beforeCursor = markdownInput.value.slice(lineStart, cursor);
             const match = beforeCursor.match(/(?:^|\s)\/([\w-]*)$/u);
-            const query = match?.[1].toLowerCase() ?? '';
+            if (!match || /[\w-]/u.test(markdownInput.value[cursor] ?? '')) {
+                closeCommands();
+                return;
+            }
+            const query = match[1].toLowerCase();
             suggestionItems = snippets.filter((item) => item.trigger.includes(query));
-            replacementRange = match ? { start: cursor - query.length - 1, end: cursor } : null;
+            replacementRange = { start: cursor - query.length - 1, end: cursor };
+            selectedCommand = null;
             activeSuggestion = 0;
-            if (commandFilter) commandFilter.textContent = match ? `/${query}` : '';
-            if (noCommands) noCommands.hidden = suggestionItems.length > 0;
+            commandTitle.textContent = 'Lệnh Markdown';
+            commandFilter.textContent = `/${query}`;
+            commandConfig.hidden = true;
+            noCommands.hidden = suggestionItems.length > 0;
+            suggestions.hidden = false;
             suggestions.replaceChildren(...suggestionItems.map((item, index) => {
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.role = 'option';
+                button.id = `markdown-command-${item.trigger}`;
                 button.setAttribute('aria-selected', String(index === activeSuggestion));
-                button.className = 'flex min-h-16 flex-col rounded-lg border border-[#32353b] bg-[#191c21] px-3 py-2 text-left hover:border-sky-400 hover:bg-[#272a30] aria-selected:border-sky-400 aria-selected:bg-sky-500/10';
+                button.className = 'flex flex-col rounded-md px-3 py-2 text-left hover:bg-[#272a30] aria-selected:bg-sky-500/10';
                 const title = document.createElement('span');
                 title.className = 'text-sm text-[#e1e2ea]';
                 title.textContent = item.label;
@@ -247,11 +340,15 @@
                 button.addEventListener('click', () => chooseSuggestion(index));
                 return button;
             }));
-            suggestions.hidden = false;
+            commandMenu.hidden = false;
             markdownInput.setAttribute('aria-expanded', 'true');
+            positionCommands();
+            highlightSuggestion();
         };
 
-        const insertText = (text, start, end) => {
+        const insertText = (text) => {
+            const { start, end } = replacementRange;
+            closeCommands();
             markdownInput.setRangeText(text, start, end, 'end');
             markdownInput.focus();
             markdownInput.dispatchEvent(new Event('input', { bubbles: true }));
@@ -259,58 +356,144 @@
 
         const chooseSuggestion = (index) => {
             const item = suggestionItems[index];
-            if (!item) return;
-            if (item.table) {
-                const cursor = markdownInput.selectionStart;
-                tableInsertionPoint = replacementRange ?? { start: cursor, end: cursor };
-                tableConfig.hidden = false;
-                tableColumns.focus();
+            if (!item || !replacementRange) {
                 return;
             }
-            const cursor = markdownInput.selectionStart;
-            const start = replacementRange?.start ?? cursor;
-            const end = replacementRange?.end ?? cursor;
-            insertText(item.value, start, end);
+            if (!item.fields) {
+                insertText(item.value);
+                return;
+            }
+            selectedCommand = item;
+            suggestions.hidden = true;
+            noCommands.hidden = true;
+            markdownInput.setAttribute('aria-expanded', 'false');
+            markdownInput.removeAttribute('aria-activedescendant');
+            commandTitle.textContent = item.label;
+            commandFilter.textContent = `/${item.trigger}`;
+            commandFields.replaceChildren(...item.fields.map((field) => {
+                const label = document.createElement('label');
+                label.className = 'grid gap-1 text-sm text-[#e1e2ea]';
+                label.textContent = field.label;
+                const input = document.createElement('input');
+                input.dataset.commandField = field.name;
+                input.type = field.type;
+                input.value = field.value;
+                input.className = 'w-full rounded-lg border border-[#32353b] bg-[#191c21] px-3 py-2 text-[#e1e2ea] focus:border-sky-400 focus:outline-none';
+                for (const attribute of ['min', 'max', 'pattern']) {
+                    if (field[attribute] !== undefined) {
+                        input.setAttribute(attribute, field[attribute]);
+                    }
+                }
+                label.append(input);
+                return label;
+            }));
+            commandConfig.hidden = false;
+            positionCommands();
+            const firstInput = commandFields.querySelector('input');
+            firstInput.focus({ preventScroll: true });
+            firstInput.select();
         };
 
-        markdownInput.addEventListener('input', showSuggestions);
-        markdownInput.addEventListener('click', showSuggestions);
-        markdownInput.addEventListener('keydown', (event) => {
-            if (suggestions && suggestionItems.length && replacementRange) {
-                if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-                    event.preventDefault();
-                    activeSuggestion = (activeSuggestion + (event.key === 'ArrowDown' ? 1 : -1) + suggestionItems.length) % suggestionItems.length;
-                    [...suggestions.children].forEach((item, index) => item.setAttribute('aria-selected', String(index === activeSuggestion)));
-                } else if (event.key === 'Enter' || event.key === 'Tab') {
-                    event.preventDefault();
-                    chooseSuggestion(activeSuggestion);
-                } else if (event.key === 'Escape' && replacementRange) {
-                    markdownInput.setRangeText('/', replacementRange.start, replacementRange.end, 'end');
-                    replacementRange = null;
-                    showSuggestions();
+        const insertConfiguredCommand = () => {
+            if (!selectedCommand || !replacementRange) {
+                return;
+            }
+            const values = {};
+            for (const input of commandFields.querySelectorAll('input')) {
+                const field = selectedCommand.fields.find((field) => field.name === input.dataset.commandField);
+                input.setCustomValidity(field.required && !input.value.trim() ? 'Vui lòng nhập URL.' : '');
+                if (!input.reportValidity()) {
+                    return;
                 }
+                if (input.type === 'number' && !input.value) {
+                    input.setCustomValidity('Vui lòng nhập số nguyên trong giới hạn.');
+                    input.reportValidity();
+                    return;
+                }
+                values[input.dataset.commandField] = input.value.trim();
+            }
+            let text = selectedCommand.build(values);
+            if (['table', 'code'].includes(selectedCommand.trigger)) {
+                const { start, end } = replacementRange;
+                const prefix = start > 0 && markdownInput.value[start - 1] !== '\n' ? '\n' : '';
+                const suffix = markdownInput.value[end] !== '\n' ? '\n' : '';
+                text = `${prefix}${text}${suffix}`;
+            }
+            insertText(text);
+        };
+
+        markdownInput.addEventListener('input', (event) => {
+            if (!event.isComposing) {
+                showSuggestions();
             }
         });
-
-        document.querySelector('[data-table-cancel]')?.addEventListener('click', () => {
-            tableConfig.hidden = true;
-            markdownInput.focus();
+        markdownInput.addEventListener('compositionstart', closeCommands);
+        markdownInput.addEventListener('compositionend', showSuggestions);
+        markdownInput.addEventListener('click', closeCommands);
+        markdownInput.addEventListener('keyup', (event) => {
+            if (!commandMenu.hidden && !selectedCommand && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+                showSuggestions();
+            }
         });
-        document.querySelector('[data-table-insert]')?.addEventListener('click', () => {
-            const columns = Math.min(12, Math.max(1, Number(tableColumns.value) || 1));
-            const rows = Math.min(30, Math.max(1, Number(tableRows.value) || 1));
-            const header = `| ${Array.from({ length: columns }, (_, index) => `Cột ${index + 1}`).join(' | ')} |`;
-            const divider = `| ${Array.from({ length: columns }, () => '---').join(' | ')} |`;
-            const body = Array.from({ length: rows }, () => `| ${Array.from({ length: columns }, () => ' ').join(' | ')} |`);
-            const prefix = tableInsertionPoint?.start > 0 && markdownInput.value[tableInsertionPoint.start - 1] !== '\n' ? '\n' : '';
-            const suffix = tableInsertionPoint?.end < markdownInput.value.length && markdownInput.value[tableInsertionPoint.end] !== '\n' ? '\n' : '';
-            insertText(`${prefix}${[header, divider, ...body].join('\n')}${suffix}`, tableInsertionPoint.start, tableInsertionPoint.end);
-            tableConfig.hidden = true;
+        markdownInput.addEventListener('keydown', (event) => {
+            if (event.isComposing || commandMenu.hidden) {
+                return;
+            }
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closeCommands();
+            } else if (suggestionItems.length && ['ArrowDown', 'ArrowUp'].includes(event.key)) {
+                event.preventDefault();
+                activeSuggestion = (activeSuggestion + (event.key === 'ArrowDown' ? 1 : -1) + suggestionItems.length) % suggestionItems.length;
+                highlightSuggestion();
+            } else if (suggestionItems.length && ['Enter', 'Tab'].includes(event.key)) {
+                event.preventDefault();
+                chooseSuggestion(activeSuggestion);
+            }
         });
-
-        showSuggestions();
+        commandConfig.addEventListener('keydown', (event) => {
+            if (event.isComposing) {
+                return;
+            }
+            if (event.key === 'Enter' && event.target instanceof HTMLInputElement) {
+                event.preventDefault();
+                insertConfiguredCommand();
+            }
+        });
+        commandMenu.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closeCommands();
+                markdownInput.focus({ preventScroll: true });
+            }
+        });
+        commandMenu.addEventListener('input', (event) => {
+            event.target.setCustomValidity?.('');
+        });
+        document.querySelector('[data-markdown-command-cancel]').addEventListener('click', () => {
+            closeCommands();
+            markdownInput.focus({ preventScroll: true });
+        });
+        document.querySelector('[data-markdown-command-insert]').addEventListener('click', insertConfiguredCommand);
+        document.addEventListener('pointerdown', (event) => {
+            if (!commandMenu.contains(event.target) && event.target !== markdownInput) {
+                closeCommands();
+            }
+        });
+        document.addEventListener('focusin', (event) => {
+            if (event.target !== markdownInput && !commandMenu.contains(event.target)) {
+                closeCommands();
+            }
+        });
+        document.addEventListener('scroll', (event) => {
+            if (!commandMenu.contains(event.target)) {
+                positionCommands();
+            }
+        }, true);
+        window.addEventListener('resize', positionCommands);
 
         const selectMarkdownTab = (selectedTab) => {
+            closeCommands();
             markdownTabs.forEach((tab) => {
                 const isSelected = tab.dataset.markdownTab === selectedTab;
                 tab.setAttribute('aria-selected', String(isSelected));

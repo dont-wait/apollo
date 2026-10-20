@@ -28,12 +28,22 @@ class AutomationRunController extends Controller
             ->when(! empty($filter['created_to']), fn ($query) => $query->whereDate('created_at', '<=', $filter['created_to']))
             ->orderByDesc('created_at')->orderByDesc('id')->paginate(30);
 
-        return $request->expectsJson() ? response()->json($runs) : view('admin.ai-weekly.runs', compact('runs'));
+        $monitorRuns = AutomationRun::query()->whereIn('status', ['PENDING', 'RUNNING'])->orderByDesc('id')->get()
+            ->concat(AutomationRun::query()->whereNotIn('status', ['PENDING', 'RUNNING'])->orderByDesc('id')->limit(5)->get())
+            ->unique('id')->map(fn (AutomationRun $run): array => $this->runState($run))->values()->all();
+
+        return $request->expectsJson()
+            ? response()->json($runs->toArray() + ['current_runs' => $monitorRuns])
+            : view('admin.ai-weekly.runs', compact('runs', 'monitorRuns'));
     }
 
     public function show(Request $request, AutomationRun $run): JsonResponse|View
     {
-        return $request->expectsJson() ? response()->json(['data' => $run]) : view('admin.ai-weekly.run', compact('run'));
+        $monitorRuns = [$this->runState($run, includePayload: true)];
+
+        return $request->expectsJson()
+            ? response()->json(['data' => $run, 'state' => $monitorRuns[0]])
+            : view('admin.ai-weekly.run', compact('run', 'monitorRuns'));
     }
 
     public function collect(Request $request, RunCoordinator $coordinator): JsonResponse
@@ -44,7 +54,7 @@ class AutomationRunController extends Controller
             return response()->json(['message' => $exception->getMessage()], 422);
         }
 
-        return response()->json(['run_id' => $run->id], 202);
+        return response()->json(['run_id' => $run->id, 'reused' => ! $run->wasRecentlyCreated, 'state' => $this->runState($run)], 202);
     }
 
     public function analyze(Request $request, RunCoordinator $coordinator): JsonResponse
@@ -55,7 +65,7 @@ class AutomationRunController extends Controller
         }
         $run = $coordinator->analyze('MANUAL', $request->user()->id, $data['article_id'] ?? null);
 
-        return response()->json(['run_id' => $run->id], 202);
+        return response()->json(['run_id' => $run->id, 'reused' => ! $run->wasRecentlyCreated, 'state' => $this->runState($run)], 202);
     }
 
     public function retry(AutomationRun $run, RunCoordinator $coordinator): JsonResponse
@@ -64,6 +74,19 @@ class AutomationRunController extends Controller
             return response()->json(['message' => 'Run không thể retry.'], 409);
         }
 
-        return response()->json(['run_id' => $run->id], 202);
+        return response()->json(['run_id' => $run->id, 'state' => $this->runState($run->fresh(), includePayload: true)], 202);
+    }
+
+    /** @return array<string, mixed> */
+    private function runState(AutomationRun $run, bool $includePayload = false): array
+    {
+        return [
+            'id' => $run->id, 'run_type' => $run->run_type, 'status' => $run->status,
+            'attempt' => $run->attempt, 'max_attempts' => $run->max_attempts,
+            'started_at' => $run->started_at?->format('d/m/Y H:i:s'),
+            'finished_at' => $run->finished_at?->format('d/m/Y H:i:s'),
+            'progress' => $run->progress(), 'error_message' => $run->error_message,
+            'url' => route('admin.automation-runs.show', $run),
+        ] + ($includePayload ? ['payload' => $run->payload] : []);
     }
 }

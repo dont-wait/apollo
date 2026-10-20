@@ -35,6 +35,47 @@ class AutomationRun extends Model
         });
     }
 
+    /** @return array{completed: int, total: ?int, failed: int, percent: ?int, message: string, current_item: ?string} */
+    public function progress(): array
+    {
+        $payload = $this->payload ?? [];
+        $active = in_array($this->status, ['PENDING', 'RUNNING'], true);
+        $results = $this->run_type === 'COLLECT' ? ($payload['sources'] ?? []) : ($payload['article_results'] ?? []);
+        $completed = count(array_filter($results, fn (array $item): bool => in_array($item['status'] ?? '', ['SUCCESS', 'FAILED', 'SKIPPED'], true)));
+        $failed = count(array_filter($results, fn (array $item): bool => ($item['status'] ?? '') === 'FAILED'));
+        $total = $this->run_type === 'COLLECT' ? count($results) : ($payload['total'] ?? null);
+        $currentItem = $payload['current_item'] ?? null;
+        if ($this->run_type === 'COLLECT') {
+            $names = array_column(array_filter($results, fn (array $item): bool => ($item['status'] ?? '') === 'RUNNING'), 'name');
+            $currentItem = implode(', ', array_filter($names)) ?: null;
+        }
+        $message = match ($this->status) {
+            'PENDING' => 'Đang chờ worker nhận job',
+            'SUCCESS' => 'Đã hoàn tất',
+            'PARTIAL' => 'Hoàn tất một phần, có mục bị lỗi',
+            'FAILED' => 'Job thất bại',
+            default => match ($this->run_type) {
+                'COLLECT' => 'Đang thu thập nguồn',
+                'ANALYZE' => 'Đang phân tích bài viết',
+                default => match ($payload['stage'] ?? '') {
+                    'generating' => 'AI đang tạo nội dung từ các bài đã chọn',
+                    'saving' => 'Đang lưu bản tổng hợp và bài nháp',
+                    default => 'Đang chuẩn bị dữ liệu tổng hợp',
+                },
+            },
+        };
+        $percent = $total > 0 ? (int) floor($completed / $total * 100) : null;
+        if ($percent !== null && $active) {
+            $percent = min(99, $percent);
+        }
+        if ($this->status === 'SUCCESS') {
+            $percent = 100;
+        }
+
+        return ['completed' => $completed, 'total' => $total, 'failed' => $failed,
+            'percent' => $percent, 'message' => $message, 'current_item' => $active ? $currentItem : null];
+    }
+
     public function triggerer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'triggered_by');

@@ -7,6 +7,7 @@ use App\Jobs\AiWeekly\CollectSource;
 use App\Jobs\AiWeekly\GenerateWeeklyReview;
 use App\Models\AiSource;
 use App\Models\AutomationRun;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -23,8 +24,10 @@ class RunCoordinator
         $run = $this->create('COLLECT', $trigger, $userId, [
             'sources' => $ids->mapWithKeys(fn (int $id): array => [$id => ['status' => 'PENDING']])->all(),
         ]);
-        foreach ($ids as $id) {
-            CollectSource::dispatch($run->id, $id);
+        if ($run->wasRecentlyCreated) {
+            foreach ($ids as $id) {
+                CollectSource::dispatch($run->id, $id);
+            }
         }
 
         return $run;
@@ -33,7 +36,9 @@ class RunCoordinator
     public function analyze(string $trigger, ?int $userId = null, ?int $articleId = null): AutomationRun
     {
         $run = $this->create('ANALYZE', $trigger, $userId, $articleId ? ['article_id' => $articleId] : []);
-        AnalyzeArticles::dispatch($run->id);
+        if ($run->wasRecentlyCreated) {
+            AnalyzeArticles::dispatch($run->id);
+        }
 
         return $run;
     }
@@ -68,7 +73,10 @@ class RunCoordinator
 
     public function retry(AutomationRun $run): bool
     {
-        $pending = DB::transaction(function () use ($run): ?array {
+        $pending = Cache::lock('ai-weekly:dispatch:'.$run->run_type, 15)->block(5, fn (): ?array => DB::transaction(function () use ($run): ?array {
+            if (AutomationRun::query()->where('run_type', $run->run_type)->whereIn('status', ['PENDING', 'RUNNING'])->exists()) {
+                return null;
+            }
             $locked = AutomationRun::query()->lockForUpdate()->findOrFail($run->id);
             if (! in_array($locked->status, ['FAILED', 'PARTIAL'], true) || $locked->attempt >= $locked->max_attempts) {
                 return null;
@@ -93,13 +101,14 @@ class RunCoordinator
                 $payload['cursor'] = 0;
                 $payload['success'] = 0;
                 $payload['failed'] = 0;
+                unset($payload['total'], $payload['current_item'], $payload['article_results'], $payload['skipped']);
             }
 
             $locked->update(['status' => 'PENDING', 'attempt' => $locked->attempt + 1,
                 'payload' => $payload, 'finished_at' => null, 'locked_at' => now(), 'error_message' => null]);
 
             return [$locked->run_type, $sourceIds, $locked->attempt];
-        });
+        }));
         if ($pending === null) {
             return false;
         }
@@ -143,7 +152,7 @@ class RunCoordinator
                     $payload = $locked->payload ?? [];
                     if ($locked->run_type === 'COLLECT') {
                         foreach ($payload['sources'] ?? [] as $id => $result) {
-                            if (($result['status'] ?? '') === 'PENDING') {
+                            if (in_array($result['status'] ?? '', ['PENDING', 'RUNNING'], true)) {
                                 $payload['sources'][$id] = ['status' => 'FAILED', 'retryable' => true, 'error' => 'Worker stopped before completion.'];
                             }
                         }
@@ -166,11 +175,18 @@ class RunCoordinator
     /** @param array<string, mixed> $payload */
     private function create(string $type, string $trigger, ?int $userId, array $payload): AutomationRun
     {
-        return AutomationRun::create([
-            'run_type' => $type, 'status' => 'PENDING', 'trigger_type' => $trigger,
-            'triggered_by' => $userId, 'idempotency_key' => (string) Str::uuid(),
-            'payload' => $payload, 'attempt' => 1,
-            'max_attempts' => config('ai_weekly.max_attempts'), 'created_at' => now(),
-        ]);
+        return Cache::lock('ai-weekly:dispatch:'.$type, 15)->block(5, function () use ($type, $trigger, $userId, $payload): AutomationRun {
+            $existing = AutomationRun::query()->where('run_type', $type)->whereIn('status', ['PENDING', 'RUNNING'])->orderBy('id')->first();
+            if ($existing) {
+                return $existing;
+            }
+
+            return AutomationRun::create([
+                'run_type' => $type, 'status' => 'PENDING', 'trigger_type' => $trigger,
+                'triggered_by' => $userId, 'idempotency_key' => (string) Str::uuid(),
+                'payload' => $payload, 'attempt' => 1,
+                'max_attempts' => config('ai_weekly.max_attempts'), 'created_at' => now(),
+            ]);
+        });
     }
 }

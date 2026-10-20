@@ -43,7 +43,7 @@ class AnalyzeArticles implements ShouldQueue
         }
         $payload = $run->payload ?? [];
         $cursor = $payload['cursor'] ?? 0;
-        $articles = AiArticle::query()->where('id', '>', $cursor)->whereNull('duplicate_of')
+        $articlesQuery = AiArticle::query()->where('id', '>', $cursor)->whereNull('duplicate_of')
             ->when(isset($payload['article_id']), fn ($query) => $query->whereKey($payload['article_id']))
             ->when(! isset($payload['article_id']), function ($query): void {
                 $query->where(function ($content): void {
@@ -52,16 +52,24 @@ class AnalyzeArticles implements ShouldQueue
                 })->where(function ($pending): void {
                     $pending->whereNotIn('status', ['ANALYZED'])->orWhereDoesntHave('analyses', fn ($analysis) => $analysis->where('is_current', true));
                 });
-            })->orderBy('id')->limit(1)->get();
+            });
+        $payload['total'] ??= (clone $articlesQuery)->count();
+        $articles = $articlesQuery->orderBy('id')->limit(1)->get();
         if ($articles->isEmpty()) {
+            $payload['total'] = count($payload['article_results'] ?? []);
             $failed = $payload['failed'] ?? 0;
-            $run->withinAttempt($this->attempt, fn (AutomationRun $locked): bool => $locked->update(['status' => $failed ? (($payload['success'] ?? 0) ? 'PARTIAL' : 'FAILED') : 'SUCCESS', 'finished_at' => now()]));
+            $run->withinAttempt($this->attempt, fn (AutomationRun $locked): bool => $locked->update(['payload' => array_diff_key($payload, ['current_item' => true]), 'status' => $failed ? (($payload['success'] ?? 0) ? 'PARTIAL' : 'FAILED') : 'SUCCESS', 'finished_at' => now()]));
 
             return;
         }
 
         $slugs = AiTopic::query()->where('status', 'ACTIVE')->pluck('slug')->all();
         $article = $articles->sole();
+        $payload['current_item'] = $article->title;
+        $payload['total'] = max($payload['total'], count($payload['article_results'] ?? []) + 1);
+        if (! $run->withinAttempt($this->attempt, fn (AutomationRun $locked): bool => $locked->update(['payload' => $payload, 'locked_at' => now()]))) {
+            return;
+        }
         $lock = Cache::lock('ai-weekly:analysis:'.$article->id, $this->timeout + 30);
         if (! $lock->get()) {
             self::dispatch($this->runId, $this->attempt)->delay(5);
@@ -72,6 +80,7 @@ class AnalyzeArticles implements ShouldQueue
         try {
             $article->refresh();
             if (! isset($payload['article_id']) && $article->status === 'ANALYZED' && $article->analyses()->where('is_current', true)->where('status', 'SUCCESS')->exists()) {
+                $payload['article_results'][$article->id] = ['status' => 'SKIPPED'];
                 $payload['cursor'] = $article->id;
                 $run->withinAttempt($this->attempt, fn (AutomationRun $locked): bool => $locked->update(['payload' => $payload, 'locked_at' => now()]));
                 self::dispatch($this->runId, $this->attempt);
