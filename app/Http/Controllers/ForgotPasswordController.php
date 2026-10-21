@@ -17,10 +17,20 @@ class ForgotPasswordController extends Controller
 
     public function send(ForgotPasswordRequest $request, PasswordResetOtpService $otpService): RedirectResponse
     {
-        $email = strtolower($request->validated('email'));
-        $otpService->send($email);
+        $email = strtolower(trim($request->validated('email')));
+        $result = $otpService->send($email, PasswordResetOtpService::PURPOSE_PASSWORD_RESET);
 
         $request->session()->put('password_reset.email', $email);
+
+        if ($result) {
+            $request->session()->put([
+                'password_reset.user_id' => $result['user_id'],
+                'password_reset.flow_id' => $result['flow_id'],
+            ]);
+        } else {
+            $request->session()->forget(['password_reset.user_id', 'password_reset.flow_id']);
+        }
+
         $request->session()->forget('password_reset.verified');
 
         return redirect()->route('password.otp')
@@ -35,10 +45,20 @@ class ForgotPasswordController extends Controller
             return redirect()->route('password.request');
         }
 
-        $sent = $otpService->send($email);
+        $result = $otpService->send($email, PasswordResetOtpService::PURPOSE_PASSWORD_RESET);
 
-        return redirect()->route('password.otp')->with('status', $sent
-            ? 'A new verification code has been sent to your email.'
-            : 'Please wait at least 60 seconds before requesting another code.');
+        if ($result) {
+            $request->session()->put([
+                'password_reset.user_id' => $result['user_id'],
+                'password_reset.flow_id' => $result['flow_id'],
+            ]);
+        } else {
+            $request->session()->forget(['password_reset.user_id', 'password_reset.flow_id']);
+        }
+
+        return redirect()->route('password.otp')->with(
+            'status',
+            'If an account exists for this email, a verification code is available. Please use the latest code.',
+        );
     }
 }

@@ -122,13 +122,14 @@ class PasswordResetOtpTest extends TestCase
 
     public function test_reset_page_renders_and_validation_requires_a_confirmed_password(): void
     {
+        $user = User::factory()->create();
+        $this->post(route('password.email'), ['email' => $user->email]);
+
         $this->withSession([
-            'password_reset.email' => 'ada@example.test',
             'password_reset.verified' => true,
         ])->get(route('password.reset'))->assertOk()->assertViewIs('auth.reset-password');
 
         $this->withSession([
-            'password_reset.email' => 'ada@example.test',
             'password_reset.verified' => true,
         ])->from(route('password.reset'))->post(route('password.update'), [
             'password' => 'new-password-123',
@@ -141,8 +142,9 @@ class PasswordResetOtpTest extends TestCase
         $this->get(route('password.otp'))->assertRedirect(route('password.request'));
 
         $user = User::factory()->create();
-        $this->withSession(['password_reset.email' => $user->email])
-            ->get(route('password.otp'))
+        $this->post(route('password.email'), ['email' => $user->email]);
+
+        $this->get(route('password.otp'))
             ->assertOk()
             ->assertViewIs('auth.password-otp')
             ->assertSee('data-otp-input', false)
@@ -158,18 +160,91 @@ class PasswordResetOtpTest extends TestCase
         $user = User::factory()->create();
 
         $this->post(route('password.email'), ['email' => $user->email]);
+        $firstFlowId = DB::table('password_reset_otps')->where('user_id', $user->id)->value('flow_id');
 
         $this->post(route('password.otp.resend'))
             ->assertRedirect(route('password.otp'))
-            ->assertSessionHas('status', 'Please wait at least 60 seconds before requesting another code.');
+            ->assertSessionHas('status', 'If an account exists for this email, a verification code is available. Please use the latest code.');
 
         $this->travel(61)->seconds();
 
         $this->post(route('password.otp.resend'))
             ->assertRedirect(route('password.otp'))
-            ->assertSessionHas('status', 'A new verification code has been sent to your email.');
+            ->assertSessionHas('status', 'If an account exists for this email, a verification code is available. Please use the latest code.');
 
-        Notification::assertSentTo($user, PasswordResetOtp::class);
+        $secondFlowId = DB::table('password_reset_otps')->where('user_id', $user->id)->value('flow_id');
+
+        $this->assertNotSame($firstFlowId, $secondFlowId);
+        $this->assertCount(2, Notification::sent($user, PasswordResetOtp::class));
+    }
+
+    public function test_otp_expires_independently_of_failed_attempts(): void
+    {
+        config(['auth.enable_mock_otp' => true]);
+        $user = User::factory()->create();
+
+        $this->post(route('password.email'), ['email' => $user->email]);
+        $this->travel(6)->minutes();
+
+        $this->from(route('password.otp'))
+            ->post(route('password.otp.verify'), ['otp' => '666666'])
+            ->assertSessionHasErrors('otp');
+
+        $this->assertDatabaseHas('password_reset_otps', [
+            'user_id' => $user->id,
+            'attempts' => 0,
+        ]);
+    }
+
+    public function test_stale_reset_notification_cannot_send_after_a_new_code_is_issued(): void
+    {
+        config(['auth.enable_mock_otp' => true]);
+        Notification::fake();
+        $user = User::factory()->create();
+
+        $this->post(route('password.email'), ['email' => $user->email]);
+        $this->travel(61)->seconds();
+        $this->post(route('password.otp.resend'));
+
+        $notifications = Notification::sent($user, PasswordResetOtp::class);
+        $this->assertCount(2, $notifications);
+        $this->assertFalse($notifications[0]->shouldSend($user, 'mail'));
+        $this->assertTrue($notifications[1]->shouldSend($user, 'mail'));
+    }
+
+    public function test_delayed_otp_delivery_starts_the_expiry_window_when_sent(): void
+    {
+        config(['auth.enable_mock_otp' => true]);
+        Notification::fake();
+        $user = User::factory()->create();
+
+        $this->post(route('password.email'), ['email' => $user->email]);
+        DB::table('password_reset_otps')->where('user_id', $user->id)->update([
+            'expires_at' => now()->subMinute(),
+        ]);
+
+        $notification = Notification::sent($user, PasswordResetOtp::class)->first();
+
+        $this->assertTrue($notification->shouldSend($user, 'mail'));
+        $notification->afterSending($user, 'mail', null);
+
+        $record = DB::table('password_reset_otps')->where('user_id', $user->id)->first();
+        $this->assertNotNull($record->delivered_at);
+        $this->assertTrue(now()->lessThan($record->expires_at));
+    }
+
+    public function test_failed_otp_delivery_removes_the_pending_code(): void
+    {
+        config(['auth.enable_mock_otp' => true]);
+        Notification::fake();
+        $user = User::factory()->create();
+
+        $this->post(route('password.email'), ['email' => $user->email]);
+        $notification = Notification::sent($user, PasswordResetOtp::class)->first();
+
+        $notification->failed(new \RuntimeException('SMTP unavailable'));
+
+        $this->assertDatabaseMissing('password_reset_otps', ['user_id' => $user->id]);
     }
 
     public function test_password_reset_requires_verified_otp(): void

@@ -12,7 +12,7 @@ class ResetPasswordController extends Controller
 {
     public function showOtp(): View|RedirectResponse
     {
-        if (! session('password_reset.email')) {
+        if (! session('password_reset.email') || ! session('password_reset.user_id') || ! session('password_reset.flow_id')) {
             return redirect()->route('password.request');
         }
 
@@ -25,9 +25,19 @@ class ResetPasswordController extends Controller
 
     public function verifyOtp(VerifyPasswordResetOtpRequest $request, PasswordResetOtpService $otpService): RedirectResponse
     {
-        $email = (string) $request->session()->get('password_reset.email');
+        $flowId = (string) $request->session()->get('password_reset.flow_id');
+        $userId = (int) $request->session()->get('password_reset.user_id');
 
-        if (! $otpService->verify($email, $request->validated('otp'))) {
+        if (
+            ! $flowId
+            || ! $userId
+            || ! $otpService->verify(
+                $flowId,
+                $userId,
+                $request->validated('otp'),
+                PasswordResetOtpService::PURPOSE_PASSWORD_RESET,
+            )
+        ) {
             return back()->withInput()->withErrors([
                 'otp' => 'The code is invalid, expired, or has reached its attempt limit.',
             ]);
@@ -40,7 +50,12 @@ class ResetPasswordController extends Controller
 
     public function show(): View|RedirectResponse
     {
-        if (! session('password_reset.email') || ! session('password_reset.verified')) {
+        if (
+            ! session('password_reset.email')
+            || ! session('password_reset.user_id')
+            || ! session('password_reset.flow_id')
+            || ! session('password_reset.verified')
+        ) {
             return redirect()->route('password.request');
         }
 
@@ -49,13 +64,18 @@ class ResetPasswordController extends Controller
 
     public function reset(ResetPasswordRequest $request, PasswordResetOtpService $otpService): RedirectResponse
     {
-        $email = (string) $request->session()->get('password_reset.email');
+        $flowId = (string) $request->session()->get('password_reset.flow_id');
+        $userId = (int) $request->session()->get('password_reset.user_id');
 
         if (! $request->session()->get('password_reset.verified')) {
             return redirect()->route('password.request');
         }
 
-        if (! $otpService->reset($email, $request->validated('password'))) {
+        if (
+            ! $flowId
+            || ! $userId
+            || ! $otpService->reset($flowId, $userId, $request->validated('password'))
+        ) {
             $request->session()->forget('password_reset');
 
             return redirect()->route('password.request')

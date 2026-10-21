@@ -48,19 +48,27 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('password-reset-request', function (Request $request): array {
             $email = $request->input('email') ?: $request->session()->get('password_reset.email');
-            $key = strtolower((string) $email).'|'.$request->ip();
+            $emailKey = strtolower(trim((string) $email));
 
-            return [Limit::perMinute(5)->by($key)];
+            return [
+                Limit::perMinute(5)->by('email:'.$emailKey),
+                Limit::perMinute(30)->by('ip:'.$request->ip()),
+            ];
         });
 
         RateLimiter::for('password-reset-verify', function (Request $request): array {
-            $key = strtolower((string) $request->input('email')).'|'.$request->ip();
+            $flowId = $request->session()->get('password_reset.flow_id');
+            $email = $request->session()->get('password_reset.email');
+            $key = $flowId ?: strtolower((string) $email).'|'.$request->ip();
 
-            return [Limit::perMinute(10)->by($key)];
+            return [Limit::perMinute(10)->by('reset-verify:'.$key.'|'.$request->ip())];
         });
 
         RateLimiter::for('password-change', function (Request $request): array {
-            return [Limit::perMinute(5)->by('user:'.$request->user()->id)];
+            return [
+                Limit::perMinute(5)->by('user:'.$request->user()->id),
+                Limit::perMinute(30)->by('ip:'.$request->ip()),
+            ];
         });
 
         RateLimiter::for('password-change-verify', function (Request $request): array {
