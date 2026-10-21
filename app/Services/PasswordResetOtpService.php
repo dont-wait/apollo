@@ -143,8 +143,16 @@ class PasswordResetOtpService
                 ->where('purpose', $purpose)
                 ->lockForUpdate()
                 ->first();
+            $user = User::query()->find($userId);
 
-            if (! $record || ! $this->matchesCurrentUser($record, $userId) || $record->attempts >= 5 || now()->greaterThan($record->expires_at)) {
+            if (
+                ! $record
+                || ! $user
+                || ! $user->isActive()
+                || ! $this->matchesCurrentUser($record, $user)
+                || $record->attempts >= 5
+                || now()->greaterThan($record->expires_at)
+            ) {
                 return false;
             }
 
@@ -201,13 +209,15 @@ class PasswordResetOtpService
                 ->lockForUpdate()
                 ->first();
 
-            if (! $record || now()->greaterThan($record->expires_at) || ! $this->matchesCurrentUser($record, $userId)) {
-                return false;
-            }
-
             $user = User::query()->lockForUpdate()->find($userId);
 
-            if (! $user || ! $user->isActive()) {
+            if (
+                ! $record
+                || now()->greaterThan($record->expires_at)
+                || ! $user
+                || ! $user->isActive()
+                || ! $this->matchesCurrentUser($record, $user)
+            ) {
                 DB::table('password_reset_otps')->where('flow_id', $flowId)->delete();
 
                 return false;
@@ -216,6 +226,7 @@ class PasswordResetOtpService
             $user->forceFill([
                 'password' => $password,
                 'remember_token' => Str::random(60),
+                'session_version' => $user->session_version + 1,
             ])->save();
 
             if ($invalidateSessions && DB::getSchemaBuilder()->hasTable('sessions')) {
@@ -232,14 +243,8 @@ class PasswordResetOtpService
         });
     }
 
-    private function matchesCurrentUser(object $record, int $userId): bool
+    private function matchesCurrentUser(object $record, User $user): bool
     {
-        $user = User::query()->find($userId);
-
-        if (! $user || ! $user->isActive()) {
-            return false;
-        }
-
         return strtolower($user->email) === strtolower($record->email);
     }
 

@@ -11,8 +11,11 @@ class VerifyPasswordResetOtpRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return (bool) ($this->session()->get('password_reset.flow_id')
-            ?? $this->session()->get('password_change.flow_id'));
+        return (bool) (
+            $this->session()->get('password_reset.challenge')
+            || $this->session()->get('password_reset.flow_id')
+            || $this->session()->get('password_change.flow_id')
+        );
     }
 
     /**

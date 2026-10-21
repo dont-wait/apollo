@@ -12,7 +12,7 @@ class ResetPasswordController extends Controller
 {
     public function showOtp(): View|RedirectResponse
     {
-        if (! session('password_reset.email') || ! session('password_reset.user_id') || ! session('password_reset.flow_id')) {
+        if (! session('password_reset.challenge')) {
             return redirect()->route('password.request');
         }
 

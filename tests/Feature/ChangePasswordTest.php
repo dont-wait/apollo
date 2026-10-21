@@ -49,6 +49,8 @@ class ChangePasswordTest extends TestCase
         $this->assertAuthenticatedAs($user);
         $this->assertTrue(Hash::check($newPassword, $user->fresh()->password));
         $this->assertFalse(Hash::check($currentPassword, $user->fresh()->password));
+        $this->assertSame(1, $user->fresh()->session_version);
+        $this->get(route('password.change'))->assertOk();
     }
 
     public function test_change_password_requires_authentication_and_valid_current_password(): void
@@ -188,5 +190,15 @@ class ChangePasswordTest extends TestCase
             ->assertSessionHasErrors('otp');
 
         $this->assertTrue(Hash::check($currentPassword, $user->fresh()->password));
+    }
+
+    public function test_session_version_invalidates_an_old_authenticated_session(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->get(route('password.change'))->assertOk();
+        $user->increment('session_version');
+
+        $this->get(route('password.change'))->assertRedirect(route('login'));
     }
 }

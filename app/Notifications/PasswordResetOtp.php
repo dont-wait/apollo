@@ -81,10 +81,16 @@ class PasswordResetOtp extends Notification implements ShouldQueue
      */
     public function toMail(object $notifiable): MailMessage
     {
+        $isPasswordChange = $this->purpose === 'password_change';
+
         return (new MailMessage)
-            ->subject('Apollo Blog — Password reset code')
+            ->subject($isPasswordChange
+                ? 'Apollo Blog — Password change verification code'
+                : 'Apollo Blog — Password reset code')
             ->view(
-                ['emails.auth.password-reset-otp', 'emails.auth.password-reset-otp-text'],
+                $isPasswordChange
+                    ? ['emails.auth.password-change-otp', 'emails.auth.password-change-otp-text']
+                    : ['emails.auth.password-reset-otp', 'emails.auth.password-reset-otp-text'],
                 ['otp' => $this->otp, 'expiresInMinutes' => 5],
             );
     }

@@ -21,6 +21,7 @@ class ForgotPasswordController extends Controller
         $result = $otpService->send($email, PasswordResetOtpService::PURPOSE_PASSWORD_RESET);
 
         $request->session()->put('password_reset.email', $email);
+        $request->session()->put('password_reset.challenge', true);
 
         if ($result) {
             $request->session()->put([

@@ -114,6 +114,7 @@ class ChangePasswordController extends Controller
         }
 
         $request->user()->refresh();
+        $request->session()->put('auth.session_version', $request->user()->session_version);
         Auth::logoutOtherDevices($password);
         $request->session()->forget('password_change');
 

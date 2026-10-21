@@ -5,10 +5,12 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Notifications\PasswordResetOtp;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class PasswordResetOtpTest extends TestCase
@@ -87,6 +89,14 @@ class PasswordResetOtpTest extends TestCase
         $response->assertRedirect(route('password.otp'))
             ->assertSessionHas('status', 'If an active account exists for that email, a reset code has been sent.');
         $this->assertDatabaseCount('password_reset_otps', 0);
+
+        $this->get(route('password.otp'))
+            ->assertOk()
+            ->assertSee('data-otp-input', false);
+
+        $this->from(route('password.otp'))
+            ->post(route('password.otp.verify'), ['otp' => '111111'])
+            ->assertSessionHasErrors('otp');
     }
 
     public function test_invalid_codes_expire_and_lock_after_five_attempts(): void
@@ -245,6 +255,62 @@ class PasswordResetOtpTest extends TestCase
         $notification->failed(new \RuntimeException('SMTP unavailable'));
 
         $this->assertDatabaseMissing('password_reset_otps', ['user_id' => $user->id]);
+    }
+
+    public function test_reset_cannot_continue_after_the_user_email_changes(): void
+    {
+        config(['auth.enable_mock_otp' => true]);
+        $user = User::factory()->create();
+        $originalPassword = $user->password;
+
+        $this->post(route('password.email'), ['email' => $user->email]);
+        $this->post(route('password.otp.verify'), ['otp' => '666666'])
+            ->assertRedirect(route('password.reset'));
+
+        $user->update(['email' => 'new-address@example.com']);
+
+        $this->post(route('password.update'), [
+            'password' => 'new-password-123',
+            'password_confirmation' => 'new-password-123',
+        ])->assertRedirect(route('password.request'));
+
+        $this->assertSame($originalPassword, $user->fresh()->password);
+    }
+
+    public function test_expired_and_deleted_user_otps_are_cleaned_up(): void
+    {
+        config(['auth.enable_mock_otp' => true]);
+        $user = User::factory()->create();
+
+        $this->post(route('password.email'), ['email' => $user->email]);
+        DB::table('password_reset_otps')->where('user_id', $user->id)->update([
+            'expires_at' => now()->subMinute(),
+        ]);
+
+        Artisan::call('app:prune-password-reset-otps');
+
+        $this->assertDatabaseMissing('password_reset_otps', ['user_id' => $user->id]);
+
+        $this->post(route('password.email'), ['email' => $user->email]);
+        $user->forceDelete();
+
+        $this->assertDatabaseMissing('password_reset_otps', ['email' => 'new-address@example.com']);
+    }
+
+    public function test_password_change_notifications_use_password_change_copy(): void
+    {
+        $notification = new PasswordResetOtp(
+            '666666',
+            (string) Str::uuid(),
+            'password_change',
+        );
+        $mail = $notification->toMail(new User);
+
+        $this->assertSame('Apollo Blog — Password change verification code', $mail->subject);
+        $this->assertSame([
+            'emails.auth.password-change-otp',
+            'emails.auth.password-change-otp-text',
+        ], $mail->view);
     }
 
     public function test_password_reset_requires_verified_otp(): void
