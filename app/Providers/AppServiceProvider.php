@@ -62,6 +62,10 @@ class AppServiceProvider extends ServiceProvider
             return [Limit::perMinute(5)->by('user:'.$request->user()->id)];
         });
 
+        RateLimiter::for('password-change-verify', function (Request $request): array {
+            return [Limit::perMinute(10)->by('user:'.$request->user()->id.'|'.$request->ip())];
+        });
+
         Category::observe(RelatedPostSearchObserver::class);
         Tag::observe(RelatedPostSearchObserver::class);
     }

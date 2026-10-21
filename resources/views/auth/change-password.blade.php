@@ -6,7 +6,7 @@
     <div class="flex flex-col gap-6 rounded-xl bg-surface-low p-6 shadow-2xl shadow-black/20 sm:p-8">
         @include('auth.partials.brand', [
             'heading' => 'Change your password',
-            'description' => 'Confirm your current password before choosing a new one.',
+            'description' => 'Confirm your current password before choosing a new one. We will email a verification code before applying the change.',
         ])
 
         @if (session('status'))
@@ -37,7 +37,7 @@
                 <input class="size-4 rounded border-outline-variant bg-surface text-primary focus:ring-primary" type="checkbox" @change="showPassword = $event.target.checked">
                 <span>Show passwords</span>
             </label>
-            <button class="flex h-11 items-center justify-center rounded-lg bg-primary font-display text-sm font-semibold text-on-primary shadow-md transition-all hover:bg-surface-tint" type="submit">Update password <span class="ml-2" aria-hidden="true">→</span></button>
+            <button class="flex h-11 items-center justify-center rounded-lg bg-primary font-display text-sm font-semibold text-on-primary shadow-md transition-all hover:bg-surface-tint" type="submit">Continue to verification <span class="ml-2" aria-hidden="true">→</span></button>
         </form>
         <a class="text-center font-mono text-xs text-on-surface-variant transition-colors hover:text-primary" href="{{ route('home') }}">← Back to Apollo Blog</a>
     </div>

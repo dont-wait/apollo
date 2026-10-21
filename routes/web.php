@@ -80,6 +80,10 @@ Route::middleware(['auth', 'auth.session'])->group(function (): void {
     Route::put('/change-password', [ChangePasswordController::class, 'update'])
         ->middleware('throttle:password-change')
         ->name('password.change.update');
+    Route::get('/change-password/otp', [ChangePasswordController::class, 'showOtp'])->name('password.change.otp');
+    Route::post('/change-password/otp', [ChangePasswordController::class, 'verifyOtp'])
+        ->middleware('throttle:password-change-verify')
+        ->name('password.change.otp.verify');
 
     Route::get('/bookmarks', [BookmarkController::class, 'index'])
         ->name('bookmarks.index');

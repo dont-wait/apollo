@@ -1,12 +1,12 @@
 @extends('layouts.auth')
 
-@section('title', 'Verify OTP · Apollo Blog')
+@section('title', $pageTitle ?? 'Verify OTP · Apollo Blog')
 
 @section('content')
     <div class="flex flex-col gap-6 rounded-xl bg-surface-low p-6 shadow-2xl shadow-black/20 sm:p-8">
         @include('auth.partials.brand', [
-            'heading' => 'Check your inbox',
-            'description' => 'Enter the six-digit code we sent to '.session('password_reset.email').'.',
+            'heading' => $heading ?? 'Check your inbox',
+            'description' => $description ?? 'Enter the six-digit code we sent to '.session('password_reset.email').'.',
         ])
 
         @if (session('status'))
@@ -19,7 +19,7 @@
         <form
             class="flex flex-col gap-5"
             method="POST"
-            action="{{ route('password.otp.verify') }}"
+            action="{{ route($otpRoute ?? 'password.otp.verify') }}"
             x-data="{
                 digits: ['', '', '', '', '', ''],
                 submitting: false,
@@ -83,7 +83,7 @@
         </form>
 
         <div class="flex items-center justify-between gap-3">
-            <a class="font-mono text-xs text-on-surface-variant transition-colors hover:text-primary" href="{{ route('password.request') }}">Use a different email</a>
+            <a class="font-mono text-xs text-on-surface-variant transition-colors hover:text-primary" href="{{ route($backRoute ?? 'password.request') }}">{{ $backLabel ?? 'Use a different email' }}</a>
             <span class="font-mono text-[10px] uppercase tracking-wider text-on-surface-variant/60">Auto verify</span>
         </div>
     </div>

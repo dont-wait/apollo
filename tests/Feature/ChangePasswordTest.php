@@ -25,7 +25,16 @@ class ChangePasswordTest extends TestCase
             'current_password' => $currentPassword,
             'password' => $newPassword,
             'password_confirmation' => $newPassword,
-        ])->assertRedirect(route('password.change'))
+        ])->assertRedirect(route('password.change.otp'))
+            ->assertSessionHas('status');
+
+        $this->get(route('password.change.otp'))
+            ->assertOk()
+            ->assertViewIs('auth.password-otp')
+            ->assertSeeText('Confirm password change');
+
+        $this->post(route('password.change.otp.verify'), ['otp' => '666666'])
+            ->assertRedirect(route('password.change'))
             ->assertSessionHas('status');
 
         $this->assertAuthenticatedAs($user);
@@ -68,7 +77,7 @@ class ChangePasswordTest extends TestCase
         $this->assertTrue(Hash::check($password, $user->fresh()->password));
     }
 
-    public function test_changing_password_invalidates_a_pending_reset_code(): void
+    public function test_changing_password_consumes_its_otp_after_verification(): void
     {
         config(['auth.enable_mock_otp' => true]);
         $user = User::factory()->create(['password' => 'current-password-123']);
@@ -78,8 +87,27 @@ class ChangePasswordTest extends TestCase
             'current_password' => 'current-password-123',
             'password' => 'different-password-456',
             'password_confirmation' => 'different-password-456',
-        ])->assertRedirect(route('password.change'));
+        ])->assertRedirect(route('password.change.otp'));
+
+        $this->post(route('password.change.otp.verify'), ['otp' => '666666'])
+            ->assertRedirect(route('password.change'));
 
         $this->assertDatabaseMissing('password_reset_otps', ['email' => $user->email]);
+    }
+
+    public function test_change_password_requires_a_valid_otp_before_updating_the_password(): void
+    {
+        $user = User::factory()->create(['password' => 'current-password-123']);
+
+        $this->actingAs($user)->put(route('password.change.update'), [
+            'current_password' => 'current-password-123',
+            'password' => 'different-password-456',
+            'password_confirmation' => 'different-password-456',
+        ]);
+
+        $this->from(route('password.change.otp'))->post(route('password.change.otp.verify'), ['otp' => '111111'])
+            ->assertSessionHasErrors('otp');
+
+        $this->assertTrue(Hash::check('current-password-123', $user->fresh()->password));
     }
 }

@@ -111,6 +111,34 @@ class PasswordResetOtpService
         });
     }
 
+    public function changePassword(string $email, string $password): bool
+    {
+        return DB::transaction(function () use ($email, $password): bool {
+            $record = DB::table('password_reset_otps')->where('email', $email)->lockForUpdate()->first();
+
+            if (! $record || ! $record->verified_at || now()->greaterThan($record->expires_at)) {
+                return false;
+            }
+
+            $user = User::query()->where('email', $email)->lockForUpdate()->first();
+
+            if (! $user || ! $user->isActive()) {
+                DB::table('password_reset_otps')->where('email', $email)->delete();
+
+                return false;
+            }
+
+            $user->forceFill([
+                'password' => $password,
+                'remember_token' => Str::random(60),
+            ])->save();
+
+            DB::table('password_reset_otps')->where('email', $email)->delete();
+
+            return true;
+        });
+    }
+
     private function mockOtpEnabled(): bool
     {
         return (bool) config('auth.enable_mock_otp') && app()->environment(['local', 'testing']);
