@@ -16,7 +16,11 @@ class ResetPasswordController extends Controller
             return redirect()->route('password.request');
         }
 
-        return view('auth.password-otp');
+        return view('auth.password-otp', [
+            'resendRoute' => 'password.otp.resend',
+            'backRoute' => 'password.request',
+            'backLabel' => 'Use a different email',
+        ]);
     }
 
     public function verifyOtp(VerifyPasswordResetOtpRequest $request, PasswordResetOtpService $otpService): RedirectResponse
