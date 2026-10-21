@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Notifications\PasswordResetOtp;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
@@ -92,7 +93,8 @@ class PasswordResetOtpTest extends TestCase
     {
         config(['auth.enable_mock_otp' => true]);
         $user = User::factory()->create();
-        $this->post(route('password.email'), ['email' => $user->email]);
+        $this->post(route('password.email'), ['email' => $user->email])
+            ->assertRedirect(route('password.otp'));
 
         for ($attempt = 0; $attempt < 5; $attempt++) {
             $this->from(route('password.otp'))->post(route('password.otp.verify'), ['otp' => '111111'])
@@ -144,7 +146,30 @@ class PasswordResetOtpTest extends TestCase
             ->assertOk()
             ->assertViewIs('auth.password-otp')
             ->assertSee('data-otp-input', false)
+            ->assertSeeText('Resend code')
             ->assertSee('Auto verify');
+    }
+
+    public function test_forgot_password_can_resend_otp_after_the_cooldown(): void
+    {
+        config(['auth.enable_mock_otp' => true]);
+        Auth::logout();
+        Notification::fake();
+        $user = User::factory()->create();
+
+        $this->post(route('password.email'), ['email' => $user->email]);
+
+        $this->post(route('password.otp.resend'))
+            ->assertRedirect(route('password.otp'))
+            ->assertSessionHas('status', 'Please wait at least 60 seconds before requesting another code.');
+
+        $this->travel(61)->seconds();
+
+        $this->post(route('password.otp.resend'))
+            ->assertRedirect(route('password.otp'))
+            ->assertSessionHas('status', 'A new verification code has been sent to your email.');
+
+        Notification::assertSentTo($user, PasswordResetOtp::class);
     }
 
     public function test_password_reset_requires_verified_otp(): void

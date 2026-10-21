@@ -66,6 +66,9 @@ Route::middleware('guest')->group(function (): void {
     Route::post('/reset-password/otp', [ResetPasswordController::class, 'verifyOtp'])
         ->middleware('throttle:password-reset-verify')
         ->name('password.otp.verify');
+    Route::post('/reset-password/otp/resend', [ForgotPasswordController::class, 'resend'])
+        ->middleware('throttle:password-reset-request')
+        ->name('password.otp.resend');
     Route::get('/reset-password', [ResetPasswordController::class, 'show'])->name('password.reset');
     Route::post('/reset-password', [ResetPasswordController::class, 'reset'])
         ->name('password.update');
@@ -84,6 +87,9 @@ Route::middleware(['auth', 'auth.session'])->group(function (): void {
     Route::post('/change-password/otp', [ChangePasswordController::class, 'verifyOtp'])
         ->middleware('throttle:password-change-verify')
         ->name('password.change.otp.verify');
+    Route::post('/change-password/otp/resend', [ChangePasswordController::class, 'resendOtp'])
+        ->middleware('throttle:password-change-resend')
+        ->name('password.change.otp.resend');
 
     Route::get('/bookmarks', [BookmarkController::class, 'index'])
         ->name('bookmarks.index');

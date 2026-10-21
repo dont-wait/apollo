@@ -6,6 +6,7 @@ use App\Http\Requests\ChangePasswordRequest;
 use App\Http\Requests\VerifyPasswordResetOtpRequest;
 use App\Services\PasswordResetOtpService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\View\View;
@@ -44,6 +45,7 @@ class ChangePasswordController extends Controller
             'heading' => 'Confirm password change',
             'description' => 'Enter the six-digit code sent to '.session('password_change.email').'.',
             'otpRoute' => 'password.change.otp.verify',
+            'resendRoute' => 'password.change.otp.resend',
             'backRoute' => 'password.change',
             'backLabel' => 'Back to change password',
         ]);
@@ -78,5 +80,23 @@ class ChangePasswordController extends Controller
         $request->session()->forget('password_change');
 
         return redirect()->route('password.change')->with('status', 'Your password has been changed.');
+    }
+
+    public function resendOtp(Request $request, PasswordResetOtpService $otpService): RedirectResponse
+    {
+        $user = $request->user();
+
+        if (
+            $request->session()->get('password_change.user_id') !== $user->id
+            || $request->session()->get('password_change.email') !== $user->email
+        ) {
+            return redirect()->route('password.change');
+        }
+
+        $sent = $otpService->send($user->email);
+
+        return redirect()->route('password.change.otp')->with('status', $sent
+            ? 'A new verification code has been sent to your email.'
+            : 'Please wait at least 60 seconds before requesting another code.');
     }
 }

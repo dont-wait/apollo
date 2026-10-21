@@ -12,12 +12,12 @@ use Illuminate\Support\Str;
 
 class PasswordResetOtpService
 {
-    public function send(string $email): void
+    public function send(string $email): bool
     {
         $user = User::query()->where('email', $email)->first();
 
         if (! $user || ! $user->isActive()) {
-            return;
+            return false;
         }
 
         $now = now();
@@ -51,6 +51,8 @@ class PasswordResetOtpService
         if ($shouldSend) {
             $user->notify(new PasswordResetOtp($otp));
         }
+
+        return $shouldSend;
     }
 
     public function verify(string $email, string $otp): bool

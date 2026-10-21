@@ -31,7 +31,12 @@ class ChangePasswordTest extends TestCase
         $this->get(route('password.change.otp'))
             ->assertOk()
             ->assertViewIs('auth.password-otp')
-            ->assertSeeText('Confirm password change');
+            ->assertSeeText('Confirm password change')
+            ->assertSeeText('Resend code');
+
+        $this->post(route('password.change.otp.resend'))
+            ->assertRedirect(route('password.change.otp'))
+            ->assertSessionHas('status', 'Please wait at least 60 seconds before requesting another code.');
 
         $this->post(route('password.change.otp.verify'), ['otp' => '666666'])
             ->assertRedirect(route('password.change'))

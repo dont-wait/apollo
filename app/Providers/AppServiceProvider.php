@@ -47,7 +47,8 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('password-reset-request', function (Request $request): array {
-            $key = strtolower((string) $request->input('email')).'|'.$request->ip();
+            $email = $request->input('email') ?: $request->session()->get('password_reset.email');
+            $key = strtolower((string) $email).'|'.$request->ip();
 
             return [Limit::perMinute(5)->by($key)];
         });
@@ -64,6 +65,10 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('password-change-verify', function (Request $request): array {
             return [Limit::perMinute(10)->by('user:'.$request->user()->id.'|'.$request->ip())];
+        });
+
+        RateLimiter::for('password-change-resend', function (Request $request): array {
+            return [Limit::perMinute(5)->by('user:'.$request->user()->id.'|'.$request->ip())];
         });
 
         Category::observe(RelatedPostSearchObserver::class);

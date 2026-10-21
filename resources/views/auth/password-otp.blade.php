@@ -83,8 +83,16 @@
         </form>
 
         <div class="flex items-center justify-between gap-3">
+            @if (isset($resendRoute))
+                <form method="POST" action="{{ route($resendRoute) }}">
+                    @csrf
+                    <button class="font-mono text-xs text-primary transition-colors hover:text-on-surface" type="submit">Resend code</button>
+                </form>
+            @else
+                <span></span>
+            @endif
             <a class="font-mono text-xs text-on-surface-variant transition-colors hover:text-primary" href="{{ route($backRoute ?? 'password.request') }}">{{ $backLabel ?? 'Use a different email' }}</a>
-            <span class="font-mono text-[10px] uppercase tracking-wider text-on-surface-variant/60">Auto verify</span>
         </div>
+        <p class="text-center font-mono text-[10px] uppercase tracking-wider text-on-surface-variant/60">Auto verify</p>
     </div>
 @endsection
