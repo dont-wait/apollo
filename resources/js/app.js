@@ -5,10 +5,56 @@ import './admin/ai-weekly.js';
 import './admin/notifications.js';
 window.Alpine = Alpine;
 
-window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}) => ({
+const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
+
+const bookmarkUrl = (template, postId) => template.replace('__POST__', String(postId));
+
+const fetchBookmark = async (url, method) => {
+    let lastError;
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+            const response = await fetch(url, {
+                method,
+                headers: {
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': csrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+            let payload;
+
+            try {
+                payload = await response.json();
+            } catch (error) {
+                error.retryable = response.status >= 500;
+                throw error;
+            }
+
+            if (!response.ok || typeof payload.bookmarks_count !== 'number') {
+                const error = new Error(`Bookmark request failed with status ${response.status}`);
+                error.retryable = response.status >= 500;
+                throw error;
+            }
+
+            return payload;
+        } catch (error) {
+            lastError = error;
+
+            if (attempt === 1 || error.retryable === false) {
+                throw error;
+            }
+        }
+    }
+
+    throw lastError;
+};
+
+window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}, bookmarkUrls = {}) => ({
     posts,
     authenticated,
     loginUrl,
+    bookmarkUrls,
     search: filters.q ?? '',
     activeCategory: filters.category ?? '',
     sort: filters.sort ?? (filters.q ? 'relevance' : 'latest'),
@@ -27,8 +73,10 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
         { value: 'reading', label: 'Longest reads' },
     ],
     view: 'list',
-    bookmarked: [],
     bookmarkNotice: false,
+    bookmarkNoticeMessage: 'Sign in to save articles to your bookmarks.',
+    bookmarkNoticeShowsLogin: false,
+    pendingBookmarkPosts: {},
     newsletterSubmitted: false,
 
     visiblePosts() {
@@ -172,27 +220,153 @@ window.homeFeed = (posts, authenticated, loginUrl, filters = {}, pagination = {}
     },
 
     isBookmarked(postId) {
-        return this.bookmarked.includes(postId);
+        return this.posts.find((post) => post.id === postId)?.bookmarked === true;
     },
 
     bookmarkCount(post) {
-        return post.bookmarks + (this.isBookmarked(post.id) ? 1 : 0);
+        return post.bookmarks;
     },
 
-    toggleBookmark(postId) {
+    async copyLink(postUrl) {
+        try {
+            await navigator.clipboard.writeText(new URL(postUrl, window.location.href).href);
+            this.bookmarkNoticeMessage = 'Article link copied.';
+            this.bookmarkNoticeShowsLogin = false;
+            this.bookmarkNotice = true;
+        } catch (error) {
+            this.bookmarkNoticeMessage = 'Unable to copy article link.';
+            this.bookmarkNoticeShowsLogin = false;
+            this.bookmarkNotice = true;
+            console.error('Unable to copy article link:', error);
+        }
+    },
+
+    async toggleBookmark(post) {
         if (!this.authenticated) {
+            this.bookmarkNoticeMessage = 'Sign in to save articles to your bookmarks.';
+            this.bookmarkNoticeShowsLogin = true;
             this.bookmarkNotice = true;
 
             return;
         }
 
-        this.bookmarked = this.isBookmarked(postId)
-            ? this.bookmarked.filter((id) => id !== postId)
-            : [...this.bookmarked, postId];
+        if (this.pendingBookmarkPosts[post.id]) {
+            return;
+        }
+
+        const previousBookmarked = post.bookmarked;
+        const previousCount = post.bookmarks;
+        const nextBookmarked = !previousBookmarked;
+        const url = bookmarkUrl(
+            nextBookmarked ? this.bookmarkUrls.store : this.bookmarkUrls.destroy,
+            post.id,
+        );
+
+        this.pendingBookmarkPosts[post.id] = true;
+        post.bookmarked = nextBookmarked;
+        post.bookmarks += nextBookmarked ? 1 : -1;
+
+        try {
+            const payload = await fetchBookmark(url, nextBookmarked ? 'POST' : 'DELETE');
+            post.bookmarked = payload.bookmarked;
+            post.bookmarks = payload.bookmarks_count;
+            this.bookmarkNoticeMessage = payload.bookmarked
+                ? 'Article saved.'
+                : 'Article removed from saved articles.';
+            this.bookmarkNoticeShowsLogin = false;
+            this.bookmarkNotice = true;
+        } catch (error) {
+            if (error.retryable) {
+                window.location.reload();
+
+                return;
+            }
+
+            post.bookmarked = previousBookmarked;
+            post.bookmarks = previousCount;
+            this.bookmarkNoticeMessage = 'Unable to update bookmark. Please try again.';
+            this.bookmarkNoticeShowsLogin = false;
+            this.bookmarkNotice = true;
+            console.error('Unable to update bookmark:', error);
+        } finally {
+            delete this.pendingBookmarkPosts[post.id];
+        }
     },
 
     focusSearch() {
         this.$refs.search?.focus();
+    },
+});
+
+window.bookmarkButton = (config) => ({
+    postId: config.postId,
+    bookmarked: config.bookmarked,
+    count: config.count,
+    storeUrl: config.storeUrl,
+    destroyUrl: config.destroyUrl,
+    url: config.url ?? null,
+    loading: false,
+    error: false,
+    statusMessage: '',
+    statusIsError: false,
+
+    async copyLink() {
+        try {
+            await navigator.clipboard.writeText(new URL(this.url, window.location.href).href);
+            this.statusIsError = false;
+            this.statusMessage = 'Article link copied.';
+        } catch (error) {
+            this.statusIsError = true;
+            this.statusMessage = 'Unable to copy article link.';
+            console.error('Unable to copy article link:', error);
+        }
+    },
+
+    async toggle() {
+        if (this.loading) {
+            return;
+        }
+
+        const nextBookmarked = !this.bookmarked;
+        const previousBookmarked = this.bookmarked;
+        const previousCount = this.count;
+
+        this.loading = true;
+        this.error = false;
+        this.bookmarked = nextBookmarked;
+        this.count += nextBookmarked ? 1 : -1;
+
+        try {
+            const payload = await fetchBookmark(
+                bookmarkUrl(nextBookmarked ? this.storeUrl : this.destroyUrl, this.postId),
+                nextBookmarked ? 'POST' : 'DELETE',
+            );
+            this.bookmarked = payload.bookmarked;
+            this.count = payload.bookmarks_count;
+            this.statusIsError = false;
+            this.statusMessage = this.bookmarked
+                ? 'Article saved.'
+                : 'Article removed from saved articles.';
+            this.$dispatch('bookmark-toggled', {
+                id: this.postId,
+                bookmarked: this.bookmarked,
+            });
+        } catch (error) {
+            if (error.retryable) {
+                window.location.reload();
+
+                return;
+            }
+
+            this.bookmarked = previousBookmarked;
+            this.count = previousCount;
+            this.error = true;
+            this.statusIsError = true;
+            this.statusMessage = 'Unable to update bookmark. Please try again.';
+            console.error('Unable to update bookmark:', error);
+        } finally {
+            this.loading = false;
+        }
     },
 });
 
@@ -681,6 +855,50 @@ window.articleComments = (options = {}) => ({
             }
         } finally {
             this.submitting = null;
+        }
+    },
+});
+
+window.savedBookmarks = (initialVisibleCount, initialSavedCount) => ({
+    visibleCount: initialVisibleCount,
+    savedCount: initialSavedCount,
+    notice: false,
+    noticeMessage: '',
+
+    handleBookmark(event) {
+        if (!event.detail.bookmarked) {
+            this.visibleCount = Math.max(0, this.visibleCount - 1);
+            this.savedCount = Math.max(0, this.savedCount - 1);
+            this.noticeMessage = 'Article removed from saved articles.';
+            this.notice = true;
+        }
+    },
+
+    handleLinkCopied() {
+        this.noticeMessage = 'Article link copied.';
+        this.notice = true;
+    },
+});
+
+window.savedBookmarkCard = (config) => ({
+    ...window.bookmarkButton(config),
+    url: config.url,
+    menuOpen: false,
+    removed: false,
+
+    handleBookmark(event) {
+        if (event.detail.id === this.postId && !event.detail.bookmarked) {
+            this.removed = true;
+        }
+    },
+
+    async copyLink() {
+        try {
+            await navigator.clipboard.writeText(this.url);
+            this.menuOpen = false;
+            this.$dispatch('bookmark-link-copied');
+        } catch (error) {
+            console.error('Unable to copy article link:', error);
         }
     },
 });
