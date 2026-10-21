@@ -46,6 +46,22 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        RateLimiter::for('password-reset-request', function (Request $request): array {
+            $key = strtolower((string) $request->input('email')).'|'.$request->ip();
+
+            return [Limit::perMinute(5)->by($key)];
+        });
+
+        RateLimiter::for('password-reset-verify', function (Request $request): array {
+            $key = strtolower((string) $request->input('email')).'|'.$request->ip();
+
+            return [Limit::perMinute(10)->by($key)];
+        });
+
+        RateLimiter::for('password-change', function (Request $request): array {
+            return [Limit::perMinute(5)->by('user:'.$request->user()->id)];
+        });
+
         Category::observe(RelatedPostSearchObserver::class);
         Tag::observe(RelatedPostSearchObserver::class);
     }
