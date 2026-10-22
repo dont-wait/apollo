@@ -34,6 +34,26 @@
 }
 
 @layer components {
+    .ai-weekly-preview h1,
+    .ai-weekly-preview h2,
+    .ai-weekly-preview h3 {
+        margin-top: 1.75rem;
+        font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+        font-weight: 600;
+        line-height: 1.3;
+    }
+
+    .ai-weekly-preview h1 { font-size: 1.5rem; }
+    .ai-weekly-preview h2 { font-size: 1.25rem; }
+    .ai-weekly-preview h3 { font-size: 1.1rem; }
+    .ai-weekly-preview a { color: #8ed5ff; text-decoration: underline; }
+    .ai-weekly-preview ul { list-style: disc; padding-left: 1.5rem; }
+    .ai-weekly-preview ol { list-style: decimal; padding-left: 1.5rem; }
+    .ai-weekly-preview blockquote { border-left: 2px solid #38bdf8; padding-left: 1rem; color: #bdc8d1; }
+    .ai-weekly-preview code { border-radius: 0.25rem; background: #0b0e13; padding: 0.125rem 0.375rem; color: #8ed5ff; }
+    .ai-weekly-preview pre { overflow-x: auto; border-radius: 0.25rem; background: #0b0e13; padding: 1rem; }
+    .ai-weekly-preview pre code { padding: 0; }
+
     .admin-sidebar,
     .admin-sidebar * {
         -ms-overflow-style: none;

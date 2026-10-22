@@ -1,11 +1,20 @@
 <?php
 
+use App\Http\Controllers\Admin\AiArticleController;
+use App\Http\Controllers\Admin\AiSourceController;
 use App\Http\Controllers\Admin\ArticleController;
+use App\Http\Controllers\Admin\AutomationRunController;
 use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Admin\CommentController as AdminCommentController;
 use App\Http\Controllers\Admin\MediaController;
+use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\TagController;
+use App\Http\Controllers\Admin\WeeklyReviewController;
+use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\ArticleController as PublicArticleController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BookmarkController;
+use App\Http\Controllers\CommentController;
 use App\Http\Controllers\HomeController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Support\Facades\Route;
@@ -14,6 +23,26 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 
 Route::get('/articles/{article:slug}', [PublicArticleController::class, 'show'])
     ->name('articles.show');
+
+Route::prefix('articles/{article:slug}/comments')
+    ->name('articles.comments.')
+    ->group(function (): void {
+        Route::get('/', [CommentController::class, 'index'])->name('index');
+        Route::post('/', [CommentController::class, 'store'])
+            ->middleware(['auth', 'throttle:comments'])
+            ->name('store');
+        Route::patch('/{comment}', [CommentController::class, 'update'])
+            ->middleware(['auth', 'throttle:comments'])
+            ->scopeBindings()
+            ->name('update');
+        Route::delete('/{comment}', [CommentController::class, 'destroy'])
+            ->middleware('auth')
+            ->scopeBindings()
+            ->name('destroy');
+        Route::get('/{comment}/replies', [CommentController::class, 'replies'])
+            ->scopeBindings()
+            ->name('replies');
+    });
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -31,15 +60,31 @@ Route::post('/logout', [AuthController::class, 'logout'])
     ->middleware('auth')
     ->name('logout');
 
+Route::middleware('auth')->group(function (): void {
+    Route::get('/bookmarks', [BookmarkController::class, 'index'])
+        ->name('bookmarks.index');
+
+    Route::post('/bookmarks/{post}', [BookmarkController::class, 'store'])
+        ->middleware('throttle:bookmarks')
+        ->name('bookmarks.store');
+
+    Route::delete('/bookmarks/{post}', [BookmarkController::class, 'destroy'])
+        ->middleware('throttle:bookmarks')
+        ->name('bookmarks.destroy');
+});
+
 Route::prefix('admin')
     ->name('admin.')
     ->middleware(['auth', EnsureUserIsAdmin::class])
     ->group(function (): void {
+        Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+        Route::post('/notifications/{notification}/open', [NotificationController::class, 'open'])->name('notifications.open');
         Route::get('/dashboard', function () {
             return view('admin.dashboard');
         })->name('dashboard');
 
         Route::resource('articles', ArticleController::class)->except(['show']);
+        Route::resource('users', UserController::class)->except(['show']);
 
         Route::get('/categories', [CategoryController::class, 'index'])
             ->name('categories.index');
@@ -76,4 +121,30 @@ Route::prefix('admin')
 
         Route::post('/media', [MediaController::class, 'store'])
             ->name('media.store');
+
+        Route::get('/ai-sources', [AiSourceController::class, 'index'])->name('ai-sources.index');
+        Route::post('/ai-sources', [AiSourceController::class, 'store'])->name('ai-sources.store');
+        Route::put('/ai-sources/{source}', [AiSourceController::class, 'update'])->name('ai-sources.update');
+        Route::get('/ai-articles', [AiArticleController::class, 'index'])->name('ai-articles.index');
+        Route::get('/ai-articles/{article}', [AiArticleController::class, 'show'])->name('ai-articles.show');
+        Route::post('/automation-runs/collect', [AutomationRunController::class, 'collect'])->name('automation-runs.collect');
+        Route::post('/automation-runs/analyze', [AutomationRunController::class, 'analyze'])->name('automation-runs.analyze');
+        Route::get('/automation-runs', [AutomationRunController::class, 'index'])->name('automation-runs.index');
+        Route::get('/automation-runs/{run}', [AutomationRunController::class, 'show'])->name('automation-runs.show');
+        Route::post('/automation-runs/{run}/retry', [AutomationRunController::class, 'retry'])->name('automation-runs.retry');
+        Route::get('/weekly-reviews', [WeeklyReviewController::class, 'index'])->name('weekly-reviews.index');
+        Route::post('/weekly-reviews/generate', [WeeklyReviewController::class, 'generate'])->name('weekly-reviews.generate');
+        Route::get('/weekly-reviews/{review}', [WeeklyReviewController::class, 'show'])->name('weekly-reviews.show');
+        Route::put('/weekly-reviews/{review}', [WeeklyReviewController::class, 'update'])->name('weekly-reviews.update');
+        Route::post('/weekly-reviews/{review}/regenerate', [WeeklyReviewController::class, 'regenerate'])->name('weekly-reviews.regenerate');
+        Route::post('/weekly-reviews/{review}/apply-candidate', [WeeklyReviewController::class, 'applyCandidate'])->name('weekly-reviews.apply-candidate');
+        Route::post('/weekly-reviews/{review}/convert-to-post', [WeeklyReviewController::class, 'convert'])->name('weekly-reviews.convert');
+        Route::get('/comments', [AdminCommentController::class, 'index'])
+            ->name('comments.index');
+
+        Route::patch('/comments/{comment}/status', [AdminCommentController::class, 'updateStatus'])
+            ->name('comments.update-status');
+
+        Route::patch('/comments/bulk-status', [AdminCommentController::class, 'bulkUpdateStatus'])
+            ->name('comments.bulk-status');
     });

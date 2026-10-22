@@ -13,6 +13,13 @@ class Bookmark extends Pivot
         return null;
     }
 
+    protected function casts(): array
+    {
+        return [
+            'created_at' => 'datetime',
+        ];
+    }
+
     protected static function booted(): void
     {
         static::saved(fn (Bookmark $pivot) => SearchIndexOutbox::enqueuePost((int) $pivot->post_id));
