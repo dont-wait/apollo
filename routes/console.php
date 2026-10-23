@@ -31,3 +31,4 @@ Schedule::command('media:cleanup-storage --limit=100')
     ->everyTenMinutes()
     ->withoutOverlapping()
     ->onOneServer();
+Schedule::command('app:prune-password-reset-otps')->hourly()->onOneServer();
