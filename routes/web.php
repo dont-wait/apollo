@@ -9,13 +9,16 @@ use App\Http\Controllers\Admin\CommentController as AdminCommentController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\TagController;
-use App\Http\Controllers\Admin\WeeklyReviewController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\WeeklyReviewController;
 use App\Http\Controllers\ArticleController as PublicArticleController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BookmarkController;
+use App\Http\Controllers\ChangePasswordController;
 use App\Http\Controllers\CommentController;
+use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\ResetPasswordController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Support\Facades\Route;
 
@@ -29,14 +32,14 @@ Route::prefix('articles/{article:slug}/comments')
     ->group(function (): void {
         Route::get('/', [CommentController::class, 'index'])->name('index');
         Route::post('/', [CommentController::class, 'store'])
-            ->middleware(['auth', 'throttle:comments'])
+            ->middleware(['auth', 'auth.session', 'throttle:comments'])
             ->name('store');
         Route::patch('/{comment}', [CommentController::class, 'update'])
-            ->middleware(['auth', 'throttle:comments'])
+            ->middleware(['auth', 'auth.session', 'throttle:comments'])
             ->scopeBindings()
             ->name('update');
         Route::delete('/{comment}', [CommentController::class, 'destroy'])
-            ->middleware('auth')
+            ->middleware(['auth', 'auth.session'])
             ->scopeBindings()
             ->name('destroy');
         Route::get('/{comment}/replies', [CommentController::class, 'replies'])
@@ -54,13 +57,40 @@ Route::middleware('guest')->group(function (): void {
     Route::post('/register', [AuthController::class, 'register'])
         ->middleware('throttle:10,1')
         ->name('register.store');
+
+    Route::get('/forgot-password', [ForgotPasswordController::class, 'show'])->name('password.request');
+    Route::post('/forgot-password', [ForgotPasswordController::class, 'send'])
+        ->middleware('throttle:password-reset-request')
+        ->name('password.email');
+    Route::get('/reset-password/otp', [ResetPasswordController::class, 'showOtp'])->name('password.otp');
+    Route::post('/reset-password/otp', [ResetPasswordController::class, 'verifyOtp'])
+        ->middleware('throttle:password-reset-verify')
+        ->name('password.otp.verify');
+    Route::post('/reset-password/otp/resend', [ForgotPasswordController::class, 'resend'])
+        ->middleware('throttle:password-reset-request')
+        ->name('password.otp.resend');
+    Route::get('/reset-password', [ResetPasswordController::class, 'show'])->name('password.reset');
+    Route::post('/reset-password', [ResetPasswordController::class, 'reset'])
+        ->name('password.update');
 });
 
 Route::post('/logout', [AuthController::class, 'logout'])
-    ->middleware('auth')
+    ->middleware(['auth', 'auth.session'])
     ->name('logout');
 
-Route::middleware('auth')->group(function (): void {
+Route::middleware(['auth', 'auth.session'])->group(function (): void {
+    Route::get('/change-password', [ChangePasswordController::class, 'show'])->name('password.change');
+    Route::put('/change-password', [ChangePasswordController::class, 'update'])
+        ->middleware('throttle:password-change')
+        ->name('password.change.update');
+    Route::get('/change-password/otp', [ChangePasswordController::class, 'showOtp'])->name('password.change.otp');
+    Route::post('/change-password/otp', [ChangePasswordController::class, 'verifyOtp'])
+        ->middleware('throttle:password-change-verify')
+        ->name('password.change.otp.verify');
+    Route::post('/change-password/otp/resend', [ChangePasswordController::class, 'resendOtp'])
+        ->middleware('throttle:password-change-resend')
+        ->name('password.change.otp.resend');
+
     Route::get('/bookmarks', [BookmarkController::class, 'index'])
         ->name('bookmarks.index');
 
@@ -75,7 +105,7 @@ Route::middleware('auth')->group(function (): void {
 
 Route::prefix('admin')
     ->name('admin.')
-    ->middleware(['auth', EnsureUserIsAdmin::class])
+    ->middleware(['auth', 'auth.session', EnsureUserIsAdmin::class])
     ->group(function (): void {
         Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
         Route::post('/notifications/{notification}/open', [NotificationController::class, 'open'])->name('notifications.open');

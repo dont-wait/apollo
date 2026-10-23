@@ -46,6 +46,39 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        RateLimiter::for('password-reset-request', function (Request $request): array {
+            $email = $request->input('email') ?: $request->session()->get('password_reset.email');
+            $emailKey = strtolower(trim((string) $email));
+
+            return [
+                Limit::perMinute(5)->by('email:'.$emailKey),
+                Limit::perMinute(30)->by('ip:'.$request->ip()),
+            ];
+        });
+
+        RateLimiter::for('password-reset-verify', function (Request $request): array {
+            $flowId = $request->session()->get('password_reset.flow_id');
+            $email = $request->session()->get('password_reset.email');
+            $key = $flowId ?: strtolower((string) $email).'|'.$request->ip();
+
+            return [Limit::perMinute(10)->by('reset-verify:'.$key.'|'.$request->ip())];
+        });
+
+        RateLimiter::for('password-change', function (Request $request): array {
+            return [
+                Limit::perMinute(5)->by('user:'.$request->user()->id),
+                Limit::perMinute(30)->by('ip:'.$request->ip()),
+            ];
+        });
+
+        RateLimiter::for('password-change-verify', function (Request $request): array {
+            return [Limit::perMinute(10)->by('user:'.$request->user()->id.'|'.$request->ip())];
+        });
+
+        RateLimiter::for('password-change-resend', function (Request $request): array {
+            return [Limit::perMinute(5)->by('user:'.$request->user()->id.'|'.$request->ip())];
+        });
+
         Category::observe(RelatedPostSearchObserver::class);
         Tag::observe(RelatedPostSearchObserver::class);
     }
