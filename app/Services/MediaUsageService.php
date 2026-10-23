@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Media;
 use App\Models\Post;
+use App\Models\WeeklyReview;
 
 class MediaUsageService
 {
@@ -18,7 +19,10 @@ class MediaUsageService
     {
         return Post::withTrashed()
             ->where('markdown_content', 'like', '%'.$media->url.'%')
-            ->exists();
+            ->exists()
+            || WeeklyReview::query()
+                ->where('markdown_content', 'like', '%'.$media->url.'%')
+                ->exists();
     }
 
     public function isInUse(Media $media): bool

@@ -6,15 +6,22 @@ use App\Models\Post;
 use App\Models\Tag;
 use App\Models\User;
 use App\Models\WeeklyReview;
+use App\Services\MediaOperationLockService;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class DraftPostCreator
 {
+    public function __construct(
+        private MediaOperationLockService $operationLock
+    ) {}
+
     public function create(WeeklyReview $review, User $author, bool $markReviewed = true): Post
     {
         return DB::transaction(function () use ($review, $author, $markReviewed): Post {
+            $this->operationLock->lock();
+
             $locked = WeeklyReview::query()->lockForUpdate()->findOrFail($review->id);
             $existing = Post::withTrashed()->where('weekly_review_id', $locked->id)->first();
             if ($existing) {
