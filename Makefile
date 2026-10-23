@@ -9,7 +9,9 @@ help:
 	  'make dev     # chay Laravel dev server' \
 	  'make test    # chay PHPUnit tests' \
 	  'make storage-up # chay RustFS va tao bucket media public' \
-	  'make storage-down # dung RustFS, giu nguyen du lieu'
+	  'make storage-down # dung RustFS, giu nguyen du lieu' \
+	  'make model-up # chay Ollama va tai model Qwen 7B' \
+	  'make model-down # dung Ollama, giu nguyen model'
 
 shell:
 	nix develop
@@ -32,3 +34,12 @@ storage-up:
 
 storage-down:
 	docker compose stop rustfs
+
+.PHONY: model-up model-down
+
+model-up:
+	docker compose up -d --wait ollama
+	docker compose run --rm ollama-pull
+
+model-down:
+	docker compose stop ollama

@@ -12,7 +12,14 @@ class AiArticle extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['source_id', 'collection_run_id', 'title', 'url', 'canonical_url', 'canonical_url_hash', 'title_fingerprint', 'author', 'published_at', 'raw_summary', 'raw_content', 'status', 'collected_at'];
+    public $timestamps = false;
+
+    protected $fillable = ['source_id', 'collection_run_id', 'duplicate_of', 'title', 'url', 'canonical_url', 'canonical_url_hash', 'title_fingerprint', 'author', 'published_at', 'raw_summary', 'raw_content', 'status', 'collected_at'];
+
+    public function duplicateOf(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'duplicate_of');
+    }
 
     public function source(): BelongsTo
     {

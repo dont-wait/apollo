@@ -4,6 +4,9 @@ use App\Models\User;
 
 return [
 
+    'enable_mock_otp' => env('ENABLE_MOCK_OTP', false),
+    'mock_otp' => env('MOCK_OTP', '666666'),
+
     /*
     |--------------------------------------------------------------------------
     | Authentication Defaults
