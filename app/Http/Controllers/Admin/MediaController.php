@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\ReplaceMediaRequest;
 use App\Http\Requests\Admin\StoreMediaRequest;
 use App\MediaStorage;
 use App\Models\Media;
+use App\Services\MediaOperationLockService;
 use App\Services\MediaStorageCleanupService;
 use App\Services\MediaUsageService;
 use Illuminate\Http\JsonResponse;
@@ -86,15 +87,19 @@ class MediaController extends Controller
         Media $media,
         MediaStorage $mediaStorage,
         MediaUsageService $mediaUsageService,
-        MediaStorageCleanupService $cleanupService
+        MediaStorageCleanupService $cleanupService,
+        MediaOperationLockService $operationLock
     ): JsonResponse {
 
         $cleanup = DB::transaction(function () use (
             $media,
             $mediaStorage,
             $mediaUsageService,
-            $cleanupService
+            $cleanupService,
+            $operationLock
         ) {
+            $operationLock->lock();
+
             $lockedMedia = Media::query()
                 ->lockForUpdate()
                 ->findOrFail($media->getKey());
@@ -110,6 +115,11 @@ class MediaController extends Controller
 
             $lockedMedia->delete();
 
+            $cleanupService->attempt(
+                $cleanup,
+                $mediaStorage
+            );
+
             return $cleanup;
         });
 
@@ -118,11 +128,6 @@ class MediaController extends Controller
                 'message' => 'Không thể xóa media vì đang được sử dụng.',
             ], 409);
         }
-
-        $cleanupService->attempt(
-            $cleanup,
-            $mediaStorage
-        );
 
         return response()->json([
             'message' => 'Xóa media thành công.',
@@ -165,23 +170,10 @@ class MediaController extends Controller
         Media $media,
         MediaStorage $mediaStorage,
         MediaUsageService $mediaUsageService,
-        MediaStorageCleanupService $cleanupService
+        MediaStorageCleanupService $cleanupService,
+        MediaOperationLockService $operationLock
     ): JsonResponse {
-        if ($mediaUsageService->isUsedInMarkdown($media)) {
-            return response()->json([
-                'message' => 'Không thể thay thế media vì URL đang được sử dụng trong nội dung Markdown.',
-            ], 409);
-        }
-
         $file = $request->file('file');
-        if (
-            $mediaUsageService->isUsedAsThumbnail($media)
-            && ! str_starts_with($file->getMimeType() ?? '', 'image/')
-        ) {
-            throw ValidationException::withMessages([
-                'file' => 'Media đang được dùng làm thumbnail nên chỉ có thể thay thế bằng file ảnh.',
-            ]);
-        }
 
         $width = null;
         $height = null;
@@ -218,32 +210,41 @@ class MediaController extends Controller
         );
 
         try {
-            $attributes = $mediaStorage->storeAt(
-                $file,
-                $newStorageKey
-            );
-        } catch (\Throwable $exception) {
-            $cleanupService->attempt(
-                $newCleanup,
-                $mediaStorage
-            );
-
-            throw $exception;
-        }
-
-        try {
             $oldCleanup = DB::transaction(function () use (
                 $media,
-                $attributes,
                 $width,
                 $height,
+                $mediaStorage,
                 $cleanupService,
                 $disk,
-                $newStorageKey
+                $newStorageKey,
+                $mediaUsageService,
+                $operationLock,
+                $file
             ) {
+                $operationLock->lock();
+
+                $attributes = $mediaStorage->storeAt(
+                    $file,
+                    $newStorageKey
+                );
+
                 $lockedMedia = Media::query()
                     ->lockForUpdate()
                     ->findOrFail($media->getKey());
+
+                if ($mediaUsageService->isUsedInMarkdown($lockedMedia)) {
+                    return null;
+                }
+
+                if (
+                    $mediaUsageService->isUsedAsThumbnail($lockedMedia)
+                    && ! str_starts_with($file->getMimeType() ?? '', 'image/')
+                ) {
+                    throw ValidationException::withMessages([
+                        'file' => 'Media đang được dùng làm thumbnail nên chỉ có thể thay thế bằng file ảnh.',
+                    ]);
+                }
 
                 $oldStorageKey = $lockedMedia->storage_key;
 
@@ -262,10 +263,17 @@ class MediaController extends Controller
                     $newStorageKey
                 );
 
-                return $cleanupService->schedule(
+                $oldCleanup = $cleanupService->schedule(
                     $disk,
                     $oldStorageKey
                 );
+
+                $cleanupService->attempt(
+                    $oldCleanup,
+                    $mediaStorage
+                );
+
+                return $oldCleanup;
             });
         } catch (\Throwable $exception) {
             $cleanupService->attempt(
@@ -276,16 +284,22 @@ class MediaController extends Controller
             throw $exception;
         }
 
+        if ($oldCleanup === null) {
+            $cleanupService->attempt(
+                $newCleanup,
+                $mediaStorage
+            );
+
+            return response()->json([
+                'message' => 'Không thể thay thế media vì URL đang được sử dụng trong nội dung Markdown.',
+            ], 409);
+        }
+
         /*
          * The database already points to the new object here.
          * Cleanup failure must not turn a successful replacement
          * into an HTTP error. The durable cleanup record will retry.
          */
-        $cleanupService->attempt(
-            $oldCleanup,
-            $mediaStorage
-        );
-
         return response()->json([
             'message' => 'Thay thế media thành công.',
             'data' => $media->fresh(),

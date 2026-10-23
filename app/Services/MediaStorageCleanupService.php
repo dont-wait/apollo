@@ -3,12 +3,18 @@
 namespace App\Services;
 
 use App\MediaStorage;
+use App\Models\Media;
 use App\Models\MediaStorageCleanup;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 class MediaStorageCleanupService
 {
+    public function __construct(
+        private MediaOperationLockService $operationLock
+    ) {}
+
     public function schedule(
         string $disk,
         string $storageKey,
@@ -40,25 +46,55 @@ class MediaStorageCleanupService
         MediaStorage $mediaStorage
     ): bool {
         try {
-            $mediaStorage->deleteIfExistsFromDisk(
-                $cleanup->disk,
-                $cleanup->storage_key
-            );
+            return DB::transaction(function () use ($cleanup, $mediaStorage): bool {
+                $this->operationLock->lock();
 
-            $cleanup->delete();
+                $lockedCleanup = MediaStorageCleanup::query()
+                    ->lockForUpdate()
+                    ->find($cleanup->getKey());
 
-            return true;
+                if ($lockedCleanup === null) {
+                    return true;
+                }
+
+                if (Media::query()->where('storage_key', $lockedCleanup->storage_key)->exists()) {
+                    $lockedCleanup->delete();
+
+                    return true;
+                }
+
+                $mediaStorage->deleteIfExistsFromDisk(
+                    $lockedCleanup->disk,
+                    $lockedCleanup->storage_key
+                );
+
+                $lockedCleanup->delete();
+
+                return true;
+            });
         } catch (Throwable $exception) {
             try {
-                $attempts = $cleanup->attempts + 1;
+                DB::transaction(function () use ($cleanup, $exception): void {
+                    $this->operationLock->lock();
 
-                $cleanup->update([
-                    'attempts' => $attempts,
-                    'last_error' => $exception->getMessage(),
-                    'available_at' => now()->addMinutes(
-                        min(60, 2 ** min($attempts, 5))
-                    ),
-                ]);
+                    $lockedCleanup = MediaStorageCleanup::query()
+                        ->lockForUpdate()
+                        ->find($cleanup->getKey());
+
+                    if ($lockedCleanup === null) {
+                        return;
+                    }
+
+                    $attempts = $lockedCleanup->attempts + 1;
+
+                    $lockedCleanup->update([
+                        'attempts' => $attempts,
+                        'last_error' => $exception->getMessage(),
+                        'available_at' => now()->addMinutes(
+                            min(60, 2 ** min($attempts, 5))
+                        ),
+                    ]);
+                });
             } catch (Throwable $cleanupException) {
                 report($cleanupException);
             }
