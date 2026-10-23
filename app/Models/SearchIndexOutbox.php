@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use App\Jobs\SyncPostSearch;
+use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class SearchIndexOutbox extends Model
 {
@@ -51,6 +53,12 @@ class SearchIndexOutbox extends Model
             'last_error' => null,
         ])->save();
 
-        SyncPostSearch::dispatch($postId)->afterCommit();
+        DB::afterCommit(function () use ($postId): void {
+            try {
+                app(Dispatcher::class)->dispatch(new SyncPostSearch($postId));
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        });
     }
 }

@@ -37,6 +37,10 @@
                 </a>
                 @auth
                     <span class="hidden max-w-28 truncate font-mono text-[11px] uppercase tracking-[0.12em] text-tertiary xl:inline">{{ auth()->user()->name }}</span>
+                    <a class="hidden items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-on-surface-variant transition-colors hover:text-primary md:flex" href="{{ route('bookmarks.index') }}">
+                        <span class="material-symbols-outlined text-[16px]" aria-hidden="true">bookmarks</span>
+                        Saved
+                    </a>
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
                         <button class="font-mono text-[11px] uppercase tracking-[0.12em] text-on-surface-variant transition-colors hover:text-primary" type="submit">Sign Out</button>
@@ -72,6 +76,7 @@
             <a class="block rounded-md px-3 py-3 font-mono text-xs uppercase tracking-[0.16em] text-on-surface-variant transition-colors hover:bg-surface-high hover:text-primary" href="#categories" @click="mobileMenuOpen = false">Categories</a>
             <a class="block rounded-md px-3 py-3 font-mono text-xs uppercase tracking-[0.16em] text-on-surface-variant transition-colors hover:bg-surface-high hover:text-primary" href="#about" @click="mobileMenuOpen = false">About</a>
             @auth
+                <a class="block rounded-md px-3 py-3 font-mono text-xs uppercase tracking-[0.16em] text-on-surface-variant transition-colors hover:bg-surface-high hover:text-primary" href="{{ route('bookmarks.index') }}" @click="mobileMenuOpen = false">Saved Articles</a>
                 <form class="px-3 py-3" method="POST" action="{{ route('logout') }}">
                     @csrf
                     <button class="font-mono text-xs uppercase tracking-[0.16em] text-on-surface-variant transition-colors hover:text-primary" type="submit">Sign Out</button>
