@@ -34,3 +34,5 @@ Schedule::call(function (RunCoordinator $coordinator): void {
 Schedule::call(function (RunCoordinator $coordinator): void {
     $coordinator->reconcile();
 })->name('ai-weekly:reconcile')->everyTenMinutes()->onOneServer();
+
+Schedule::command('app:prune-password-reset-otps')->hourly()->onOneServer();

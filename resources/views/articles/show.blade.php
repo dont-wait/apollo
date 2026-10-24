@@ -37,6 +37,48 @@
                 </span>
                 <span class="text-outline-variant">·</span>
                 <span>{{ number_format($article->view_count) }} views</span>
+                <span class="text-outline-variant">·</span>
+                @auth
+                    <span
+                        class="inline-flex flex-wrap items-center gap-1.5"
+                        x-data="bookmarkButton(@js([
+                            'postId' => $article->id,
+                            'bookmarked' => $isBookmarked,
+                            'count' => $article->bookmarks_count,
+                            'url' => url()->current(),
+                            'storeUrl' => route('bookmarks.store', ['post' => '__POST__']),
+                            'destroyUrl' => route('bookmarks.destroy', ['post' => '__POST__']),
+                        ]))"
+                    >
+                        <button
+                            class="inline-flex items-center gap-1.5 rounded px-1 py-0.5 transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                            type="button"
+                            :class="bookmarked ? 'text-primary' : 'text-on-surface-variant'"
+                            :disabled="loading"
+                            :aria-label="bookmarked ? 'Remove bookmark' : 'Save article'"
+                            :aria-pressed="bookmarked"
+                            @click="toggle()"
+                        >
+                            <span class="material-symbols-outlined text-[16px]" x-text="bookmarked ? 'bookmark' : 'bookmark_border'" aria-hidden="true"></span>
+                            <span x-text="count"></span>
+                        </button>
+                        <button
+                            class="inline-flex items-center rounded px-1 py-0.5 text-on-surface-variant transition-colors hover:text-primary"
+                            type="button"
+                            aria-label="Copy article link"
+                            title="Copy article link"
+                            @click="copyLink()"
+                        >
+                            <span class="material-symbols-outlined text-[16px]" aria-hidden="true">content_copy</span>
+                        </button>
+                        <span x-cloak x-show="statusMessage" class="normal-case tracking-normal" :class="statusIsError ? 'text-error' : 'text-tertiary'" role="status" aria-live="polite" x-text="statusMessage"></span>
+                    </span>
+                @else
+                    <a class="inline-flex items-center gap-1.5 transition-colors hover:text-primary" href="{{ route('login', ['redirect' => request()->getRequestUri()]) }}">
+                        <span class="material-symbols-outlined text-[16px]" aria-hidden="true">bookmark_border</span>
+                        <span>Save</span>
+                    </a>
+                @endauth
             </div>
         </header>
 

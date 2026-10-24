@@ -5,7 +5,10 @@
 @section('content')
     <div
         class="relative -mx-4 -my-10 overflow-hidden sm:-mx-6 sm:-my-14 lg:-mx-8"
-        x-data="homeFeed(@js($posts->getCollection()), @js(auth()->check()), @js(route('login')), @js($filters), @js($pagination))"
+        x-data="homeFeed(@js($posts->getCollection()), @js(auth()->check()), @js(route('login')), @js($filters), @js($pagination), @js([
+            'store' => route('bookmarks.store', ['post' => '__POST__']),
+            'destroy' => route('bookmarks.destroy', ['post' => '__POST__']),
+        ]))"
         @keydown.window="if (($event.metaKey || $event.ctrlKey) && $event.key.toLowerCase() === 'k') { $event.preventDefault(); focusSearch(); }"
     >
         <div class="pointer-events-none absolute left-1/2 top-0 h-80 w-[42rem] -translate-x-1/2 rounded-full bg-primary-container/10 blur-[120px]" aria-hidden="true"></div>
@@ -254,14 +257,24 @@
                                                 <span x-text="post.views"></span>
                                             </span>
                                             <button
-                                                class="inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:text-primary"
+                                                class="inline-flex items-center gap-1 rounded px-1 py-0.5 text-outline transition-colors hover:text-primary"
+                                                type="button"
+                                                aria-label="Copy article link"
+                                                title="Copy article link"
+                                                @click="copyLink(post.url)"
+                                            >
+                                                <span class="material-symbols-outlined text-[15px]" aria-hidden="true">content_copy</span>
+                                            </button>
+                                            <button
+                                                class="inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
                                                 :class="isBookmarked(post.id) ? 'text-primary' : 'text-outline'"
                                                 type="button"
+                                                :disabled="pendingBookmarkPosts[post.id]"
                                                 :aria-label="isBookmarked(post.id) ? 'Remove bookmark' : 'Save article'"
                                                 :aria-pressed="isBookmarked(post.id)"
-                                                @click="toggleBookmark(post.id)"
+                                                @click="toggleBookmark(post)"
                                             >
-                                                <span class="material-symbols-outlined text-[16px]" aria-hidden="true">bookmark</span>
+                                                <span class="material-symbols-outlined text-[16px]" x-text="isBookmarked(post.id) ? 'bookmark' : 'bookmark_border'" aria-hidden="true"></span>
                                                 <span x-text="bookmarkCount(post)"></span>
                                             </button>
                                         </div>
@@ -386,9 +399,9 @@
         </footer>
 
         <div x-cloak x-show="bookmarkNotice" x-transition class="fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-md items-center justify-between gap-4 rounded-lg border border-primary/30 bg-surface-high px-4 py-3 shadow-2xl shadow-black/30" role="status">
-            <p class="text-sm text-on-surface">Sign in to save articles to your bookmarks.</p>
+            <p class="text-sm text-on-surface" x-text="bookmarkNoticeMessage"></p>
             <div class="flex shrink-0 items-center gap-2">
-                <a class="rounded bg-primary px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-on-primary" :href="loginUrl">Sign in</a>
+                <a x-cloak x-show="bookmarkNoticeShowsLogin" class="rounded bg-primary px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-on-primary" :href="loginUrl">Sign in</a>
                 <button class="rounded p-1 text-outline transition-colors hover:text-on-surface" type="button" aria-label="Dismiss" @click="bookmarkNotice = false">
                     <span class="material-symbols-outlined text-[18px]" aria-hidden="true">close</span>
                 </button>
