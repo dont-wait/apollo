@@ -25,11 +25,19 @@
         </div>
     @endif
 
+    <div class="flex items-start gap-3">
+        <div id="toxic-summary" data-toxic-summary hidden role="status" class="flex-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200"></div>
+        <button type="button" data-toxic-jump="markdown_content" hidden class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-500/20">Nhảy đến lỗi</button>
+    </div>
+
+    <script type="application/json" data-toxic-moderation>@json(session('moderation', []))</script>
+
     <section class="space-y-5 rounded-xl bg-[#191c21] p-5 shadow-sm sm:p-6">
         <div>
             <label for="title" class="mb-2 block text-sm font-medium">Tiêu đề <span class="text-red-300">*</span></label>
             <input id="title" name="title" type="text" value="{{ old('title', $article?->title) }}" required maxlength="255" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">
             @error('title') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
+            <div data-toxic-snippet="title" hidden class="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"></div>
         </div>
 
         <div>
@@ -98,6 +106,7 @@
             @error('tags.*') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
             @error('new_tags') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
             @error('new_tags.*') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
+            <div data-toxic-snippet="new_tags" hidden class="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"></div>
         </fieldset>
 
         <div>
@@ -117,6 +126,7 @@
             <label for="excerpt" class="mb-2 block text-sm font-medium">Tóm tắt</label>
             <textarea id="excerpt" name="excerpt" rows="3" maxlength="{{ $maxExcerptLength }}" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">{{ old('excerpt', $article?->excerpt) }}</textarea>
             @error('excerpt') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
+            <div data-toxic-snippet="excerpt" hidden class="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"></div>
         </div>
 
         <div>
@@ -141,11 +151,14 @@
                         </div>
                     </div>
                 </section>
-                <textarea id="markdown_content" name="markdown_content" rows="18" required aria-controls="markdown-suggestions" aria-expanded="false" aria-autocomplete="list" class="w-full rounded-b-lg border border-[#32353b] bg-[#0b0e13] px-3 py-3 font-mono text-sm leading-6 text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none" placeholder="# Tiêu đề bài viết">{{ old('markdown_content', $article?->markdown_content) }}</textarea>
+                <div class="toxic-editor" data-toxic-editor data-toxic-field="markdown_content">
+                    <div class="toxic-editor__overlay rounded-b-lg px-3 py-3 font-mono text-sm leading-6" data-toxic-overlay aria-hidden="true"></div>
+                    <textarea id="markdown_content" name="markdown_content" rows="18" required aria-controls="markdown-suggestions" aria-expanded="false" aria-autocomplete="list" aria-describedby="toxic-summary" class="toxic-editor__textarea relative z-10 w-full rounded-b-lg border border-[#32353b] bg-[#0b0e13] px-3 py-3 font-mono text-sm leading-6 text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none" placeholder="# Tiêu đề bài viết">{{ old('markdown_content', $article?->markdown_content) }}</textarea>
+                </div>
             </div>
             <div id="markdown-preview-panel" role="tabpanel" aria-labelledby="markdown-preview-tab" data-markdown-panel="preview" hidden>
-                <p data-markdown-preview-empty class="min-h-[27rem] rounded-b-lg border border-[#32353b] bg-[#0b0e13] px-4 py-3 text-sm text-[#87929a]">Chưa có nội dung để xem trước</p>
-                <div data-markdown-preview-content hidden class="markdown-preview min-h-[27rem] rounded-b-lg border border-[#32353b] bg-[#0b0e13] px-4 py-3 text-sm leading-7 text-[#bdc8d1] [&_a]:text-sky-300 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-[#4b5059] [&_blockquote]:pl-4 [&_h1]:mb-4 [&_h1]:text-3xl [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-xl [&_h3]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-4 [&_pre]:my-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-[#191c21] [&_pre]:p-4 [&_ul]:list-disc"></div>
+                <p data-markdown-preview-empty data-toxic-preview-empty="markdown_content" class="min-h-[27rem] rounded-b-lg border border-[#32353b] bg-[#0b0e13] px-4 py-3 text-sm text-[#87929a]">Chưa có nội dung để xem trước</p>
+                <div data-markdown-preview-content data-toxic-preview="markdown_content" hidden class="markdown-preview min-h-[27rem] rounded-b-lg border border-[#32353b] bg-[#0b0e13] px-4 py-3 text-sm leading-7 text-[#bdc8d1] [&_a]:text-sky-300 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-[#4b5059] [&_blockquote]:pl-4 [&_h1]:mb-4 [&_h1]:text-3xl [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-xl [&_h3]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-4 [&_pre]:my-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-[#191c21] [&_pre]:p-4 [&_ul]:list-disc"></div>
             </div>
             @error('markdown_content') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
         </div>
@@ -176,6 +189,10 @@
         }
 
         const renderMarkdownPreview = () => {
+            if (markdownPreviewContent.dataset.toxicPreviewLocked === 'true') {
+                return;
+            }
+
             const markdown = markdownInput.value.trim();
             const hasMarkdown = markdown.length > 0;
 
@@ -423,6 +440,8 @@
         };
 
         markdownInput.addEventListener('input', (event) => {
+            markdownPreviewContent.dataset.toxicPreviewLocked = 'false';
+
             if (!event.isComposing) {
                 showSuggestions();
             }
