@@ -214,13 +214,13 @@ return [
     'max_terms' => 5000,
     'scopes' => ['post', 'tag', 'category', 'comment', 'user_name'],
     'baseline' => [
-        // Minimal seed list; do not place sensitive content in code.
+        // Seed list; Admins can edit or disable individual entries in the database.
     ],
 ];
 ```
 
-- `baseline` is used only by the seeder and as a fallback when cache/DB fails.
-- The real list is managed by Admins in the database.
+- `baseline` contains the initial seed list and is also the fallback when cache/DB fails.
+- After seeding, the real list is managed by Admins in the database.
 - Never hard-code toxic words in Blade, controllers, or public JS.
 
 ### 5.4. Seeder

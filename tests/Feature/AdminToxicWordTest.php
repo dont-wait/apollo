@@ -163,4 +163,22 @@ class AdminToxicWordTest extends TestCase
             'is_active' => true,
         ]);
     }
+
+    public function test_default_baseline_seeds_the_curated_dictionary(): void
+    {
+        $baseline = config('toxic_words.baseline');
+
+        $this->assertIsArray($baseline);
+        $this->assertNotEmpty($baseline);
+
+        $this->seed(ToxicWordSeeder::class);
+
+        $this->assertSame(count($baseline), ToxicWord::query()->count());
+        $this->assertDatabaseHas('toxic_words', [
+            'term' => 'địt',
+            'normalized_term' => 'địt',
+            'match_mode' => ToxicWord::MATCH_WORD,
+            'is_active' => true,
+        ]);
+    }
 }

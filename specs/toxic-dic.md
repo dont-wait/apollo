@@ -214,13 +214,13 @@ return [
     'max_terms' => 5000,
     'scopes' => ['post', 'tag', 'category', 'comment', 'user_name'],
     'baseline' => [
-        // Danh sách seed tối thiểu, không đặt nội dung nhạy cảm trong code.
+        // Danh sách seed khởi tạo; Admin có thể sửa/tắt từng mục trong DB.
     ],
 ];
 ```
 
-- `baseline` chỉ dùng cho seeder và fallback khi cache/DB lỗi.
-- Danh sách thực tế do Admin quản lý trong DB.
+- `baseline` chứa danh sách seed khởi tạo và cũng là fallback khi cache/DB lỗi.
+- Sau khi seed, Admin quản lý danh sách thực tế trong DB.
 - Không hard-code danh sách từ độc hại trong Blade, controller hoặc file JS.
 
 ### 5.4. Seeder
