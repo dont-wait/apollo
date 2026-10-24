@@ -11,6 +11,9 @@ use App\Models\Category;
 use App\Models\Media;
 use App\Models\Post;
 use App\Models\Tag;
+use App\Services\MediaOperationLockService;
+use App\Services\MediaStorageCleanupService;
+use App\Services\MediaUsageService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,7 +26,12 @@ use Throwable;
 
 class ArticleController extends Controller
 {
-    public function __construct(private MediaStorage $mediaStorage) {}
+    public function __construct(
+        private MediaStorage $mediaStorage,
+        private MediaOperationLockService $mediaOperationLock,
+        private MediaStorageCleanupService $cleanupService,
+        private MediaUsageService $mediaUsageService
+    ) {}
 
     public function index(Request $request): View
     {
@@ -85,6 +93,8 @@ class ArticleController extends Controller
 
         try {
             $article = DB::transaction(function () use ($data, $tagIds, $newTagNames, $thumbnail, $request, &$storedThumbnailPath): Post {
+                $this->mediaOperationLock->lock();
+
                 if ($thumbnail instanceof UploadedFile) {
                     $media = $this->storeThumbnail($thumbnail, $request->user()->id, $storedThumbnailPath);
                     $data['thumbnail_media_id'] = $media->id;
@@ -132,38 +142,47 @@ class ArticleController extends Controller
         $thumbnail = $data['thumbnail'] ?? null;
         unset($data['tags'], $data['new_tags'], $data['thumbnail']);
 
-        $previousMedia = $article->thumbnail;
         $storedThumbnailPath = null;
 
         try {
             DB::transaction(function () use ($article, $data, $tagIds, $newTagNames, $thumbnail, $request, &$storedThumbnailPath): void {
+                $this->mediaOperationLock->lock();
+
+                $lockedArticle = Post::query()
+                    ->lockForUpdate()
+                    ->findOrFail($article->getKey());
+
+                $previousMedia = $lockedArticle->thumbnail_media_id === null
+                    ? null
+                    : Media::query()
+                        ->lockForUpdate()
+                        ->find($lockedArticle->thumbnail_media_id);
+
                 if ($thumbnail instanceof UploadedFile) {
                     $media = $this->storeThumbnail($thumbnail, $request->user()->id, $storedThumbnailPath);
                     $data['thumbnail_media_id'] = $media->id;
                 }
 
                 $data['published_at'] = $data['status'] === 'PUBLISHED'
-                    ? ($article->published_at ?? now())
+                    ? ($lockedArticle->published_at ?? now())
                     : null;
 
-                $article->update($data);
-                $article->tags()->sync($this->resolveTagIds($tagIds, $newTagNames));
+                $lockedArticle->update($data);
+                $lockedArticle->tags()->sync($this->resolveTagIds($tagIds, $newTagNames));
+
+                if ($storedThumbnailPath !== null && $previousMedia !== null && ! $this->mediaUsageService->isInUse($previousMedia)) {
+                    $cleanup = $this->cleanupService->schedule(
+                        $this->mediaStorage->diskName(),
+                        $previousMedia->storage_key
+                    );
+
+                    $previousMedia->delete();
+                    $this->cleanupService->attempt($cleanup, $this->mediaStorage);
+                }
             });
         } catch (Throwable $exception) {
             $this->cleanupStoredThumbnail($storedThumbnailPath);
             throw $exception;
-        }
-
-        if ($storedThumbnailPath !== null && $previousMedia !== null) {
-            $mediaIsStillInUse = Post::withTrashed()
-                ->where('thumbnail_media_id', $previousMedia->id)
-                ->whereKeyNot($article->id)
-                ->exists();
-
-            if (! $mediaIsStillInUse) {
-                $this->mediaStorage->delete($previousMedia->storage_key);
-                $previousMedia->delete();
-            }
         }
 
         return redirect()

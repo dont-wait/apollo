@@ -35,4 +35,9 @@ Schedule::call(function (RunCoordinator $coordinator): void {
     $coordinator->reconcile();
 })->name('ai-weekly:reconcile')->everyTenMinutes()->onOneServer();
 
+Schedule::command('media:cleanup-storage --limit=100')
+    ->name('media:cleanup-storage')
+    ->everyTenMinutes()
+    ->withoutOverlapping()
+    ->onOneServer();
 Schedule::command('app:prune-password-reset-otps')->hourly()->onOneServer();

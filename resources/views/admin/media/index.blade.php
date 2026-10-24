@@ -207,6 +207,13 @@
                 class="hidden"
             >
 
+            <input
+                id="replaceMediaFileInput"
+                type="file"
+                accept=".jpg,.jpeg,.png,.webp,.gif,.pdf"
+                class="hidden"
+            >
+
             <div
                 id="mediaDropzone"
                 class="relative group cursor-pointer
@@ -671,13 +678,55 @@
 
                                         <button
                                             type="button"
-                                            disabled
-                                            class="p-2
+                                            class="replace-media-btn
+                                                   p-2
                                                    bg-surface-container-highest
-                                                   text-outline rounded
-                                                   opacity-50
-                                                   cursor-not-allowed"
-                                            title="Delete chưa triển khai"
+                                                   hover:bg-primary-container
+                                                   hover:text-on-primary
+                                                   text-on-surface rounded"
+                                            title="Replace"
+                                            data-replace-url="{{ route('admin.media.replace', $asset) }}"
+                                            data-file-name="{{ $asset->file_name }}"
+                                        >
+                                            <span
+                                                class="material-symbols-outlined
+                                                       text-[18px]"
+                                            >
+                                                upload_file
+                                            </span>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            class="rename-media-btn
+                                                   p-2
+                                                   bg-surface-container-highest
+                                                   hover:bg-primary-container
+                                                   hover:text-on-primary
+                                                   text-on-surface rounded"
+                                            title="Rename"
+                                            data-rename-url="{{ route('admin.media.rename', $asset) }}"
+                                            data-file-name="{{ $asset->file_name }}"
+                                        >
+                                            <span
+                                                class="material-symbols-outlined
+                                                       text-[18px]"
+                                            >
+                                                edit
+                                            </span>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            class="delete-media-btn
+                                                   p-2
+                                                   bg-surface-container-highest
+                                                   hover:bg-error-container
+                                                   hover:text-error
+                                                   text-on-surface rounded"
+                                            title="Delete"
+                                            data-delete-url="{{ route('admin.media.destroy', $asset) }}"
+                                            data-file-name="{{ $asset->file_name }}"
                                         >
                                             <span
                                                 class="material-symbols-outlined
@@ -1053,6 +1102,9 @@
         </div>
     </div>
 
+    <x-confirm-modal />
+    <x-rename-media-modal />
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const library = document.getElementById('mediaLibrary');
@@ -1066,6 +1118,27 @@
 
             const fileInput =
                 document.getElementById('mediaFileInput');
+
+            const replaceMediaFileInput =
+                document.getElementById('replaceMediaFileInput');
+
+            let pendingReplaceUrl = null;
+            let pendingReplaceFileName = null;
+
+            const renameMediaModal =
+                document.getElementById('renameMediaModal');
+
+            const renameMediaInput =
+                document.getElementById('renameMediaInput');
+
+            const renameMediaError =
+                document.getElementById('renameMediaError');
+
+            const renameMediaCancel =
+                document.getElementById('renameMediaCancel');
+
+            const renameMediaSave =
+                document.getElementById('renameMediaSave');
 
             const dropzone =
                 document.getElementById('mediaDropzone');
@@ -1097,6 +1170,136 @@
                 document.getElementById('visibleMediaCount');
 
             let activeFilter = 'all';
+
+            function showRenameMediaModal({
+                currentName,
+                renameUrl,
+            }) {
+                return new Promise((resolve) => {
+                    if (
+                        !renameMediaModal ||
+                        !renameMediaInput ||
+                        !renameMediaError ||
+                        !renameMediaCancel ||
+                        !renameMediaSave
+                    ) {
+                        resolve(null);
+                        return;
+                    }
+
+                    const extensionIndex =
+                        currentName.lastIndexOf('.');
+
+                    const nameWithoutExtension =
+                        extensionIndex > 0
+                            ? currentName.slice(0, extensionIndex)
+                            : currentName;
+
+                    renameMediaInput.value =
+                        nameWithoutExtension;
+
+                    renameMediaError.textContent = '';
+                    renameMediaError.classList.add('hidden');
+
+                    renameMediaModal.classList.remove('hidden');
+                    renameMediaModal.classList.add('flex');
+                    renameMediaModal.setAttribute(
+                        'aria-hidden',
+                        'false'
+                    );
+
+                    renameMediaInput.focus();
+                    renameMediaInput.select();
+
+                    const closeModal = (result) => {
+                        renameMediaModal.classList.add('hidden');
+                        renameMediaModal.classList.remove('flex');
+                        renameMediaModal.setAttribute(
+                            'aria-hidden',
+                            'true'
+                        );
+
+                        renameMediaCancel.removeEventListener(
+                            'click',
+                            handleCancel
+                        );
+
+                        renameMediaSave.removeEventListener(
+                            'click',
+                            handleSave
+                        );
+
+                        renameMediaModal.removeEventListener(
+                            'click',
+                            handleBackdrop
+                        );
+
+                        document.removeEventListener(
+                            'keydown',
+                            handleEscape
+                        );
+
+                        resolve(result);
+                    };
+
+                    const handleCancel = () => {
+                        closeModal(null);
+                    };
+
+                    const handleSave = () => {
+                        const name =
+                            renameMediaInput.value.trim();
+
+                        if (!name) {
+                            renameMediaError.textContent =
+                                'Tên media không được để trống.';
+
+                            renameMediaError.classList.remove(
+                                'hidden'
+                            );
+
+                            return;
+                        }
+
+                        closeModal({
+                            name,
+                            renameUrl,
+                        });
+                    };
+
+                    const handleBackdrop = (event) => {
+                        if (event.target === renameMediaModal) {
+                            closeModal(null);
+                        }
+                    };
+
+                    const handleEscape = (event) => {
+                        if (event.key === 'Escape') {
+                            closeModal(null);
+                        }
+                    };
+
+                    renameMediaCancel.addEventListener(
+                        'click',
+                        handleCancel
+                    );
+
+                    renameMediaSave.addEventListener(
+                        'click',
+                        handleSave
+                    );
+
+                    renameMediaModal.addEventListener(
+                        'click',
+                        handleBackdrop
+                    );
+
+                    document.addEventListener(
+                        'keydown',
+                        handleEscape
+                    );
+                });
+            }
 
             function openFilePicker() {
                 fileInput?.click();
@@ -1163,6 +1366,90 @@
 
                     if (file) {
                         uploadFile(file);
+                    }
+                }
+            );
+
+            replaceMediaFileInput?.addEventListener(
+                'change',
+                async () => {
+                    const file =
+                        replaceMediaFileInput.files?.[0];
+
+                    const replaceUrl =
+                        pendingReplaceUrl;
+
+                    const currentFileName =
+                        pendingReplaceFileName;
+
+                    replaceMediaFileInput.value = '';
+
+                    pendingReplaceUrl = null;
+                    pendingReplaceFileName = null;
+
+                    if (!file || !replaceUrl) {
+                        return;
+                    }
+
+                    const confirmed =
+                        await window.showConfirmModal({
+                            title: 'Thay thế media',
+                            message:
+                                `Bạn có chắc muốn thay "${currentFileName}" bằng "${file.name}" không?`,
+                            confirmText: 'Thay thế',
+                        });
+
+                    if (!confirmed) {
+                        return;
+                    }
+
+                    const formData = new FormData();
+
+                    formData.append('file', file);
+
+                    try {
+                        const response = await fetch(
+                            replaceUrl,
+                            {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRF-TOKEN': csrf,
+                                    'Accept': 'application/json',
+                                },
+                                body: formData,
+                            }
+                        );
+
+                        const result =
+                            await response.json();
+
+                        if (!response.ok) {
+                            const validationMessage =
+                                result.errors?.file?.[0];
+
+                            await window.showConfirmModal({
+                                title:
+                                    'Không thể thay thế media',
+                                message:
+                                    validationMessage ??
+                                    result.message ??
+                                    'Không thể thay thế media.',
+                                confirmText: 'Đóng',
+                                showCancel: false,
+                            });
+
+                            return;
+                        }
+
+                        window.location.reload();
+                    } catch (error) {
+                        await window.showConfirmModal({
+                            title: 'Lỗi',
+                            message:
+                                'Có lỗi xảy ra khi thay thế media.',
+                            confirmText: 'Đóng',
+                            showCancel: false,
+                        });
                     }
                 }
             );
@@ -1509,6 +1796,194 @@
                         await navigator.clipboard.writeText(
                             markdown
                         );
+                    }
+                );
+
+                card.querySelector(
+                    '.replace-media-btn'
+                )?.addEventListener(
+                    'click',
+                    (event) => {
+                        event.stopPropagation();
+
+                        const button =
+                            event.currentTarget;
+
+                        pendingReplaceUrl =
+                            button.dataset.replaceUrl ?? null;
+
+                        pendingReplaceFileName =
+                            button.dataset.fileName ?? null;
+
+                        if (!pendingReplaceUrl) {
+                            return;
+                        }
+
+                        replaceMediaFileInput.value = '';
+                        replaceMediaFileInput.click();
+                    }
+                );
+
+                card.querySelector(
+                    '.rename-media-btn'
+                )?.addEventListener(
+                    'click',
+                    async (event) => {
+                        event.stopPropagation();
+
+                        const button =
+                            event.currentTarget;
+
+                        const renameUrl =
+                            button.dataset.renameUrl;
+
+                        const currentName =
+                            button.dataset.fileName ?? '';
+
+                        if (!renameUrl) {
+                            return;
+                        }
+
+                        const renameData =
+                            await showRenameMediaModal({
+                                currentName,
+                                renameUrl,
+                            });
+
+                        if (!renameData) {
+                            return;
+                        }
+
+                        button.disabled = true;
+
+                        try {
+                            const response = await fetch(
+                                renameData.renameUrl,
+                                {
+                                    method: 'PATCH',
+                                    headers: {
+                                        'X-CSRF-TOKEN': csrf,
+                                        'Accept': 'application/json',
+                                        'Content-Type':
+                                            'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                        name: renameData.name,
+                                    }),
+                                }
+                            );
+
+                            const result =
+                                await response.json();
+
+                            if (!response.ok) {
+                                const validationMessage =
+                                    result.errors?.name?.[0];
+
+                                await window.showConfirmModal({
+                                    title:
+                                        'Không thể đổi tên',
+                                    message:
+                                        validationMessage ??
+                                        result.message ??
+                                        'Không thể đổi tên media.',
+                                    confirmText: 'Đóng',
+                                    showCancel: false,
+                                });
+
+                                return;
+                            }
+
+                            window.location.reload();
+                        } catch (error) {
+                            await window.showConfirmModal({
+                                title: 'Lỗi',
+                                message:
+                                    'Có lỗi xảy ra khi đổi tên media.',
+                                confirmText: 'Đóng',
+                                showCancel: false,
+                            });
+                        } finally {
+                            button.disabled = false;
+                        }
+                    }
+                );
+
+                card.querySelector(
+                    '.delete-media-btn'
+                )?.addEventListener(
+                    'click',
+                    async (event) => {
+                        event.stopPropagation();
+
+                        const button =
+                            event.currentTarget;
+
+                        const deleteUrl =
+                            button.dataset.deleteUrl;
+
+                        const fileName =
+                            button.dataset.fileName ?? '';
+
+                        if (!deleteUrl) {
+                            return;
+                        }
+
+                        const confirmed =
+                            await window.showConfirmModal({
+                                title: 'Xóa media',
+                                message:
+                                    `Bạn có chắc muốn xóa "${fileName}" không?`,
+                                confirmText: 'Xóa',
+                            });
+
+                        if (!confirmed) {
+                            return;
+                        }
+
+                        button.disabled = true;
+
+                        try {
+                            const response = await fetch(
+                                deleteUrl,
+                                {
+                                    method: 'DELETE',
+                                    headers: {
+                                        'X-CSRF-TOKEN': csrf,
+                                        'Accept': 'application/json',
+                                    },
+                                }
+                            );
+
+                            const result =
+                                await response.json();
+
+                            if (!response.ok) {
+                                await window.showConfirmModal({
+                                    title:
+                                        'Không thể xóa media',
+                                    message:
+                                        result.message ??
+                                        'Không thể xóa media.',
+                                    confirmText: 'Đóng',
+                                    showCancel: false,
+                                });
+
+                                return;
+                            }
+
+                            window.location.reload();
+                        } catch (error) {
+                            await window.showConfirmModal({
+                                title: 'Lỗi',
+                                message:
+                                    'Có lỗi xảy ra khi xóa media.',
+                                confirmText: 'Đóng',
+                                showCancel: false,
+                            });
+                        } finally {
+                            button.disabled = false;
+                        }
                     }
                 );
             });

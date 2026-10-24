@@ -285,6 +285,35 @@ class AdminArticleTest extends TestCase
         $this->assertSoftDeleted('posts', ['id' => $trashedArticle->id]);
     }
 
+    public function test_admin_keeps_old_thumbnail_referenced_in_article_markdown(): void
+    {
+        config(['filesystems.media_disk' => 'rustfs']);
+        $disk = Storage::fake('rustfs');
+        $admin = User::factory()->admin()->create();
+        $disk->put('articles/old-cover.png', 'old image');
+        $oldMedia = Media::factory()->create([
+            'uploaded_by' => $admin->id,
+            'storage_key' => 'articles/old-cover.png',
+            'url' => '/storage/articles/old-cover.png',
+        ]);
+        $article = Post::factory()->create([
+            'thumbnail_media_id' => $oldMedia->id,
+            'markdown_content' => '![Old cover](/storage/articles/old-cover.png)',
+        ]);
+
+        $this->actingAs($admin)
+            ->put(route('admin.articles.update', $article), [
+                'title' => 'Article with a referenced old thumbnail',
+                'markdown_content' => '![Old cover](/storage/articles/old-cover.png)',
+                'status' => 'DRAFT',
+                'thumbnail' => UploadedFile::fake()->image('new-cover.png'),
+            ])
+            ->assertRedirect();
+
+        $this->assertModelExists($oldMedia);
+        $disk->assertExists('articles/old-cover.png');
+    }
+
     public function test_admin_can_update_article_and_sync_tags(): void
     {
         $admin = User::factory()->admin()->create();
