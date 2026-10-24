@@ -6,12 +6,15 @@ use App\Models\Post;
 use App\Models\Tag;
 use App\Models\User;
 use App\Models\WeeklyReview;
+use App\Support\Moderation\ToxicContentInspector;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class DraftPostCreator
 {
+    public function __construct(private ToxicContentInspector $inspector) {}
+
     public function create(WeeklyReview $review, User $author, bool $markReviewed = true): Post
     {
         return DB::transaction(function () use ($review, $author, $markReviewed): Post {
@@ -22,6 +25,20 @@ class DraftPostCreator
             }
             if (! in_array($locked->status, ['DRAFT', 'REVIEW'], true) || ! $locked->sourceArticles()->exists()) {
                 throw new DomainException('Review chưa hợp lệ để chuyển.');
+            }
+
+            $exception = $this->inspector->inspect([
+                'title' => $locked->title,
+                'excerpt' => $locked->excerpt,
+                'markdown_content' => $locked->markdown_content,
+            ], [
+                'title' => ['scope' => 'post', 'label' => 'Tiêu đề'],
+                'excerpt' => ['scope' => 'post', 'label' => 'Tóm tắt'],
+                'markdown_content' => ['scope' => 'post', 'label' => 'Nội dung bài viết', 'markdown' => true],
+            ], true, 409);
+
+            if ($exception !== null) {
+                throw $exception;
             }
 
             $category = $locked->suggestedCategory;

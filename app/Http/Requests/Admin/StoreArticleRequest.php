@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Enums\PostStatus;
+use App\Http\Requests\Concerns\ValidatesToxicContent;
 use App\Models\Post;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
@@ -10,9 +11,23 @@ use Illuminate\Validation\Rule;
 
 class StoreArticleRequest extends FormRequest
 {
+    use ValidatesToxicContent;
+
     public function authorize(): bool
     {
         return true;
+    }
+
+    /** @return array<string, array{scope: string, label: string, markdown?: bool}> */
+    protected function toxicContentFields(): array
+    {
+        return [
+            'title' => ['scope' => 'post', 'label' => 'Tiêu đề'],
+            'slug' => ['scope' => 'post', 'label' => 'Slug'],
+            'excerpt' => ['scope' => 'post', 'label' => 'Tóm tắt'],
+            'markdown_content' => ['scope' => 'post', 'label' => 'Nội dung bài viết', 'markdown' => true],
+            'new_tags.*' => ['scope' => 'tag', 'label' => 'Tên tag'],
+        ];
     }
 
     protected function prepareForValidation(): void

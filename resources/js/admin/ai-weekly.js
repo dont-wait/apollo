@@ -21,6 +21,10 @@ document.addEventListener('submit', async (event) => {
         });
         const result = await response.json();
         if (! response.ok) {
+            if (result.moderation) {
+                window.applyToxicHighlights?.(result.moderation);
+            }
+
             const errors = Object.values(result.errors || {}).flat();
             throw new Error(errors.join(' ') || result.message || 'Thao tác thất bại.');
         }
