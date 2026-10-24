@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('toxic_words', function (Blueprint $table): void {
             $table->id();
             $table->string('term', 100);
-            $table->string('normalized_term', 100)->unique();
+            $table->string('normalized_term', 100)->collation('utf8mb4_bin')->unique();
             $table->json('scopes');
             $table->string('match_mode', 10)->default('WORD');
             $table->boolean('fold_diacritics')->default(false);

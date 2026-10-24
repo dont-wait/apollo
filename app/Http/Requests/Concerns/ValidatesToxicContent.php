@@ -12,7 +12,7 @@ trait ValidatesToxicContent
 
     protected function toxicContentWithModeration(): bool
     {
-        return (bool) $this->user()?->isAdmin();
+        return false;
     }
 
     /**

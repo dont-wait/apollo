@@ -10,6 +10,16 @@ use Illuminate\Support\Str;
 
 class ToxicWordHighlighter
 {
+    private const string BLOCK_SEPARATOR = "\u{E000}";
+
+    /** @var list<string> */
+    private const array BLOCK_TAGS = [
+        'address', 'article', 'aside', 'blockquote', 'div', 'figcaption', 'figure',
+        'footer', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr', 'li', 'main',
+        'nav', 'ol', 'p', 'pre', 'section', 'table', 'tbody', 'td', 'tfoot', 'th',
+        'thead', 'tr', 'ul',
+    ];
+
     public function __construct(private ToxicWordFilter $filter) {}
 
     /** @param list<ToxicWordMatch> $matches */
@@ -67,12 +77,19 @@ class ToxicWordHighlighter
             return $html;
         }
 
-        $this->highlightNode($document, $scope);
-
         $body = $document->getElementsByTagName('body')->item(0);
 
         if (! $body instanceof DOMElement) {
             return $html;
+        }
+
+        $text = '';
+        $segments = [];
+        $this->collectTextSegments($body, $text, $segments);
+        $matches = $this->filter->find($text, $scope);
+
+        if ($matches !== []) {
+            $this->applyMatches($segments, $matches);
         }
 
         $result = '';
@@ -84,56 +101,128 @@ class ToxicWordHighlighter
         return $result;
     }
 
-    private function highlightNode(DOMNode $node, string $scope): void
+    /**
+     * @param  list<array{node: DOMText, start: int, end: int}>  $segments
+     */
+    private function collectTextSegments(DOMNode $node, string &$text, array &$segments): void
     {
         if ($node instanceof DOMText) {
-            $this->highlightTextNode($node, $scope);
+            $value = $node->nodeValue ?? '';
+
+            if ($value === '') {
+                return;
+            }
+
+            $start = strlen($text);
+            $text .= $value;
+            $segments[] = ['node' => $node, 'start' => $start, 'end' => strlen($text)];
 
             return;
         }
 
-        if (in_array($node->nodeName, ['script', 'style'], true)) {
+        if (in_array(strtolower($node->nodeName), ['script', 'style'], true)) {
             return;
+        }
+
+        $tag = strtolower($node->nodeName);
+
+        if ($tag === 'br') {
+            $text .= self::BLOCK_SEPARATOR;
+
+            return;
+        }
+
+        $isBlock = in_array($tag, self::BLOCK_TAGS, true);
+
+        if ($isBlock) {
+            $text .= self::BLOCK_SEPARATOR;
         }
 
         foreach (iterator_to_array($node->childNodes) as $child) {
-            $this->highlightNode($child, $scope);
+            $this->collectTextSegments($child, $text, $segments);
+        }
+
+        if ($isBlock) {
+            $text .= self::BLOCK_SEPARATOR;
         }
     }
 
-    private function highlightTextNode(DOMText $node, string $scope): void
+    /**
+     * @param  list<array{node: DOMText, start: int, end: int}>  $segments
+     * @param  list<ToxicWordMatch>  $matches
+     */
+    private function applyMatches(array $segments, array $matches): void
     {
-        $text = $node->nodeValue ?? '';
-        $matches = $this->filter->find($text, $scope);
+        usort($matches, fn (ToxicWordMatch $left, ToxicWordMatch $right): int => ($left->start ?? PHP_INT_MAX) <=> ($right->start ?? PHP_INT_MAX));
 
-        if ($matches === []) {
-            return;
-        }
-
-        $fragment = $node->ownerDocument->createDocumentFragment();
+        $rangesByNode = [];
         $cursor = 0;
 
         foreach ($matches as $match) {
-            if ($match->start === null || $match->end === null || $match->start < $cursor) {
+            if ($match->start === null || $match->end === null || $match->end <= $match->start || $match->start < $cursor) {
                 continue;
             }
 
-            $fragment->appendChild($node->ownerDocument->createTextNode(
-                substr($text, $cursor, $match->start - $cursor),
-            ));
-
-            $mark = $node->ownerDocument->createElement('mark');
-            $mark->setAttribute('class', 'toxic-word-hit');
-            $mark->setAttribute('data-term-id', (string) $match->termId);
-            $mark->appendChild($node->ownerDocument->createTextNode(
-                substr($text, $match->start, $match->end - $match->start),
-            ));
-            $fragment->appendChild($mark);
             $cursor = $match->end;
+
+            foreach ($segments as $segment) {
+                if ($segment['end'] <= $match->start) {
+                    continue;
+                }
+
+                if ($segment['start'] >= $match->end) {
+                    break;
+                }
+
+                $start = max($match->start, $segment['start']) - $segment['start'];
+                $end = min($match->end, $segment['end']) - $segment['start'];
+
+                if ($end <= $start) {
+                    continue;
+                }
+
+                $rangesByNode[spl_object_id($segment['node'])][] = [
+                    'start' => $start,
+                    'end' => $end,
+                    'term_id' => $match->termId,
+                ];
+            }
         }
 
-        $fragment->appendChild($node->ownerDocument->createTextNode(substr($text, $cursor)));
+        foreach ($segments as $segment) {
+            $ranges = $rangesByNode[spl_object_id($segment['node'])] ?? [];
 
-        $node->parentNode?->replaceChild($fragment, $node);
+            if ($ranges === []) {
+                continue;
+            }
+
+            $node = $segment['node'];
+            $text = $node->nodeValue ?? '';
+            $fragment = $node->ownerDocument->createDocumentFragment();
+            $cursor = 0;
+
+            foreach ($ranges as $range) {
+                if ($range['start'] < $cursor) {
+                    continue;
+                }
+
+                $fragment->appendChild($node->ownerDocument->createTextNode(
+                    substr($text, $cursor, $range['start'] - $cursor),
+                ));
+
+                $mark = $node->ownerDocument->createElement('mark');
+                $mark->setAttribute('class', 'toxic-word-hit');
+                $mark->setAttribute('data-term-id', (string) $range['term_id']);
+                $mark->appendChild($node->ownerDocument->createTextNode(
+                    substr($text, $range['start'], $range['end'] - $range['start']),
+                ));
+                $fragment->appendChild($mark);
+                $cursor = $range['end'];
+            }
+
+            $fragment->appendChild($node->ownerDocument->createTextNode(substr($text, $cursor)));
+
+            $node->parentNode?->replaceChild($fragment, $node);
+        }
     }
 }

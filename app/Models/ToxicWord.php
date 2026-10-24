@@ -6,7 +6,8 @@ use Database\Factories\ToxicWordFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class ToxicWord extends Model
 {
@@ -33,8 +34,33 @@ class ToxicWord extends Model
 
     protected static function booted(): void
     {
-        static::saved(fn (): bool => Cache::forget(config('toxic_words.cache_key')));
-        static::deleted(fn (): bool => Cache::forget(config('toxic_words.cache_key')));
+        static::saved(fn () => self::invalidateCache());
+        static::deleted(fn () => self::invalidateCache());
+    }
+
+    public static function cacheVersion(): int
+    {
+        return (int) DB::table('toxic_word_cache_versions')->where('id', 1)->value('version');
+    }
+
+    public static function invalidateCache(): void
+    {
+        try {
+            DB::transaction(function (): void {
+                DB::table('toxic_word_cache_versions')->insertOrIgnore([
+                    'id' => 1,
+                    'version' => 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                DB::table('toxic_word_cache_versions')
+                    ->where('id', 1)
+                    ->increment('version', 1, ['updated_at' => now()]);
+            });
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 
     public function scopeActive(Builder $query): Builder

@@ -8,10 +8,12 @@ use App\Http\Requests\Admin\UpdateToxicWordRequest;
 use App\Http\Requests\Admin\UpdateToxicWordStatusRequest;
 use App\Models\ToxicWord;
 use App\Support\Moderation\ToxicWordNormalizer;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class ToxicWordController extends Controller
@@ -54,7 +56,11 @@ class ToxicWordController extends Controller
         $data['is_active'] = $request->boolean('is_active', true);
         $data['fold_diacritics'] = $request->boolean('fold_diacritics');
 
-        $word = ToxicWord::query()->create($data);
+        try {
+            $word = ToxicWord::query()->create($data);
+        } catch (UniqueConstraintViolationException) {
+            throw ValidationException::withMessages(['term' => 'Từ này đã có trong từ điển.']);
+        }
 
         return $this->respond($request, $word, 'Đã thêm từ vào từ điển.', 201);
     }
@@ -67,10 +73,13 @@ class ToxicWordController extends Controller
         $data = $request->validated();
         $data['normalized_term'] = $normalizer->normalize($data['term']);
         $data['updated_by'] = $request->user()->id;
-        $data['is_active'] = $request->boolean('is_active');
         $data['fold_diacritics'] = $request->boolean('fold_diacritics');
 
-        $toxicWord->update($data);
+        try {
+            $toxicWord->update($data);
+        } catch (UniqueConstraintViolationException) {
+            throw ValidationException::withMessages(['term' => 'Từ này đã có trong từ điển.']);
+        }
 
         return $this->respond($request, $toxicWord->fresh(), 'Đã cập nhật từ trong từ điển.');
     }

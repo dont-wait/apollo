@@ -19,8 +19,10 @@ class ToxicWordRepository
         }
 
         try {
+            $version = ToxicWord::cacheVersion();
+
             $terms = Cache::remember(
-                config('toxic_words.cache_key'),
+                config('toxic_words.cache_key').':'.$version,
                 config('toxic_words.cache_ttl'),
                 fn (): array => tap(
                     ToxicWord::query()

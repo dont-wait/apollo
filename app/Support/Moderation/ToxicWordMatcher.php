@@ -5,24 +5,10 @@ namespace App\Support\Moderation;
 use App\Models\ToxicWord;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use Throwable;
 
 class ToxicWordMatcher
 {
-    /** @var array<string, string> */
-    private const array FOLD_VARIANTS = [
-        'a' => 'aàáảãạăằắẳẵặâầấẩẫậ',
-        'c' => 'cç',
-        'd' => 'dđ',
-        'e' => 'eèéẻẽẹêềếểễệ',
-        'i' => 'iìíỉĩị',
-        'n' => 'nñ',
-        'o' => 'oòóỏõọôồốổỗộơờớởỡợø',
-        's' => 'sš',
-        'u' => 'uùúủũụưừứửữự',
-        'y' => 'yỳýỷỹỵ',
-        'z' => 'zž',
-    ];
-
     public function __construct(
         private ToxicWordNormalizer $normalizer,
         private ToxicWordRepository $repository,
@@ -41,7 +27,8 @@ class ToxicWordMatcher
             return [];
         }
 
-        $subject = $this->normalizer->normalize($text, false, false, false);
+        $plainSubject = $this->normalizer->normalizeWithMap($text, false);
+        $foldedSubject = null;
         $matches = [];
 
         foreach ([false, true] as $foldDiacritics) {
@@ -53,6 +40,10 @@ class ToxicWordMatcher
             if ($group === []) {
                 continue;
             }
+
+            $subject = $foldDiacritics
+                ? ($foldedSubject ??= $this->normalizer->normalizeWithMap($text, true))
+                : $plainSubject;
 
             $wordTerms = array_values(array_filter(
                 $group,
@@ -72,7 +63,7 @@ class ToxicWordMatcher
                 );
 
                 if ($pattern !== null) {
-                    $this->collect($pattern, $subject, $matches);
+                    $this->collect($pattern, $subject, $text, $matches);
                 }
             }
 
@@ -85,7 +76,7 @@ class ToxicWordMatcher
                 );
 
                 if ($pattern !== null) {
-                    $this->collect($pattern, $subject, $matches);
+                    $this->collect($pattern, $subject, $text, $matches);
                 }
             }
         }
@@ -114,11 +105,17 @@ class ToxicWordMatcher
             $terms,
         )));
 
-        return Cache::remember(
-            'toxic-words:pattern:'.$type.':'.(int) $foldDiacritics.':'.$fingerprint,
-            config('toxic_words.cache_ttl'),
-            $builder,
-        );
+        try {
+            return Cache::remember(
+                'toxic-words:pattern:'.$type.':'.(int) $foldDiacritics.':'.$fingerprint,
+                config('toxic_words.cache_ttl'),
+                $builder,
+            );
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return $builder();
+        }
     }
 
     /** @param list<array{id: int, term: string, normalized_term: string, scopes: list<string>, match_mode: string, fold_diacritics: bool}> $terms */
@@ -135,7 +132,7 @@ class ToxicWordMatcher
                 continue;
             }
 
-            $quoted = $this->wordCharactersPattern($needle, $foldDiacritics);
+            $quoted = $this->wordCharactersPattern($needle);
             $parts[] = '(?<t'.$term['id'].'>'.$quoted.')';
         }
 
@@ -155,14 +152,14 @@ class ToxicWordMatcher
 
         foreach ($terms as $term) {
             $normalized = $this->normalizer->normalize($term['term'], $foldDiacritics);
-            $characters = mb_str_split(preg_replace('/[^\p{L}\p{N}]+/u', '', $normalized) ?? '');
+            $characters = mb_str_split($this->normalizer->compact($normalized));
 
             if ($characters === []) {
                 continue;
             }
 
             $characterPatterns = array_map(
-                fn (string $character): string => $this->looseCharacterPattern($character, $foldDiacritics).'+',
+                fn (string $character): string => $this->looseCharacterPattern($character).'+',
                 $characters,
             );
 
@@ -176,34 +173,20 @@ class ToxicWordMatcher
         return '~'.implode('|', $parts).'~u';
     }
 
-    private function wordCharactersPattern(string $needle, bool $foldDiacritics): string
+    private function wordCharactersPattern(string $needle): string
     {
         $pattern = '';
 
         foreach (mb_str_split($needle) as $character) {
-            if ($character === ' ') {
-                $pattern .= '\s+';
-
-                continue;
-            }
-
-            $pattern .= $foldDiacritics
-                ? $this->foldedCharacterPattern($character)
-                : preg_quote($character, '~');
+            $pattern .= $character === ' ' ? '\s+' : preg_quote($character, '~');
         }
 
         return $pattern;
     }
 
-    private function looseCharacterPattern(string $character, bool $foldDiacritics): string
+    private function looseCharacterPattern(string $character): string
     {
-        $characters = [$character];
-
-        if ($foldDiacritics) {
-            $characters = mb_str_split(self::FOLD_VARIANTS[$character] ?? $character);
-        }
-
-        $characters = [...$characters, ...match ($character) {
+        $characters = [$character, ...match ($character) {
             'a' => ['4', '@'],
             'e' => ['3'],
             'i' => ['1', '!'],
@@ -219,25 +202,16 @@ class ToxicWordMatcher
         )).']';
     }
 
-    private function foldedCharacterPattern(string $character): string
+    /**
+     * @param  array{text: string, map: list<array{start: int, end: int, original_start: int, original_end: int}>}  $subject
+     * @param  list<ToxicWordMatch>  $matches
+     */
+    private function collect(string $pattern, array $subject, string $original, array &$matches): void
     {
-        $variants = self::FOLD_VARIANTS[$character] ?? null;
-
-        if ($variants === null) {
-            return preg_quote($character, '~');
-        }
-
-        return '['.implode('', array_map(
-            fn (string $value): string => preg_quote($value, '~'),
-            mb_str_split($variants),
-        )).']';
-    }
-
-    /** @param list<ToxicWordMatch> $matches */
-    private function collect(string $pattern, string $subject, array &$matches): void
-    {
-        if (preg_match_all($pattern, $subject, $found, PREG_SET_ORDER | PREG_OFFSET_CAPTURE) === false) {
-            return;
+        if (preg_match_all($pattern, $subject['text'], $found, PREG_SET_ORDER | PREG_OFFSET_CAPTURE) === false) {
+            throw new ToxicWordMatcherException(
+                'Toxic word pattern failed: '.preg_last_error_msg(),
+            );
         }
 
         foreach ($found as $set) {
@@ -252,13 +226,46 @@ class ToxicWordMatcher
                     continue;
                 }
 
+                $range = $this->originalRange($subject['map'], $offset, $offset + strlen($matched));
+
+                if ($range === null) {
+                    continue;
+                }
+
+                [$start, $end] = $range;
+
                 $matches[] = new ToxicWordMatch(
                     (int) substr($group, 1),
-                    $matched,
-                    $offset,
-                    $offset + strlen($matched),
+                    substr($original, $start, $end - $start),
+                    $start,
+                    $end,
                 );
             }
         }
+    }
+
+    /**
+     * @param  list<array{start: int, end: int, original_start: int, original_end: int}>  $map
+     * @return array{0: int, 1: int}|null
+     */
+    private function originalRange(array $map, int $start, int $end): ?array
+    {
+        $originalStart = null;
+        $originalEnd = null;
+
+        foreach ($map as $range) {
+            if ($range['end'] <= $start) {
+                continue;
+            }
+
+            if ($range['start'] >= $end) {
+                break;
+            }
+
+            $originalStart ??= $range['original_start'];
+            $originalEnd = $range['original_end'];
+        }
+
+        return $originalStart === null ? null : [$originalStart, $originalEnd];
     }
 }

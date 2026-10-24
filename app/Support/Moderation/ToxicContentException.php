@@ -54,7 +54,12 @@ class ToxicContentException extends DomainException implements Responsable, Shou
         }
 
         $redirect = back()
-            ->withInput()
+            ->withInput($request->except([
+                '_token',
+                'password',
+                'password_confirmation',
+                'current_password',
+            ]))
             ->withErrors(new MessageBag($this->errors));
 
         if ($this->withModeration) {

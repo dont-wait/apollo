@@ -37,6 +37,16 @@ class ToxicContentInspector
             }
 
             $matches = $this->filter->find($value, $definition['scope']);
+            $renderedOnly = false;
+
+            if ($matches === [] && ($definition['markdown'] ?? false)) {
+                $renderedMatches = $this->filter->find($this->markdownText($value), $definition['scope']);
+
+                if ($renderedMatches !== []) {
+                    $matches = $renderedMatches;
+                    $renderedOnly = true;
+                }
+            }
 
             if ($matches === []) {
                 continue;
@@ -46,6 +56,7 @@ class ToxicContentInspector
                 'value' => $value,
                 'matches' => $matches,
                 'definition' => $definition,
+                'rendered_only' => $renderedOnly,
             ];
         }
 
@@ -76,11 +87,17 @@ class ToxicContentInspector
                 'count' => count($matches),
             ];
 
+            $firstMatch = $matches[0];
+            $hasOffsets = $firstMatch->start !== null && $firstMatch->end !== null;
+
             if ($definition['markdown'] ?? false) {
-                $fieldPayload['overlay_html'] = $this->highlighter->highlightText($value, $matches);
                 $fieldPayload['preview_html'] = $this->highlighter->highlightMarkdown($value, $definition['scope']);
-                $fieldPayload['first_offset'] = $matches[0]->start;
-            } else {
+
+                if (! $inspection['rendered_only'] && $hasOffsets) {
+                    $fieldPayload['overlay_html'] = $this->highlighter->highlightText($value, $matches);
+                    $fieldPayload['first_offset'] = $this->utf16Offset($value, $firstMatch->start);
+                }
+            } elseif ($hasOffsets) {
                 $fieldPayload['snippets'] = [$this->highlighter->highlightText($value, $matches)];
             }
 
@@ -103,5 +120,20 @@ class ToxicContentInspector
             $withModeration,
             $status,
         );
+    }
+
+    private function markdownText(string $markdown): string
+    {
+        $html = Str::markdown($markdown, ['html_input' => 'strip', 'allow_unsafe_links' => false]);
+
+        return html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+
+    private function utf16Offset(string $text, int $byteOffset): int
+    {
+        $prefix = substr($text, 0, $byteOffset);
+        $encoded = mb_convert_encoding($prefix, 'UTF-16LE', 'UTF-8');
+
+        return is_string($encoded) ? intdiv(strlen($encoded), 2) : mb_strlen($prefix, 'UTF-8');
     }
 }

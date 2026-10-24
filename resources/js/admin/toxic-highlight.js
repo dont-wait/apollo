@@ -1,3 +1,100 @@
+const SAFE_TAGS = new Set([
+    'a', 'b', 'blockquote', 'br', 'code', 'del', 'div', 'em', 'h1', 'h2',
+    'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'li', 'mark', 'ol', 'p', 'pre', 's',
+    'span', 'strong', 'sub', 'sup', 'table', 'tbody', 'td', 'tfoot', 'th',
+    'thead', 'tr', 'u', 'ul',
+]);
+
+const sanitizedNodes = (html) => {
+    if (typeof DOMParser === 'undefined') {
+        return [document.createTextNode(String(html ?? ''))];
+    }
+
+    const parsed = new DOMParser().parseFromString(String(html ?? ''), 'text/html');
+
+    const walk = (node) => {
+        Array.from(node.childNodes).forEach((child) => {
+            if (child.nodeType === Node.TEXT_NODE) {
+                return;
+            }
+
+            if (child.nodeType !== Node.ELEMENT_NODE) {
+                child.remove();
+
+                return;
+            }
+
+            const tag = child.tagName.toLowerCase();
+
+            if (!SAFE_TAGS.has(tag)) {
+                child.remove();
+
+                return;
+            }
+
+            Array.from(child.attributes).forEach((attribute) => {
+                const name = attribute.name.toLowerCase();
+                const value = attribute.value.trim();
+
+                if (name.startsWith('on') || ['style', 'srcdoc', 'formaction'].includes(name)) {
+                    child.removeAttribute(attribute.name);
+
+                    return;
+                }
+
+                if (['href', 'src', 'xlink:href', 'action'].includes(name) && /^(javascript|data|vbscript):/i.test(value)) {
+                    child.removeAttribute(attribute.name);
+                }
+            });
+
+            walk(child);
+        });
+    };
+
+    walk(parsed.body);
+
+    return Array.from(parsed.body.childNodes);
+};
+
+const setSanitizedHtml = (element, html) => {
+    element.replaceChildren(...sanitizedNodes(html));
+};
+
+const clearModerationSummary = () => {
+    document.querySelectorAll('[data-toxic-summary]').forEach((summary) => {
+        summary.textContent = '';
+        summary.hidden = true;
+    });
+};
+
+const clearPreviewHighlights = () => {
+    document.querySelectorAll('[data-toxic-preview]').forEach((preview) => {
+        preview.querySelectorAll('mark.toxic-word-hit').forEach((mark) => {
+            mark.replaceWith(...mark.childNodes);
+        });
+        preview.dataset.toxicPreviewLocked = 'false';
+    });
+};
+
+const clearFieldFeedback = (fieldName) => {
+    if (!fieldName) {
+        return;
+    }
+
+    const snippet = document.querySelector(`[data-toxic-snippet="${fieldName}"]`);
+
+    if (snippet) {
+        snippet.hidden = true;
+        snippet.replaceChildren();
+    }
+
+    const jump = document.querySelector(`[data-toxic-jump="${fieldName}"]`);
+
+    if (jump) {
+        jump.hidden = true;
+    }
+};
+
 const syncOverlay = (editor) => {
     const textarea = editor.querySelector('textarea');
     const overlay = editor.querySelector('[data-toxic-overlay]');
@@ -26,14 +123,11 @@ const initEditor = (editor) => {
 
     textarea.addEventListener('input', () => {
         editor.classList.remove('is-toxic-highlighted');
-        overlay.innerHTML = '';
+        overlay.replaceChildren();
         overlay.classList.add('is-empty');
-
-        const jump = document.querySelector(`[data-toxic-jump="${editor.dataset.toxicField}"]`);
-
-        if (jump) {
-            jump.hidden = true;
-        }
+        clearFieldFeedback(editor.dataset.toxicField);
+        clearModerationSummary();
+        clearPreviewHighlights();
     });
 
     textarea.addEventListener('scroll', () => syncOverlay(editor));
@@ -87,25 +181,29 @@ const applyField = (fieldName, field) => {
             jump.hidden = !field.overlay_html;
         }
 
-        if (overlay) {
-            overlay.innerHTML = field.overlay_html ?? '';
+        if (overlay && typeof field.overlay_html === 'string' && field.overlay_html !== '') {
+            setSanitizedHtml(overlay, field.overlay_html);
             overlay.classList.remove('is-empty');
             editor.classList.add('is-toxic-highlighted');
             initEditor(editor);
             syncOverlay(editor);
             initJumpButton(editor, fieldName);
+        } else if (overlay) {
+            overlay.replaceChildren();
+            overlay.classList.add('is-empty');
+            editor.classList.remove('is-toxic-highlighted');
         }
     }
 
     if (snippet && Array.isArray(field.snippets) && field.snippets.length > 0) {
-        snippet.innerHTML = field.snippets.join(' ');
+        setSanitizedHtml(snippet, field.snippets.join(' '));
         snippet.hidden = false;
     }
 
     const preview = document.querySelector(`[data-toxic-preview="${fieldName}"]`);
 
     if (preview && typeof field.preview_html === 'string') {
-        preview.innerHTML = field.preview_html;
+        setSanitizedHtml(preview, field.preview_html);
         preview.dataset.toxicPreviewLocked = 'true';
         preview.hidden = false;
         preview.removeAttribute('data-empty');
@@ -125,22 +223,20 @@ const applyModeration = (moderation) => {
 
     document.querySelectorAll('[data-toxic-snippet]').forEach((snippet) => {
         snippet.hidden = true;
-        snippet.innerHTML = '';
+        snippet.replaceChildren();
     });
 
     document.querySelectorAll('[data-toxic-jump]').forEach((button) => {
         button.hidden = true;
     });
 
-    document.querySelectorAll('[data-toxic-preview] mark.toxic-word-hit').forEach((mark) => {
-        mark.replaceWith(...mark.childNodes);
-    });
+    clearPreviewHighlights();
 
     document.querySelectorAll('[data-toxic-editor]').forEach((editor) => {
         const overlay = editor.querySelector('[data-toxic-overlay]');
 
         if (overlay) {
-            overlay.innerHTML = '';
+            overlay.replaceChildren();
             overlay.classList.add('is-empty');
         }
 
@@ -189,12 +285,21 @@ const initToxicWordsPage = () => {
         return;
     }
 
+    const activeInputs = form.querySelectorAll('input[name="is_active"]');
+
+    const setActiveEditable = (editable) => {
+        activeInputs.forEach((input) => {
+            input.disabled = !editable;
+        });
+    };
+
     const reset = () => {
         form.action = storeUrl;
         methodInput.value = 'POST';
         title.textContent = 'Thêm từ mới';
         submitLabel.textContent = 'Thêm từ';
         form.reset();
+        setActiveEditable(true);
 
         form.querySelectorAll('input[name="scopes[]"]').forEach((input) => {
             input.checked = true;
@@ -227,6 +332,7 @@ const initToxicWordsPage = () => {
             form.action = word.update_url;
             methodInput.value = 'PUT';
             title.textContent = 'Sửa từ';
+            setActiveEditable(false);
 
             const term = form.querySelector('input[name="term"]');
             const mode = form.querySelector('select[name="match_mode"]');
@@ -280,8 +386,11 @@ document.addEventListener('input', (event) => {
 
     if (snippet) {
         snippet.hidden = true;
-        snippet.innerHTML = '';
+        snippet.replaceChildren();
     }
+
+    clearModerationSummary();
+    clearPreviewHighlights();
 });
 
 document.addEventListener('DOMContentLoaded', () => {

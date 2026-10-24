@@ -199,7 +199,7 @@ Constraints:
 
 - `$fillable`: `term`, `normalized_term`, `scopes`, `match_mode`, `fold_diacritics`, `is_active`, `note`, `created_by`, `updated_by`.
 - Casts: `scopes => array`, `fold_diacritics => boolean`, `is_active => boolean`.
-- `saved`/`deleted` events clear the dictionary cache.
+- `saved`/`deleted` events increment a database-backed cache version.
 - `active()` query scope.
 
 ### 5.3. Config
@@ -709,8 +709,8 @@ Technical requirements:
 ## 9. Caching and performance
 
 - Load only `is_active = true` entries.
-- Cache the normalized list under `config('toxic_words.cache_key')` with a 600-second TTL.
-- `saved` and `deleted` model events clear the cache.
+- Cache the normalized list under `config('toxic_words.cache_key')` plus a database-backed version, with a 600-second TTL.
+- `saved` and `deleted` model events increment the database version, so an old cache entry is not read again even if the cache store failed during invalidation.
 - The matcher compiles patterns once per cache miss; store compiled patterns in cache when the serializer supports it, otherwise recompile from the cached list.
 - Separate patterns by:
   - `WORD` with diacritics.

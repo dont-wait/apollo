@@ -58,12 +58,68 @@ class ToxicWordNormalizer
         return $text;
     }
 
+    /**
+     * Normalize text while keeping a map from normalized byte ranges back to
+     * the original byte ranges, so matches can be highlighted in the source.
+     *
+     * @return array{text: string, map: list<array{start: int, end: int, original_start: int, original_end: int}>}
+     */
+    public function normalizeWithMap(string $text, bool $foldDiacritics = false): array
+    {
+        $matched = preg_match_all('/\X/u', $text, $clusters);
+        $clusters = $matched === false ? [$text] : $clusters[0];
+
+        $normalized = '';
+        $map = [];
+        $originalOffset = 0;
+
+        foreach ($clusters as $cluster) {
+            $originalStart = $originalOffset;
+            $originalOffset += strlen($cluster);
+
+            $value = $this->removeInvisibleCharacters($cluster);
+
+            if ($value === '') {
+                continue;
+            }
+
+            if (class_exists(Normalizer::class)) {
+                $normalizedCluster = Normalizer::normalize($value, Normalizer::FORM_C);
+
+                if (is_string($normalizedCluster)) {
+                    $value = $normalizedCluster;
+                }
+            }
+
+            $value = mb_strtolower($value, 'UTF-8');
+
+            if ($foldDiacritics) {
+                $value = Str::ascii($value);
+            }
+
+            if ($value === '') {
+                continue;
+            }
+
+            $start = strlen($normalized);
+            $normalized .= $value;
+            $map[] = [
+                'start' => $start,
+                'end' => strlen($normalized),
+                'original_start' => $originalStart,
+                'original_end' => $originalOffset,
+            ];
+        }
+
+        return ['text' => $normalized, 'map' => $map];
+    }
+
     public function compact(string $text): string
     {
         $text = strtr($text, self::LEET_MAP);
         $text = preg_replace('/[^\p{L}\p{N}]+/u', '', $text) ?? '';
 
-        return preg_replace('/(\p{L}|\p{N})\1{2,}/u', '$1', $text) ?? $text;
+        return preg_replace('/(\p{L}|\p{N})\1+/u', '$1', $text) ?? $text;
     }
 
     private function removeInvisibleCharacters(string $text): string

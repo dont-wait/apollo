@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\ToxicWord;
 use App\Support\Moderation\ToxicWordFilter;
+use App\Support\Moderation\ToxicWordMatcher;
+use App\Support\Moderation\ToxicWordMatcherException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -18,7 +20,7 @@ class ToxicWordMatcherTest extends TestCase
         $matches = $this->filter()->find('This is a BADWORD!', 'post');
 
         $this->assertCount(1, $matches);
-        $this->assertSame('badword', $matches[0]->matched);
+        $this->assertSame('BADWORD', $matches[0]->matched);
         $this->assertSame(10, $matches[0]->start);
         $this->assertSame(17, $matches[0]->end);
         $this->assertSame([], $this->filter()->find('notbadwords', 'post'));
@@ -90,6 +92,50 @@ class ToxicWordMatcherTest extends TestCase
 
         $this->assertSame(6, $match->start);
         $this->assertSame('badword', substr($text, $match->start, $match->end - $match->start));
+    }
+
+    public function test_offsets_survive_invisible_characters_and_folding(): void
+    {
+        $this->word('các', foldDiacritics: true);
+
+        $text = "Xin chào\u{200B} các bạn";
+        $match = $this->filter()->find($text, 'post')[0];
+
+        $this->assertSame('các', substr($text, $match->start, $match->end - $match->start));
+        $this->assertSame('các', $match->matched);
+    }
+
+    public function test_folding_uses_the_same_transliteration_as_the_normalizer(): void
+    {
+        $this->word('über', foldDiacritics: true);
+
+        $match = $this->filter()->find('UBER', 'post')[0];
+
+        $this->assertSame('UBER', substr('UBER', $match->start, $match->end - $match->start));
+    }
+
+    public function test_loose_repeated_letter_runs_do_not_exhaust_pcre(): void
+    {
+        $this->word('baadword', mode: ToxicWord::MATCH_LOOSE);
+
+        $matches = $this->filter()->find('ba'.str_repeat('a', 30000), 'post');
+
+        $this->assertSame([], $matches);
+    }
+
+    public function test_matcher_fails_closed_when_pattern_matching_fails(): void
+    {
+        $matcher = $this->createMock(ToxicWordMatcher::class);
+        $matcher->expects($this->once())
+            ->method('find')
+            ->willThrowException(new ToxicWordMatcherException('Pattern failed.'));
+
+        $matches = (new ToxicWordFilter($matcher))->find('badword', 'post');
+
+        $this->assertCount(1, $matches);
+        $this->assertTrue($matches[0]->isFailure());
+        $this->assertSame(0, $matches[0]->termId);
+        $this->assertNull($matches[0]->start);
     }
 
     private function word(

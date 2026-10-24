@@ -79,6 +79,38 @@ class AdminToxicWordTest extends TestCase
             ->assertSessionHasErrors('term');
     }
 
+    public function test_dictionary_changes_rotate_the_cache_version(): void
+    {
+        $word = ToxicWord::factory()->create(['term' => 'badword', 'normalized_term' => 'badword']);
+        $version = ToxicWord::cacheVersion();
+
+        $this->assertGreaterThanOrEqual(1, $version);
+
+        $word->update(['term' => 'worseword', 'normalized_term' => 'worseword']);
+
+        $this->assertGreaterThan($version, ToxicWord::cacheVersion());
+    }
+
+    public function test_accent_distinct_terms_are_stored_separately(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        foreach (['các', 'cac'] as $term) {
+            $this->actingAs($admin)
+                ->from('/admin/toxic-words')
+                ->post('/admin/toxic-words', [
+                    'term' => $term,
+                    'scopes' => ['post'],
+                    'match_mode' => ToxicWord::MATCH_WORD,
+                ])
+                ->assertRedirect('/admin/toxic-words')
+                ->assertSessionHasNoErrors();
+        }
+
+        $this->assertDatabaseHas('toxic_words', ['normalized_term' => 'các']);
+        $this->assertDatabaseHas('toxic_words', ['normalized_term' => 'cac']);
+    }
+
     public function test_loose_mode_requires_at_least_four_characters(): void
     {
         $admin = User::factory()->admin()->create();
@@ -114,7 +146,7 @@ class AdminToxicWordTest extends TestCase
         $this->assertSame('Better Word', $word->term);
         $this->assertSame('better word', $word->normalized_term);
         $this->assertSame(['category'], $word->scopes);
-        $this->assertFalse($word->is_active);
+        $this->assertTrue($word->is_active);
         $this->assertSame($admin->id, $word->updated_by);
     }
 

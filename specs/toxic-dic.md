@@ -199,7 +199,7 @@ Ràng buộc:
 
 - `$fillable`: `term`, `normalized_term`, `scopes`, `match_mode`, `fold_diacritics`, `is_active`, `note`, `created_by`, `updated_by`.
 - Casts: `scopes => array`, `fold_diacritics => boolean`, `is_active => boolean`.
-- Boot events `saved`/`deleted`: xóa cache từ điển.
+- Boot events `saved`/`deleted`: tăng version cache từ điển trong database.
 - Scope query `active()`.
 
 ### 5.3. Config
@@ -709,8 +709,8 @@ Yêu cầu kỹ thuật:
 ## 9. Cache và hiệu năng
 
 - Chỉ load các term `is_active = true`.
-- Cache danh sách đã chuẩn hóa theo `config('toxic_words.cache_key')`, TTL 600 giây.
-- Model events `saved`, `deleted` xóa cache.
+- Cache danh sách đã chuẩn hóa theo `config('toxic_words.cache_key')` + version trong database, TTL 600 giây.
+- Model events `saved`, `deleted` tăng version trong database, nên cache cũ không được đọc lại kể cả khi cache store lỗi lúc ghi.
 - Matcher biên dịch pattern một lần cho mỗi lần cache miss; lưu pattern đã biên dịch trong cache cùng dữ liệu nếu serializer hỗ trợ, hoặc biên dịch lại từ danh sách đã cache.
 - Tách pattern theo:
   - `WORD` + giữ dấu.

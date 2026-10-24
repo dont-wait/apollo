@@ -27,7 +27,13 @@ class StoreArticleRequest extends FormRequest
             'excerpt' => ['scope' => 'post', 'label' => 'Tóm tắt'],
             'markdown_content' => ['scope' => 'post', 'label' => 'Nội dung bài viết', 'markdown' => true],
             'new_tags.*' => ['scope' => 'tag', 'label' => 'Tên tag'],
+            'new_tag_slugs.*' => ['scope' => 'tag', 'label' => 'Slug tag'],
         ];
+    }
+
+    protected function toxicContentWithModeration(): bool
+    {
+        return true;
     }
 
     protected function prepareForValidation(): void
@@ -37,6 +43,17 @@ class StoreArticleRequest extends FormRequest
 
             $this->merge([
                 'slug' => is_string($title) ? Str::slug($title) : '',
+            ]);
+        }
+
+        $tags = $this->input('new_tags');
+
+        if (is_array($tags)) {
+            $this->merge([
+                'new_tag_slugs' => array_map(
+                    fn (mixed $tag): string => is_string($tag) ? Str::slug($tag) : '',
+                    $tags,
+                ),
             ]);
         }
     }

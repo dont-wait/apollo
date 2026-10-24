@@ -14,6 +14,16 @@ class ToxicWordMatch implements Arrayable
         public readonly ?int $end = null,
     ) {}
 
+    public static function failure(): self
+    {
+        return new self(0, '', null, null);
+    }
+
+    public function isFailure(): bool
+    {
+        return $this->termId === 0 && $this->start === null && $this->end === null;
+    }
+
     /** @return array{term_id: int, matched: string, start: int|null, end: int|null} */
     public function toArray(): array
     {

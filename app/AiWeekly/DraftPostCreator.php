@@ -27,12 +27,16 @@ class DraftPostCreator
                 throw new DomainException('Review chưa hợp lệ để chuyển.');
             }
 
+            $slug = Str::limit(Str::slug($locked->title), 200, '').'-weekly-'.$locked->id;
+
             $exception = $this->inspector->inspect([
                 'title' => $locked->title,
+                'slug' => $slug,
                 'excerpt' => $locked->excerpt,
                 'markdown_content' => $locked->markdown_content,
             ], [
                 'title' => ['scope' => 'post', 'label' => 'Tiêu đề'],
+                'slug' => ['scope' => 'post', 'label' => 'Slug'],
                 'excerpt' => ['scope' => 'post', 'label' => 'Tóm tắt'],
                 'markdown_content' => ['scope' => 'post', 'label' => 'Nội dung bài viết', 'markdown' => true],
             ], true, 409);
@@ -45,7 +49,7 @@ class DraftPostCreator
             $post = Post::create([
                 'author_id' => $author->id, 'weekly_review_id' => $locked->id,
                 'category_id' => $category?->status === 'ACTIVE' ? $category->id : null,
-                'title' => $locked->title, 'slug' => Str::limit(Str::slug($locked->title), 200, '').'-weekly-'.$locked->id,
+                'title' => $locked->title, 'slug' => $slug,
                 'excerpt' => $locked->excerpt, 'markdown_content' => $locked->markdown_content,
                 'status' => 'DRAFT', 'source_type' => 'AI_WEEKLY',
             ]);

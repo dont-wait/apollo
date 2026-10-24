@@ -69,17 +69,7 @@ class WeeklyReviewController extends Controller
         ]);
         $data['revision'] = (int) $data['revision'];
 
-        $exception = $inspector->inspect($data, [
-            'title' => ['scope' => 'post', 'label' => 'Tiêu đề'],
-            'excerpt' => ['scope' => 'post', 'label' => 'Tóm tắt'],
-            'markdown_content' => ['scope' => 'post', 'label' => 'Nội dung bài viết', 'markdown' => true],
-        ]);
-
-        if ($exception !== null) {
-            throw $exception;
-        }
-
-        return DB::transaction(function () use ($review, $data, $sections): JsonResponse {
+        return DB::transaction(function () use ($review, $data, $sections, $inspector): JsonResponse {
             $locked = WeeklyReview::query()->lockForUpdate()->findOrFail($review->id);
             if (! in_array($locked->status, ['DRAFT', 'REVIEW'], true) || $locked->revision !== $data['revision']) {
                 return response()->json(['message' => 'Review đã thay đổi hoặc không thể sửa.'], 409);
@@ -90,6 +80,21 @@ class WeeklyReviewController extends Controller
             } catch (\RuntimeException $exception) {
                 throw ValidationException::withMessages(['markdown_content' => $exception->getMessage()]);
             }
+
+            $exception = $inspector->inspect([
+                'title' => $data['title'],
+                'excerpt' => $data['excerpt'] ?? null,
+                'markdown_content' => $content['markdown'],
+            ], [
+                'title' => ['scope' => 'post', 'label' => 'Tiêu đề'],
+                'excerpt' => ['scope' => 'post', 'label' => 'Tóm tắt'],
+                'markdown_content' => ['scope' => 'post', 'label' => 'Nội dung bài viết', 'markdown' => true],
+            ]);
+
+            if ($exception !== null) {
+                throw $exception;
+            }
+
             $locked->update([
                 'title' => $data['title'], 'excerpt' => $data['excerpt'] ?? null,
                 'markdown_content' => $content['markdown'], 'revision' => $locked->revision + 1,

@@ -31,7 +31,6 @@ class UpdateToxicWordRequest extends FormRequest
             'scopes.*' => ['string', Rule::in(config('toxic_words.scopes'))],
             'match_mode' => ['required', Rule::in(ToxicWord::MATCH_MODES)],
             'fold_diacritics' => ['boolean'],
-            'is_active' => ['boolean'],
             'note' => ['nullable', 'string', 'max:255'],
         ];
     }
