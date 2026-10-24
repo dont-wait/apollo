@@ -115,6 +115,20 @@ test('commands stay hidden until a slash token is typed and close for ordinary t
     assert.equal(editor.menu.hidden, true);
 });
 
+test('clicking the editor recalculates suggestions at the caret', () => {
+    const editor = createEditor();
+    editor.type('Hello /');
+    assert.equal(editor.menu.hidden, false);
+
+    editor.input.selectionStart = editor.input.selectionEnd = 3;
+    editor.input.dispatchEvent({ type: 'click' });
+    assert.equal(editor.menu.hidden, true);
+
+    editor.input.selectionStart = editor.input.selectionEnd = 7;
+    editor.input.dispatchEvent({ type: 'click' });
+    assert.equal(editor.menu.hidden, false);
+});
+
 test('table selection opens configuration and inserts the chosen dimensions at the slash range', () => {
     const editor = createEditor();
     editor.type('Before /table\nAfter', 13);

@@ -429,7 +429,7 @@
         });
         markdownInput.addEventListener('compositionstart', closeCommands);
         markdownInput.addEventListener('compositionend', showSuggestions);
-        markdownInput.addEventListener('click', closeCommands);
+        markdownInput.addEventListener('click', showSuggestions);
         markdownInput.addEventListener('keyup', (event) => {
             if (!commandMenu.hidden && !selectedCommand && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
                 showSuggestions();

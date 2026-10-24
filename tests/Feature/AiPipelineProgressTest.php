@@ -8,6 +8,7 @@ use App\AiWeekly\RunCoordinator;
 use App\AiWeekly\SourceFetcher;
 use App\Jobs\AiWeekly\AnalyzeArticles;
 use App\Jobs\AiWeekly\CollectSource;
+use App\Jobs\AiWeekly\GenerateWeeklyReview;
 use App\Models\AiArticle;
 use App\Models\AiSource;
 use App\Models\AutomationRun;
@@ -51,6 +52,66 @@ class AiPipelineProgressTest extends TestCase
         Queue::assertPushed(AnalyzeArticles::class, 1);
     }
 
+    public function test_reusing_an_active_run_dispatches_jobs_that_were_never_queued(): void
+    {
+        Queue::fake([AnalyzeArticles::class]);
+        $run = AutomationRun::factory()->create(['run_type' => 'ANALYZE', 'status' => 'PENDING', 'payload' => []]);
+        $this->actingAs(User::factory()->admin()->create());
+
+        $this->postJson('/admin/automation-runs/analyze')
+            ->assertAccepted()->assertJsonPath('run_id', $run->id)->assertJsonPath('reused', true);
+
+        Queue::assertPushed(AnalyzeArticles::class, 1);
+        $this->assertNotNull($run->fresh()->dispatched_at);
+    }
+
+    public function test_article_reanalysis_creates_a_new_run_when_another_article_is_active(): void
+    {
+        Queue::fake([AnalyzeArticles::class]);
+        $activeArticle = AiArticle::factory()->create();
+        $requestedArticle = AiArticle::factory()->create();
+        $active = AutomationRun::factory()->create([
+            'run_type' => 'ANALYZE', 'status' => 'RUNNING', 'payload' => ['article_id' => $activeArticle->id],
+        ]);
+        $this->actingAs(User::factory()->admin()->create());
+
+        $id = $this->postJson('/admin/automation-runs/analyze', ['article_id' => $requestedArticle->id])
+            ->assertAccepted()->assertJsonPath('reused', false)->json('run_id');
+
+        $this->assertNotSame($active->id, $id);
+        $this->assertSame($requestedArticle->id, AutomationRun::findOrFail($id)->payload['article_id']);
+        Queue::assertPushed(AnalyzeArticles::class, 1);
+    }
+
+    public function test_collection_creates_a_new_run_when_a_new_source_is_not_covered_by_the_active_run(): void
+    {
+        Queue::fake([CollectSource::class]);
+        AiSource::factory()->create();
+        $this->actingAs(User::factory()->admin()->create());
+        $id = $this->postJson('/admin/automation-runs/collect')->assertAccepted()->json('run_id');
+
+        $newSource = AiSource::factory()->create();
+        $newId = $this->postJson('/admin/automation-runs/collect')->assertAccepted()->assertJsonPath('reused', false)->json('run_id');
+
+        $this->assertNotSame($id, $newId);
+        $this->assertArrayHasKey($newSource->id, AutomationRun::findOrFail($newId)->payload['sources']);
+        Queue::assertPushed(CollectSource::class, 3);
+    }
+
+    public function test_collection_reuses_the_active_run_when_all_sources_become_inactive(): void
+    {
+        Queue::fake([CollectSource::class]);
+        $source = AiSource::factory()->create();
+        $this->actingAs(User::factory()->admin()->create());
+        $id = $this->postJson('/admin/automation-runs/collect')->assertAccepted()->json('run_id');
+        $source->update(['status' => 'INACTIVE']);
+
+        $this->postJson('/admin/automation-runs/collect')
+            ->assertAccepted()->assertJsonPath('run_id', $id)->assertJsonPath('reused', true);
+
+        $this->assertDatabaseCount('automation_runs', 1);
+    }
+
     public function test_analysis_can_start_again_after_a_terminal_run(): void
     {
         Queue::fake([AnalyzeArticles::class]);
@@ -76,6 +137,24 @@ class AiPipelineProgressTest extends TestCase
         $this->assertSame('FAILED', $failed->fresh()->status);
         $this->assertSame(1, $failed->fresh()->attempt);
         Queue::assertNothingPushed();
+    }
+
+    public function test_retry_starts_a_failed_review_while_another_week_is_active(): void
+    {
+        Queue::fake([GenerateWeeklyReview::class]);
+        $failed = AutomationRun::factory()->create([
+            'run_type' => 'GENERATE_REVIEW', 'status' => 'FAILED', 'attempt' => 1, 'payload' => ['week_start' => '2026-10-12'],
+        ]);
+        AutomationRun::factory()->create([
+            'run_type' => 'GENERATE_REVIEW', 'status' => 'RUNNING', 'payload' => ['week_start' => '2026-10-19'],
+        ]);
+        $this->actingAs(User::factory()->admin()->create());
+
+        $this->postJson("/admin/automation-runs/{$failed->id}/retry")->assertAccepted();
+
+        $this->assertSame('PENDING', $failed->fresh()->status);
+        $this->assertSame(2, $failed->fresh()->attempt);
+        Queue::assertPushed(GenerateWeeklyReview::class, 1);
     }
 
     public function test_monitor_reports_active_jobs_even_if_the_history_is_filtered(): void
@@ -114,6 +193,7 @@ class AiPipelineProgressTest extends TestCase
         (new AnalyzeArticles($run->id))->handle($client);
         $this->assertSame(1, $run->fresh()->progress()['completed']);
         $this->assertSame(99, $run->fresh()->progress()['percent']);
+        $this->assertNull($run->fresh()->progress()['current_item']);
         (new AnalyzeArticles($run->id))->handle($client);
 
         $this->assertSame('SUCCESS', $run->fresh()->status);

@@ -82,6 +82,7 @@ class AnalyzeArticles implements ShouldQueue
             if (! isset($payload['article_id']) && $article->status === 'ANALYZED' && $article->analyses()->where('is_current', true)->where('status', 'SUCCESS')->exists()) {
                 $payload['article_results'][$article->id] = ['status' => 'SKIPPED'];
                 $payload['cursor'] = $article->id;
+                unset($payload['current_item']);
                 $run->withinAttempt($this->attempt, fn (AutomationRun $locked): bool => $locked->update(['payload' => $payload, 'locked_at' => now()]));
                 self::dispatch($this->runId, $this->attempt);
 
@@ -93,6 +94,7 @@ class AnalyzeArticles implements ShouldQueue
                 $payload['article_results'][$article->id] = ['status' => 'SKIPPED', 'error' => 'Article has no usable content.'];
 
                 $payload['cursor'] = $article->id;
+                unset($payload['current_item']);
                 $run->withinAttempt($this->attempt, fn (AutomationRun $locked): bool => $locked->update(['payload' => $payload, 'locked_at' => now()]));
                 self::dispatch($this->runId, $this->attempt);
 
@@ -165,6 +167,7 @@ class AnalyzeArticles implements ShouldQueue
                 }
             }
             $payload['cursor'] = $article->id;
+            unset($payload['current_item']);
             if ($run->withinAttempt($this->attempt, fn (AutomationRun $locked): bool => $locked->update(['payload' => $payload, 'locked_at' => now()]))) {
                 self::dispatch($this->runId, $this->attempt);
             }

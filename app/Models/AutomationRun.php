@@ -15,7 +15,7 @@ class AutomationRun extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['run_type', 'status', 'trigger_type', 'triggered_by', 'idempotency_key', 'payload', 'attempt', 'max_attempts', 'locked_at', 'started_at', 'finished_at', 'error_message', 'created_at'];
+    protected $fillable = ['run_type', 'status', 'trigger_type', 'triggered_by', 'idempotency_key', 'payload', 'attempt', 'max_attempts', 'locked_at', 'dispatched_at', 'started_at', 'finished_at', 'error_message', 'created_at'];
 
     /**
      * @template TResult
@@ -98,6 +98,6 @@ class AutomationRun extends Model
 
     protected function casts(): array
     {
-        return ['payload' => 'array', 'locked_at' => 'datetime', 'started_at' => 'datetime', 'finished_at' => 'datetime', 'attempt' => 'integer', 'max_attempts' => 'integer', 'created_at' => 'datetime'];
+        return ['payload' => 'array', 'locked_at' => 'datetime', 'dispatched_at' => 'datetime', 'started_at' => 'datetime', 'finished_at' => 'datetime', 'attempt' => 'integer', 'max_attempts' => 'integer', 'created_at' => 'datetime'];
     }
 }

@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\AiWeekly\DraftPostCreator;
 use App\AiWeekly\RunCoordinator;
+use App\AiWeekly\RunDispatchBusyException;
 use App\AiWeekly\SectionEditor;
 use App\Http\Controllers\Controller;
-use App\Jobs\AiWeekly\GenerateWeeklyReview;
 use App\Models\AutomationRun;
 use App\Models\WeeklyReview;
 use Carbon\CarbonImmutable;
@@ -49,7 +49,11 @@ class WeeklyReviewController extends Controller
             return response()->json(['message' => 'week_start phải là thứ Hai.'], 422);
         }
 
-        $run = $coordinator->generate($data['week_start'], 'MANUAL', $request->user()->id);
+        try {
+            $run = $coordinator->generate($data['week_start'], 'MANUAL', $request->user()->id);
+        } catch (RunDispatchBusyException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 409);
+        }
 
         return response()->json(['run_id' => $run->id], 202);
     }
@@ -84,7 +88,7 @@ class WeeklyReviewController extends Controller
         });
     }
 
-    public function regenerate(Request $request, WeeklyReview $review, SectionEditor $sections): JsonResponse
+    public function regenerate(Request $request, WeeklyReview $review, SectionEditor $sections, RunCoordinator $coordinator): JsonResponse
     {
         $data = $request->validate([
             'revision' => ['required', 'integer', 'min:1'],
@@ -106,7 +110,11 @@ class WeeklyReviewController extends Controller
                 'mode' => 'candidate', 'section' => $section, 'review_id' => $review->id, 'revision' => $review->revision],
             'attempt' => 1, 'max_attempts' => config('ai_weekly.max_attempts'), 'created_at' => now(),
         ]);
-        GenerateWeeklyReview::dispatch($run->id);
+        try {
+            $coordinator->dispatch($run);
+        } catch (RunDispatchBusyException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 409);
+        }
 
         return response()->json(['run_id' => $run->id], 202);
     }

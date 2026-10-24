@@ -1,6 +1,7 @@
 <?php
 
 use App\AiWeekly\RunCoordinator;
+use App\AiWeekly\RunDispatchBusyException;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -10,11 +11,19 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::call(function (RunCoordinator $coordinator): void {
-    $coordinator->collect('SCHEDULED');
+    try {
+        $coordinator->collect('SCHEDULED');
+    } catch (RunDispatchBusyException) {
+        // Another request is dispatching; the next schedule will pick this up.
+    }
 })->name('ai-weekly:collect')->cron(config('ai_weekly.collect_schedule'))->timezone(config('ai_weekly.timezone'))->onOneServer();
 
 Schedule::call(function (RunCoordinator $coordinator): void {
-    $coordinator->analyze('SCHEDULED');
+    try {
+        $coordinator->analyze('SCHEDULED');
+    } catch (RunDispatchBusyException) {
+        // Another request is dispatching; the next schedule will pick this up.
+    }
 })->name('ai-weekly:analyze')->cron(config('ai_weekly.analyze_schedule'))->timezone(config('ai_weekly.timezone'))->onOneServer();
 
 Schedule::call(function (RunCoordinator $coordinator): void {

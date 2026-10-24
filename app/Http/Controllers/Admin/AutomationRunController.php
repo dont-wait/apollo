@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\AiWeekly\RunCoordinator;
+use App\AiWeekly\RunDispatchBusyException;
 use App\Http\Controllers\Controller;
 use App\Models\AiArticle;
 use App\Models\AutomationRun;
@@ -71,6 +72,8 @@ class AutomationRunController extends Controller
     {
         try {
             $run = $coordinator->collect('MANUAL', $request->user()->id);
+        } catch (RunDispatchBusyException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 409);
         } catch (RuntimeException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
@@ -84,7 +87,11 @@ class AutomationRunController extends Controller
         if (isset($data['article_id']) && AiArticle::query()->whereKey($data['article_id'])->whereNotNull('duplicate_of')->exists()) {
             return response()->json(['message' => 'Không phân tích lại bài trùng.'], 422);
         }
-        $run = $coordinator->analyze('MANUAL', $request->user()->id, $data['article_id'] ?? null);
+        try {
+            $run = $coordinator->analyze('MANUAL', $request->user()->id, $data['article_id'] ?? null);
+        } catch (RunDispatchBusyException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 409);
+        }
 
         return response()->json(['run_id' => $run->id, 'reused' => ! $run->wasRecentlyCreated, 'state' => $this->runState($run)], 202);
     }
