@@ -90,6 +90,10 @@ class WeeklyDraftBuilder
         }
 
         $section = $payload['section'] ?? null;
+        $payload['stage'] = 'generating';
+        if (! $run->withinAttempt($attempt, fn (AutomationRun $locked): bool => $locked->update(['payload' => $payload, 'locked_at' => now()]))) {
+            return;
+        }
         $output = $this->model->complete(Prompts::review($section), $snapshot, $snapshot['model'], ResponseSchemas::review($validIds), config('ai_weekly.review_output_tokens'));
         $draft = Validator::make($output, [
             'title' => ['required', 'string', 'max:255'], 'excerpt' => ['required', 'string', 'max:500'],
@@ -121,6 +125,11 @@ class WeeklyDraftBuilder
             $draft['markdown_content'] .= "\n\n## Nguồn tham khảo\n".collect($draft['citation_ids'])->map(fn (int $id, int $index): string => ($index + 1).'. '.$this->sections->reference($references[$id]['title'], $references[$id]['url']))->implode("\n");
         }
         $draft['quality_warning'] = ($snapshot['eligible_article_count'] ?? count($snapshot['articles'])) < config('ai_weekly.minimum_articles') || ($snapshot['eligible_source_count'] ?? count(array_unique(array_column($snapshot['articles'], 'source_name')))) < config('ai_weekly.minimum_sources') ? 'Nguồn tuần này còn hạn chế.' : null;
+
+        $payload['stage'] = 'saving';
+        if (! $run->withinAttempt($attempt, fn (AutomationRun $locked): bool => $locked->update(['payload' => $payload, 'locked_at' => now()]))) {
+            return;
+        }
 
         if (($payload['mode'] ?? null) === 'candidate') {
             $payload['candidate'] = ['draft' => $draft, 'citations' => $citations, 'revision' => $payload['revision'], 'section' => $section];

@@ -45,7 +45,13 @@ class CollectSource implements ShouldQueue
             return;
         }
 
-        if (! $run->withinAttempt($this->attempt, fn (AutomationRun $locked): bool => $locked->update(['status' => 'RUNNING', 'started_at' => $locked->started_at ?? now(), 'locked_at' => now()]))) {
+        if (! $run->withinAttempt($this->attempt, function (AutomationRun $locked) use ($source): bool {
+            $payload = $locked->payload ?? [];
+            $payload['sources'][$this->sourceId]['status'] = 'RUNNING';
+            $payload['sources'][$this->sourceId]['name'] = $source->name;
+
+            return $locked->update(['status' => 'RUNNING', 'payload' => $payload, 'started_at' => $locked->started_at ?? now(), 'locked_at' => now()]);
+        })) {
             return;
         }
         try {
@@ -137,14 +143,15 @@ class CollectSource implements ShouldQueue
                 return;
             }
             $payload = $run->payload ?? [];
-            $payload['sources'][$this->sourceId] = $result;
+            $payload['sources'][$this->sourceId] = $result + ['name' => $payload['sources'][$this->sourceId]['name'] ?? null];
             $statuses = array_column($payload['sources'], 'status');
-            $complete = ! in_array('PENDING', $statuses, true);
+            $complete = ! array_intersect(['PENDING', 'RUNNING'], $statuses);
             $successful = count(array_filter($statuses, fn (string $status): bool => $status === 'SUCCESS' || $status === 'SKIPPED'));
             $run->update([
                 'payload' => $payload,
                 'status' => $complete ? ($successful === count($statuses) ? 'SUCCESS' : ($successful > 0 ? 'PARTIAL' : 'FAILED')) : 'RUNNING',
                 'finished_at' => $complete ? now() : null,
+                'locked_at' => now(),
             ]);
         });
     }
