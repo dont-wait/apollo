@@ -30,20 +30,26 @@
                     Practical deep dives into models, distributed systems, hardware-aware inference, and the tools that make intelligent software reliable.
                 </p>
 
-                <div class="mt-7 flex w-full max-w-2xl items-center gap-3 rounded-lg border border-outline-variant/50 bg-surface-low p-1.5 shadow-lg shadow-black/10">
+                <form action="{{ route('home') }}" method="GET" role="search" @submit.prevent="applyFilters()" class="mt-7 flex w-full max-w-2xl items-center gap-3 rounded-lg border border-outline-variant/50 bg-surface-low p-1.5 shadow-lg shadow-black/10">
+                    <input type="hidden" name="category" value="{{ $filters['category'] ?? '' }}" :value="activeCategory">
+                    <input type="hidden" name="sort" value="{{ $filters['sort'] }}" :value="sort">
                     <label class="sr-only" for="home-search">Search articles</label>
                     <span class="material-symbols-outlined pl-2 text-[20px] text-primary" aria-hidden="true">search</span>
                     <input
                         id="home-search"
                         x-ref="search"
                         x-model="search"
-                        @keydown.enter.prevent="applyFilters()"
+                        @input.debounce.300ms="applyFilters()"
+                        name="q"
+                        value="{{ $filters['q'] ?? '' }}"
+                        maxlength="255"
                         class="min-w-0 flex-1 bg-transparent px-1 py-2 text-sm text-on-surface outline-none placeholder:text-outline"
                         placeholder="Search kernels, papers, or system notes..."
                         type="search"
                     >
                     <kbd class="hidden rounded bg-surface-high px-2 py-1 font-mono text-[10px] text-outline sm:block">⌘ K</kbd>
-                </div>
+                    <button type="submit" class="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-on-primary transition-opacity hover:opacity-90">Search</button>
+                </form>
 
                 <div class="mt-4 flex flex-wrap items-center gap-2">
                     <span class="font-mono text-[10px] uppercase tracking-[0.14em] text-outline">Active topics:</span>

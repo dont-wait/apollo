@@ -4,14 +4,18 @@ namespace App\Http\Controllers\Admin;
 
 use App\AiWeekly\DraftPostCreator;
 use App\AiWeekly\RunCoordinator;
+use App\AiWeekly\RunDispatchBusyException;
 use App\AiWeekly\SectionEditor;
 use App\Http\Controllers\Controller;
-use App\Jobs\AiWeekly\GenerateWeeklyReview;
 use App\Models\AutomationRun;
 use App\Models\WeeklyReview;
 use App\Services\MediaOperationLockService;
+use App\Support\Moderation\ToxicContentException;
+use App\Support\Moderation\ToxicContentInspector;
+use App\Support\Moderation\ToxicWordHighlighter;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -28,7 +32,7 @@ class WeeklyReviewController extends Controller
         return $request->expectsJson() ? response()->json($reviews) : view('admin.ai-weekly.reviews', compact('reviews'));
     }
 
-    public function show(Request $request, WeeklyReview $review): JsonResponse|View
+    public function show(Request $request, WeeklyReview $review, ToxicWordHighlighter $highlighter): JsonResponse|View
     {
         $review->load(['sourceArticles.source', 'sourceArticles.analyses' => fn ($query) => $query->where('is_current', true), 'generationRun', 'post']);
         $candidateRun = AutomationRun::query()->where('run_type', 'GENERATE_REVIEW')->where('status', 'SUCCESS')->where('payload->review_id', $review->id)->orderByDesc('id')->first();
@@ -36,8 +40,7 @@ class WeeklyReviewController extends Controller
             return response()->json(['data' => $review, 'handoff' => $this->handoff($review), 'candidate_run' => $candidateRun]);
         }
 
-        $previewHtml = Str::markdown($review->markdown_content, ['html_input' => 'strip', 'allow_unsafe_links' => false]);
-        $previewHtml = preg_replace('/<img\b[^>]*>/i', '', $previewHtml);
+        $previewHtml = $highlighter->highlightMarkdown($review->markdown_content, 'post');
 
         return view('admin.ai-weekly.review', compact('review', 'candidateRun', 'previewHtml'));
     }
@@ -50,7 +53,11 @@ class WeeklyReviewController extends Controller
             return response()->json(['message' => 'week_start phải là thứ Hai.'], 422);
         }
 
-        $run = $coordinator->generate($data['week_start'], 'MANUAL', $request->user()->id);
+        try {
+            $run = $coordinator->generate($data['week_start'], 'MANUAL', $request->user()->id);
+        } catch (RunDispatchBusyException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 409);
+        }
 
         return response()->json(['run_id' => $run->id], 202);
     }
@@ -59,7 +66,8 @@ class WeeklyReviewController extends Controller
         Request $request,
         WeeklyReview $review,
         SectionEditor $sections,
-        MediaOperationLockService $operationLock
+        MediaOperationLockService $operationLock,
+        ToxicContentInspector $inspector
     ): JsonResponse {
         $data = $request->validate([
             'revision' => ['required', 'integer', 'min:1'], 'title' => ['required', 'string', 'max:255'],
@@ -67,9 +75,8 @@ class WeeklyReviewController extends Controller
         ]);
         $data['revision'] = (int) $data['revision'];
 
-        return DB::transaction(function () use ($review, $data, $sections, $operationLock): JsonResponse {
+        return DB::transaction(function () use ($review, $data, $sections, $inspector, $operationLock): JsonResponse {
             $operationLock->lock();
-
             $locked = WeeklyReview::query()->lockForUpdate()->findOrFail($review->id);
             if (! in_array($locked->status, ['DRAFT', 'REVIEW'], true) || $locked->revision !== $data['revision']) {
                 return response()->json(['message' => 'Review đã thay đổi hoặc không thể sửa.'], 409);
@@ -80,6 +87,21 @@ class WeeklyReviewController extends Controller
             } catch (\RuntimeException $exception) {
                 throw ValidationException::withMessages(['markdown_content' => $exception->getMessage()]);
             }
+
+            $exception = $inspector->inspect([
+                'title' => $data['title'],
+                'excerpt' => $data['excerpt'] ?? null,
+                'markdown_content' => $content['markdown'],
+            ], [
+                'title' => ['scope' => 'post', 'label' => 'Tiêu đề'],
+                'excerpt' => ['scope' => 'post', 'label' => 'Tóm tắt'],
+                'markdown_content' => ['scope' => 'post', 'label' => 'Nội dung bài viết', 'markdown' => true],
+            ]);
+
+            if ($exception !== null) {
+                throw $exception;
+            }
+
             $locked->update([
                 'title' => $data['title'], 'excerpt' => $data['excerpt'] ?? null,
                 'markdown_content' => $content['markdown'], 'revision' => $locked->revision + 1,
@@ -91,7 +113,7 @@ class WeeklyReviewController extends Controller
         });
     }
 
-    public function regenerate(Request $request, WeeklyReview $review, SectionEditor $sections): JsonResponse
+    public function regenerate(Request $request, WeeklyReview $review, SectionEditor $sections, RunCoordinator $coordinator): JsonResponse
     {
         $data = $request->validate([
             'revision' => ['required', 'integer', 'min:1'],
@@ -113,7 +135,11 @@ class WeeklyReviewController extends Controller
                 'mode' => 'candidate', 'section' => $section, 'review_id' => $review->id, 'revision' => $review->revision],
             'attempt' => 1, 'max_attempts' => config('ai_weekly.max_attempts'), 'created_at' => now(),
         ]);
-        GenerateWeeklyReview::dispatch($run->id);
+        try {
+            $coordinator->dispatch($run);
+        } catch (RunDispatchBusyException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 409);
+        }
 
         return response()->json(['run_id' => $run->id], 202);
     }
@@ -165,10 +191,12 @@ class WeeklyReviewController extends Controller
         });
     }
 
-    public function convert(Request $request, WeeklyReview $review, DraftPostCreator $drafts): JsonResponse
+    public function convert(Request $request, WeeklyReview $review, DraftPostCreator $drafts): JsonResponse|RedirectResponse
     {
         try {
             $post = $drafts->create($review, $request->user());
+        } catch (ToxicContentException $exception) {
+            return $exception->render($request);
         } catch (\DomainException $exception) {
             return response()->json(['message' => $exception->getMessage()], 409);
         }

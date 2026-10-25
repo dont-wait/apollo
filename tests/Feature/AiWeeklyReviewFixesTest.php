@@ -220,7 +220,7 @@ class AiWeeklyReviewFixesTest extends TestCase
         (new AnalyzeArticles($run->id))->handle($model);
 
         $this->assertSame('SUCCESS', $run->fresh()->status);
-        $this->assertSame([], $run->fresh()->payload);
+        $this->assertSame(['total' => 0], $run->fresh()->payload);
         Queue::assertNotPushed(AnalyzeArticles::class);
     }
 

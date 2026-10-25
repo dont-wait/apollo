@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\CommentController as AdminCommentController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\TagController;
+use App\Http\Controllers\Admin\ToxicWordController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\WeeklyReviewController;
 use App\Http\Controllers\ArticleController as PublicArticleController;
@@ -145,6 +146,21 @@ Route::prefix('admin')
 
         Route::delete('/tags/{tag}', [TagController::class, 'destroy'])
             ->name('tags.destroy');
+
+        Route::get('/toxic-words', [ToxicWordController::class, 'index'])
+            ->name('toxic-words.index');
+
+        Route::post('/toxic-words', [ToxicWordController::class, 'store'])
+            ->name('toxic-words.store');
+
+        Route::put('/toxic-words/{toxicWord}', [ToxicWordController::class, 'update'])
+            ->name('toxic-words.update');
+
+        Route::patch('/toxic-words/{toxicWord}/status', [ToxicWordController::class, 'updateStatus'])
+            ->name('toxic-words.update-status');
+
+        Route::delete('/toxic-words/{toxicWord}', [ToxicWordController::class, 'destroy'])
+            ->name('toxic-words.destroy');
 
         Route::get('/media', [MediaController::class, 'index'])
             ->name('media.index');
