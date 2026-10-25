@@ -2,14 +2,27 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Http\Requests\Concerns\ValidatesToxicContent;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StoreCategoryRequest extends FormRequest
 {
+    use ValidatesToxicContent;
+
     public function authorize(): bool
     {
         return true;
+    }
+
+    /** @return array<string, array{scope: string, label: string}> */
+    protected function toxicContentFields(): array
+    {
+        return [
+            'name' => ['scope' => 'category', 'label' => 'Tên category'],
+            'slug' => ['scope' => 'category', 'label' => 'Slug category'],
+            'description' => ['scope' => 'category', 'label' => 'Mô tả category'],
+        ];
     }
 
     public function rules(): array
