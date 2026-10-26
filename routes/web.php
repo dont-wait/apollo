@@ -168,6 +168,15 @@ Route::prefix('admin')
         Route::post('/media', [MediaController::class, 'store'])
             ->name('media.store');
 
+        Route::delete('/media/{media}', [MediaController::class, 'destroy'])
+            ->name('media.destroy');
+
+        Route::patch('/media/{media}/rename', [MediaController::class, 'rename'])
+            ->name('media.rename');
+
+        Route::post('/media/{media}/replace', [MediaController::class, 'replace'])
+            ->name('media.replace');
+
         Route::get('/ai-sources', [AiSourceController::class, 'index'])->name('ai-sources.index');
         Route::post('/ai-sources', [AiSourceController::class, 'store'])->name('ai-sources.store');
         Route::put('/ai-sources/{source}', [AiSourceController::class, 'update'])->name('ai-sources.update');

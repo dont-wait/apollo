@@ -9,6 +9,7 @@ use App\AiWeekly\SectionEditor;
 use App\Http\Controllers\Controller;
 use App\Models\AutomationRun;
 use App\Models\WeeklyReview;
+use App\Services\MediaOperationLockService;
 use App\Support\Moderation\ToxicContentException;
 use App\Support\Moderation\ToxicContentInspector;
 use App\Support\Moderation\ToxicWordHighlighter;
@@ -61,15 +62,21 @@ class WeeklyReviewController extends Controller
         return response()->json(['run_id' => $run->id], 202);
     }
 
-    public function update(Request $request, WeeklyReview $review, SectionEditor $sections, ToxicContentInspector $inspector): JsonResponse
-    {
+    public function update(
+        Request $request,
+        WeeklyReview $review,
+        SectionEditor $sections,
+        MediaOperationLockService $operationLock,
+        ToxicContentInspector $inspector
+    ): JsonResponse {
         $data = $request->validate([
             'revision' => ['required', 'integer', 'min:1'], 'title' => ['required', 'string', 'max:255'],
             'excerpt' => ['nullable', 'string', 'max:500'], 'markdown_content' => ['required', 'string', 'max:50000'],
         ]);
         $data['revision'] = (int) $data['revision'];
 
-        return DB::transaction(function () use ($review, $data, $sections, $inspector): JsonResponse {
+        return DB::transaction(function () use ($review, $data, $sections, $inspector, $operationLock): JsonResponse {
+            $operationLock->lock();
             $locked = WeeklyReview::query()->lockForUpdate()->findOrFail($review->id);
             if (! in_array($locked->status, ['DRAFT', 'REVIEW'], true) || $locked->revision !== $data['revision']) {
                 return response()->json(['message' => 'Review đã thay đổi hoặc không thể sửa.'], 409);
@@ -137,12 +144,18 @@ class WeeklyReviewController extends Controller
         return response()->json(['run_id' => $run->id], 202);
     }
 
-    public function applyCandidate(Request $request, WeeklyReview $review, SectionEditor $sections): JsonResponse
-    {
+    public function applyCandidate(
+        Request $request,
+        WeeklyReview $review,
+        SectionEditor $sections,
+        MediaOperationLockService $operationLock
+    ): JsonResponse {
         $data = $request->validate(['run_id' => ['required', 'integer', 'exists:automation_runs,id'], 'revision' => ['required', 'integer', 'min:1']]);
         $data['revision'] = (int) $data['revision'];
 
-        return DB::transaction(function () use ($review, $data, $sections): JsonResponse {
+        return DB::transaction(function () use ($review, $data, $sections, $operationLock): JsonResponse {
+            $operationLock->lock();
+
             $locked = WeeklyReview::query()->lockForUpdate()->findOrFail($review->id);
             $run = AutomationRun::findOrFail($data['run_id']);
             $candidate = $run->payload['candidate'] ?? null;
