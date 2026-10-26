@@ -777,4 +777,101 @@ class AdminMediaTest extends TestCase
             ]
         );
     }
+
+    public function test_admin_cannot_delete_media_referenced_by_relative_markdown_url(): void
+    {
+        config([
+            'filesystems.media_disk' => 'media-test',
+        ]);
+
+        $disk = Storage::fake('media-test');
+        $admin = User::factory()->create([
+            'role' => 'ADMIN',
+        ]);
+
+        $disk->put('media/relative.jpg', 'fake-image');
+
+        $media = Media::create([
+            'uploaded_by' => $admin->id,
+            'file_name' => 'relative.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 1024,
+            'storage_key' => 'media/relative.jpg',
+            'url' => 'https://cdn.example.test/media/relative.jpg',
+            'width' => 800,
+            'height' => 600,
+        ]);
+
+        Post::create([
+            'author_id' => $admin->id,
+            'title' => 'Relative media reference',
+            'slug' => 'relative-media-reference',
+            'markdown_content' => '![Image](/media/relative.jpg)',
+            'status' => 'DRAFT',
+            'source_type' => 'MANUAL',
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->deleteJson("/admin/media/{$media->id}");
+
+        $response->assertStatus(409);
+        $this->assertModelExists($media);
+        $disk->assertExists('media/relative.jpg');
+    }
+
+    public function test_thumbnail_replacement_respects_article_size_limit(): void
+    {
+        config([
+            'filesystems.media_disk' => 'media-test',
+        ]);
+
+        $disk = Storage::fake('media-test');
+        $admin = User::factory()->create([
+            'role' => 'ADMIN',
+        ]);
+
+        $disk->put('media/thumbnail.jpg', 'old-file');
+
+        $media = Media::create([
+            'uploaded_by' => $admin->id,
+            'file_name' => 'thumbnail.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 1024,
+            'storage_key' => 'media/thumbnail.jpg',
+            'url' => '/storage/media/thumbnail.jpg',
+            'width' => 800,
+            'height' => 600,
+        ]);
+
+        Post::create([
+            'author_id' => $admin->id,
+            'thumbnail_media_id' => $media->id,
+            'title' => 'Thumbnail size limit',
+            'slug' => 'thumbnail-size-limit',
+            'markdown_content' => 'Content',
+            'status' => 'DRAFT',
+            'source_type' => 'MANUAL',
+        ]);
+
+        $newFile = UploadedFile::fake()
+            ->image('too-large.png', 1200, 900)
+            ->size(Post::MAX_THUMBNAIL_KB + 1);
+
+        $response = $this
+            ->actingAs($admin)
+            ->post('/admin/media/'.$media->id.'/replace', [
+                'file' => $newFile,
+            ], [
+                'Accept' => 'application/json',
+            ]);
+
+        $response->assertUnprocessable();
+        $response->assertJsonValidationErrors(['file']);
+
+        $media->refresh();
+        $this->assertSame('media/thumbnail.jpg', $media->storage_key);
+        $disk->assertExists('media/thumbnail.jpg');
+        $this->assertCount(1, $disk->allFiles());
+    }
 }

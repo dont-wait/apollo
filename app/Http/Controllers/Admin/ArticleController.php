@@ -143,9 +143,10 @@ class ArticleController extends Controller
         unset($data['tags'], $data['new_tags'], $data['thumbnail']);
 
         $storedThumbnailPath = null;
+        $thumbnailCleanup = null;
 
         try {
-            DB::transaction(function () use ($article, $data, $tagIds, $newTagNames, $thumbnail, $request, &$storedThumbnailPath): void {
+            DB::transaction(function () use ($article, $data, $tagIds, $newTagNames, $thumbnail, $request, &$storedThumbnailPath, &$thumbnailCleanup): void {
                 $this->mediaOperationLock->lock();
 
                 $lockedArticle = Post::query()
@@ -171,18 +172,24 @@ class ArticleController extends Controller
                 $lockedArticle->tags()->sync($this->resolveTagIds($tagIds, $newTagNames));
 
                 if ($storedThumbnailPath !== null && $previousMedia !== null && ! $this->mediaUsageService->isInUse($previousMedia)) {
-                    $cleanup = $this->cleanupService->schedule(
+                    $thumbnailCleanup = $this->cleanupService->schedule(
                         $this->mediaStorage->diskName(),
                         $previousMedia->storage_key
                     );
 
                     $previousMedia->delete();
-                    $this->cleanupService->attempt($cleanup, $this->mediaStorage);
                 }
             });
         } catch (Throwable $exception) {
             $this->cleanupStoredThumbnail($storedThumbnailPath);
             throw $exception;
+        }
+
+        if ($thumbnailCleanup !== null) {
+            $this->cleanupService->attempt(
+                $thumbnailCleanup,
+                $this->mediaStorage
+            );
         }
 
         return redirect()

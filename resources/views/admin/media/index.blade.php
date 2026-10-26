@@ -277,17 +277,8 @@
                                            bg-surface-container-high
                                            px-2 py-0.5 rounded"
                                 >
-                                    UC06 Protocol
                                 </span>
                             </div>
-
-                            <p
-                                class="font-body-sm text-body-sm
-                                       text-on-surface-variant mt-1"
-                            >
-                                Hỗ trợ JPG, JPEG, PNG, WebP, GIF và PDF.
-                                Tối đa 10MB/file.
-                            </p>
                         </div>
                     </div>
 

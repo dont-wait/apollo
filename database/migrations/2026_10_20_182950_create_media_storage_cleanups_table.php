@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
 
             $table->string('disk', 64);
-            $table->string('storage_key', 255);
+            $table->string('storage_key', 500);
 
             $table->unsignedInteger('attempts')->default(0);
             $table->text('last_error')->nullable();

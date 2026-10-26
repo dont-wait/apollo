@@ -9,6 +9,10 @@ class MediaOperationLockService
 {
     public function lock(): void
     {
+        DB::table('media_operation_locks')->insertOrIgnore([
+            'id' => 1,
+        ]);
+
         $lock = DB::table('media_operation_locks')
             ->where('id', 1)
             ->lockForUpdate()

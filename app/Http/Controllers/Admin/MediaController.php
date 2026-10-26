@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\ReplaceMediaRequest;
 use App\Http\Requests\Admin\StoreMediaRequest;
 use App\MediaStorage;
 use App\Models\Media;
+use App\Models\Post;
 use App\Services\MediaOperationLockService;
 use App\Services\MediaStorageCleanupService;
 use App\Services\MediaUsageService;
@@ -115,11 +116,6 @@ class MediaController extends Controller
 
             $lockedMedia->delete();
 
-            $cleanupService->attempt(
-                $cleanup,
-                $mediaStorage
-            );
-
             return $cleanup;
         });
 
@@ -129,6 +125,11 @@ class MediaController extends Controller
             ], 409);
         }
 
+        $cleanupService->attempt(
+            $cleanup,
+            $mediaStorage
+        );
+
         return response()->json([
             'message' => 'Xóa media thành công.',
         ]);
@@ -136,32 +137,47 @@ class MediaController extends Controller
 
     public function rename(
         RenameMediaRequest $request,
-        Media $media
+        Media $media,
+        MediaOperationLockService $operationLock
     ): JsonResponse {
         $name = trim($request->validated('name'));
 
-        $extension = pathinfo(
-            $media->file_name,
-            PATHINFO_EXTENSION
-        );
+        $renamedMedia = DB::transaction(function () use (
+            $media,
+            $name,
+            $operationLock
+        ): Media {
+            $operationLock->lock();
 
-        $fileName = $extension !== ''
-            ? $name.'.'.$extension
-            : $name;
+            $lockedMedia = Media::query()
+                ->lockForUpdate()
+                ->findOrFail($media->getKey());
 
-        if (mb_strlen($fileName) > 255) {
-            throw ValidationException::withMessages([
-                'name' => 'Tên media quá dài.',
+            $extension = pathinfo(
+                $lockedMedia->file_name,
+                PATHINFO_EXTENSION
+            );
+
+            $fileName = $extension !== ''
+                ? $name.'.'.$extension
+                : $name;
+
+            if (mb_strlen($fileName) > 255) {
+                throw ValidationException::withMessages([
+                    'name' => 'Tên media quá dài.',
+                ]);
+            }
+
+            $lockedMedia->update([
+                'file_name' => $fileName,
             ]);
-        }
 
-        $media->update([
-            'file_name' => $fileName,
-        ]);
+            return $lockedMedia->fresh();
+        });
 
         return response()->json([
             'message' => 'Đổi tên media thành công.',
-            'data' => $media->fresh(),
+            'data' => $renamedMedia,
         ]);
     }
 
@@ -224,11 +240,6 @@ class MediaController extends Controller
             ) {
                 $operationLock->lock();
 
-                $attributes = $mediaStorage->storeAt(
-                    $file,
-                    $newStorageKey
-                );
-
                 $lockedMedia = Media::query()
                     ->lockForUpdate()
                     ->findOrFail($media->getKey());
@@ -237,14 +248,24 @@ class MediaController extends Controller
                     return null;
                 }
 
-                if (
-                    $mediaUsageService->isUsedAsThumbnail($lockedMedia)
-                    && ! str_starts_with($file->getMimeType() ?? '', 'image/')
-                ) {
-                    throw ValidationException::withMessages([
-                        'file' => 'Media đang được dùng làm thumbnail nên chỉ có thể thay thế bằng file ảnh.',
-                    ]);
+                if ($mediaUsageService->isUsedAsThumbnail($lockedMedia)) {
+                    $extension = strtolower((string) $file->extension());
+                    $size = (int) ($file->getSize() ?? 0);
+
+                    if (
+                        ! in_array($extension, Post::ALLOWED_IMAGE_MIMES, true)
+                        || $size > Post::MAX_THUMBNAIL_KB * 1024
+                    ) {
+                        throw ValidationException::withMessages([
+                            'file' => 'Media đang được dùng làm thumbnail nên chỉ chấp nhận JPG, JPEG, PNG, WebP và tối đa 5MB.',
+                        ]);
+                    }
                 }
+
+                $attributes = $mediaStorage->storeAt(
+                    $file,
+                    $newStorageKey
+                );
 
                 $oldStorageKey = $lockedMedia->storage_key;
 
@@ -263,17 +284,10 @@ class MediaController extends Controller
                     $newStorageKey
                 );
 
-                $oldCleanup = $cleanupService->schedule(
+                return $cleanupService->schedule(
                     $disk,
                     $oldStorageKey
                 );
-
-                $cleanupService->attempt(
-                    $oldCleanup,
-                    $mediaStorage
-                );
-
-                return $oldCleanup;
             });
         } catch (\Throwable $exception) {
             $cleanupService->attempt(
@@ -294,6 +308,11 @@ class MediaController extends Controller
                 'message' => 'Không thể thay thế media vì URL đang được sử dụng trong nội dung Markdown.',
             ], 409);
         }
+
+        $cleanupService->attempt(
+            $oldCleanup,
+            $mediaStorage
+        );
 
         /*
          * The database already points to the new object here.
