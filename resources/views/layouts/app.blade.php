@@ -13,8 +13,8 @@
 <body class="min-h-screen bg-background font-sans text-on-surface antialiased">
     <header
         class="border-b border-outline-variant/50 bg-surface-low"
-        x-data="{ mobileMenuOpen: false }"
-        @keydown.escape.window="mobileMenuOpen = false"
+        x-data="{ mobileMenuOpen: false, accountMenuOpen: false }"
+        @keydown.escape.window="mobileMenuOpen = false; accountMenuOpen = false"
     >
         <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
             <a class="flex shrink-0 items-center gap-2.5 text-sm font-semibold tracking-wide text-on-surface transition-colors hover:text-primary" href="{{ route('home') }}">
@@ -31,21 +31,42 @@
             </nav>
 
             <div class="hidden items-center gap-3 lg:flex">
-                <a class="hidden items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-on-surface-variant transition-colors hover:text-primary md:flex" href="#articles">
-                    <span class="material-symbols-outlined text-[16px]" aria-hidden="true">search</span>
-                    Search
-                </a>
                 @auth
-                    <span class="hidden max-w-28 truncate font-mono text-[11px] uppercase tracking-[0.12em] text-tertiary xl:inline">{{ auth()->user()->name }}</span>
-                    <a class="hidden items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-on-surface-variant transition-colors hover:text-primary md:flex" href="{{ route('bookmarks.index') }}">
-                        <span class="material-symbols-outlined text-[16px]" aria-hidden="true">bookmarks</span>
-                        Saved
-                    </a>
-                    <a class="hidden font-mono text-[11px] uppercase tracking-[0.12em] text-on-surface-variant transition-colors hover:text-primary md:flex" href="{{ route('password.change') }}">Change Password</a>
-                    <form method="POST" action="{{ route('logout') }}">
-                        @csrf
-                        <button class="font-mono text-[11px] uppercase tracking-[0.12em] text-on-surface-variant transition-colors hover:text-primary" type="submit">Sign Out</button>
-                    </form>
+                    <div class="relative" @click.outside="accountMenuOpen = false">
+                        <button
+                            class="flex items-center gap-1.5 rounded-full p-1 text-on-surface-variant transition-colors hover:bg-surface-high hover:text-primary"
+                            type="button"
+                            aria-label="Open account menu"
+                            :aria-expanded="accountMenuOpen"
+                            @click="accountMenuOpen = !accountMenuOpen"
+                        >
+                            <span class="flex size-8 items-center justify-center rounded-full border border-primary/50 bg-primary/10 font-display text-sm font-bold text-primary">
+                                {{ strtoupper(mb_substr(auth()->user()->name ?? 'Administrator', 0, 1)) }}
+                            </span>
+                            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">expand_more</span>
+                        </button>
+
+                        <div
+                            class="absolute right-0 top-full z-50 mt-2 w-56 rounded-lg border border-outline-variant/60 bg-surface-lowest p-2 shadow-xl"
+                            x-cloak
+                            x-show="accountMenuOpen"
+                            x-transition.origin.top.right
+                        >
+                            <div class="border-b border-outline-variant/40 px-3 py-2">
+                                <p class="truncate font-mono text-[11px] uppercase tracking-[0.12em] text-tertiary">{{ auth()->user()->name }}</p>
+                                <p class="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-on-surface-variant">Administrator</p>
+                            </div>
+                            <a class="flex items-center gap-2 rounded-md px-3 py-2.5 font-mono text-[11px] uppercase tracking-[0.12em] text-on-surface-variant transition-colors hover:bg-surface-high hover:text-primary" href="{{ route('bookmarks.index') }}" @click="accountMenuOpen = false">
+                                <span class="material-symbols-outlined text-[16px]" aria-hidden="true">bookmarks</span>
+                                Saved
+                            </a>
+                            <a class="block rounded-md px-3 py-2.5 font-mono text-[11px] uppercase tracking-[0.12em] text-on-surface-variant transition-colors hover:bg-surface-high hover:text-primary" href="{{ route('password.change') }}" @click="accountMenuOpen = false">Change Password</a>
+                            <form method="POST" action="{{ route('logout') }}">
+                                @csrf
+                                <button class="block w-full rounded-md px-3 py-2.5 text-left font-mono text-[11px] uppercase tracking-[0.12em] text-on-surface-variant transition-colors hover:bg-surface-high hover:text-primary" type="submit">Sign Out</button>
+                            </form>
+                        </div>
+                    </div>
                 @else
                     <a class="font-mono text-[11px] uppercase tracking-[0.12em] text-on-surface-variant transition-colors hover:text-primary" href="{{ route('login') }}">Sign In</a>
                     <a class="rounded-md bg-primary px-3 py-2 font-display text-xs font-semibold text-on-primary transition-colors hover:bg-surface-tint" href="{{ route('register') }}">Create Account</a>
