@@ -6,6 +6,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -15,17 +16,41 @@ use Illuminate\Notifications\Notifiable;
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
+    public const ROLE_ADMIN = 'ADMIN';
+
+    public const ROLE_USER = 'USER';
+
+    public const ROLES = [self::ROLE_ADMIN, self::ROLE_USER];
+
+    public const STATUS_ACTIVE = 'ACTIVE';
+
+    public const STATUS_INACTIVE = 'INACTIVE';
+
+    public const STATUSES = [self::STATUS_ACTIVE, self::STATUS_INACTIVE];
+
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, SoftDeletes;
 
     public function isAdmin(): bool
     {
-        return $this->role === 'ADMIN';
+        return $this->role === self::ROLE_ADMIN;
+    }
+
+    public function isActive(): bool
+    {
+        return $this->status === self::STATUS_ACTIVE;
     }
 
     public function posts(): HasMany
     {
         return $this->hasMany(Post::class, 'author_id');
+    }
+
+    public function bookmarkedPosts(): BelongsToMany
+    {
+        return $this->belongsToMany(Post::class, 'bookmarks')
+            ->using(Bookmark::class)
+            ->withPivot('created_at');
     }
 
     public function comments(): HasMany
@@ -54,6 +79,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
             'password' => 'hashed',
+            'session_version' => 'integer',
         ];
     }
 }

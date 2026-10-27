@@ -1,70 +1,3 @@
-@php
-    $posts = [
-        [
-            'id' => 1,
-            'category' => 'Systems & CUDA',
-            'label' => 'vLLM',
-            'title' => 'Optimizing Inference on Consumer Hardware: From FP16 to Int4 with vLLM',
-            'excerpt' => 'A practical breakdown of KV-cache memory, quantized weights, and the small kernel changes that make local inference feel production-ready.',
-            'author' => 'Minh Tran',
-            'date' => '2 days ago',
-            'readMinutes' => 12,
-            'views' => '3.4k',
-            'bookmarks' => 482,
-            'publishedOrder' => 4,
-            'tags' => ['vLLM', 'CUDA'],
-            'image' => 'https://lh3.googleusercontent.com/aida-public/AB6AXuBKB9VNn8hkhWOfow4c5Ox9IIKNCohc_XLLHhpYJZGXfk_ngQB57yC1WAfse9Psr0zAM6GIoLDZoJ8mBj2fFdKhf5jpmuK0146gHbHEcQEKFbpLAl3dZPxra8m4aEulUPxiRE3DDHTbKLcqDeMZuO1CdctQgOBC6CaYzmdWjG3bOjgVt0i0UpfU0dWRnuVN4NdpQnJvLsRKXVU4BwPuI3VREXp-W7A8z2BFIoQSRrOPl2qVVn2C1ue_',
-        ],
-        [
-            'id' => 2,
-            'category' => 'LLM Architecture',
-            'label' => 'RAG',
-            'title' => 'Building Deterministic RAG Pipelines with Hybrid Vector-BM25 Search',
-            'excerpt' => 'Why pure dense retrieval fails in real codebases, and how reciprocal rank fusion makes retrieval easier to debug and trust.',
-            'author' => 'Minh Tran',
-            'date' => 'Oct 24, 2025',
-            'readMinutes' => 8,
-            'views' => '5.1k',
-            'bookmarks' => 891,
-            'publishedOrder' => 3,
-            'tags' => ['RAG', 'Search'],
-            'image' => 'https://lh3.googleusercontent.com/aida-public/AB6AXuAC5_26NETqOYiBlkzkLRmgFJd0xi5bVFi_YGELPAoyt-3Eb5P5hMuw7xuZ5Br8lP8k_Mfh9YxaTza18Wbo9pvKqWuHFC9k7mlDcLVNqieCk0e9nKAirb4tEJTpaFnWjc9ggbbCOdGl85GRqhlZ4NnU57WWc5asVBCk6ccfsT0bSw-RKotWgcAXszoyS23SN2iASkKebuGs8S2Xi7aSQ5iNtAj7IzhlyHSvJB55vKrCznDFgkJ0tvrE',
-        ],
-        [
-            'id' => 3,
-            'category' => 'Autonomous Agents',
-            'label' => 'Evals',
-            'title' => 'Self-hosted LLM Evaluation: Metrics that Actually Matter in Production',
-            'excerpt' => 'Moving past synthetic benchmarks with deterministic assertion suites, task drift estimators, and semantic safety checks.',
-            'author' => 'Minh Tran',
-            'date' => 'Oct 19, 2025',
-            'readMinutes' => 15,
-            'views' => '2.8k',
-            'bookmarks' => 610,
-            'publishedOrder' => 2,
-            'tags' => ['Evals', 'Agents'],
-            'image' => 'https://lh3.googleusercontent.com/aida-public/AB6AXuCaVY8Bmi8YMKIbGXedvHCIfbjc-zQFjWyGMudGyuJA1Zyb5fxvf9iPxRf1YuCevkKMe_leQN1SMaALMiSimcuQtRphDYTzngme77YZ_82t3gVr7KEcSGKHkavLNxDvA5O3EIpEZr4ox-hE7MS1zaiVvRDceo1SexK8Sb9316SQFMtwgrmIVNI3vhWynKrRJMN_JQBcTckMUTTpTxCYR9MVCvRXLgK8vRw_fFjt20AJcvIZHldCB0jQ',
-        ],
-        [
-            'id' => 4,
-            'category' => 'Tutorials',
-            'label' => 'RoPE Math',
-            'title' => 'Understanding Rotary Position Embeddings Through Math and Python',
-            'excerpt' => 'A visual explanation of rotary position embeddings, frequency scaling, and the long-context tricks behind modern LLMs.',
-            'author' => 'Minh Tran',
-            'date' => 'Oct 14, 2025',
-            'readMinutes' => 10,
-            'views' => '6.9k',
-            'bookmarks' => 1400,
-            'publishedOrder' => 1,
-            'tags' => ['Transformers', 'Python'],
-            'image' => 'https://lh3.googleusercontent.com/aida-public/AB6AXuBQNUlcsxSRg5dRrhYXC_g3ePOR79PC9ClKbkDBqgnukCNhLjxSz3VDRXAgr6wHJzWC9HJelYvoY6Cn_0-v-LQHw5NCzZvxEcmqaN8pOenLlsk4WBihFJpvtHycnEhgBaIpwginlD6yT4Csq5fBSdoEmy19SnOMSgxa39JiQVHytoLUuJsVD8PUNxlGGietoHFAw5f1JMlVqCc4wZ0_5b5UORrpragv0KKQWZGNfSjRmonlZGBg-lj_',
-        ],
-    ];
-
-    $categories = ['All Posts', 'LLM Architecture', 'Systems & CUDA', 'Autonomous Agents', 'Tutorials'];
-@endphp
-
 @extends('layouts.app')
 
 @section('title', 'Apollo Blog · AI & Systems Engineering')
@@ -72,7 +5,10 @@
 @section('content')
     <div
         class="relative -mx-4 -my-10 overflow-hidden sm:-mx-6 sm:-my-14 lg:-mx-8"
-        x-data="homeFeed(@js($posts), @js(auth()->check()), @js(route('login')) )"
+        x-data="homeFeed(@js($posts->getCollection()), @js(auth()->check()), @js(route('login')), @js($filters), @js($pagination), @js([
+            'store' => route('bookmarks.store', ['post' => '__POST__']),
+            'destroy' => route('bookmarks.destroy', ['post' => '__POST__']),
+        ]))"
         @keydown.window="if (($event.metaKey || $event.ctrlKey) && $event.key.toLowerCase() === 'k') { $event.preventDefault(); focusSearch(); }"
     >
         <div class="pointer-events-none absolute left-1/2 top-0 h-80 w-[42rem] -translate-x-1/2 rounded-full bg-primary-container/10 blur-[120px]" aria-hidden="true"></div>
@@ -94,28 +30,35 @@
                     Practical deep dives into models, distributed systems, hardware-aware inference, and the tools that make intelligent software reliable.
                 </p>
 
-                <div class="mt-7 flex w-full max-w-2xl items-center gap-3 rounded-lg border border-outline-variant/50 bg-surface-low p-1.5 shadow-lg shadow-black/10">
+                <form action="{{ route('home') }}" method="GET" role="search" @submit.prevent="applyFilters()" class="mt-7 flex w-full max-w-2xl items-center gap-3 rounded-lg border border-outline-variant/50 bg-surface-low p-1.5 shadow-lg shadow-black/10">
+                    <input type="hidden" name="category" value="{{ $filters['category'] ?? '' }}" :value="activeCategory">
+                    <input type="hidden" name="sort" value="{{ $filters['sort'] }}" :value="sort">
                     <label class="sr-only" for="home-search">Search articles</label>
                     <span class="material-symbols-outlined pl-2 text-[20px] text-primary" aria-hidden="true">search</span>
                     <input
                         id="home-search"
                         x-ref="search"
                         x-model="search"
+                        @input.debounce.300ms="applyFilters()"
+                        name="q"
+                        value="{{ $filters['q'] ?? '' }}"
+                        maxlength="255"
                         class="min-w-0 flex-1 bg-transparent px-1 py-2 text-sm text-on-surface outline-none placeholder:text-outline"
                         placeholder="Search kernels, papers, or system notes..."
                         type="search"
                     >
                     <kbd class="hidden rounded bg-surface-high px-2 py-1 font-mono text-[10px] text-outline sm:block">⌘ K</kbd>
-                </div>
+                    <button type="submit" class="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-on-primary transition-opacity hover:opacity-90">Search</button>
+                </form>
 
                 <div class="mt-4 flex flex-wrap items-center gap-2">
                     <span class="font-mono text-[10px] uppercase tracking-[0.14em] text-outline">Active topics:</span>
-                    <template x-for="topic in ['LLM Architecture', 'Systems & CUDA', 'Autonomous Agents', 'Tutorials']" :key="topic">
+                    <template x-for="topic in @js(array_slice($categories, 1))" :key="topic.slug">
                         <button
                             class="rounded bg-surface-low px-2.5 py-1 font-mono text-[10px] text-on-surface-variant transition-colors hover:bg-surface-high hover:text-primary"
                             type="button"
-                            @click="activeCategory = topic; document.getElementById('articles').scrollIntoView({ behavior: 'smooth' })"
-                            x-text="`#${topic.replaceAll(' ', '')}`"
+                            @click="setCategory(topic.slug)"
+                            x-text="`#${topic.name.replaceAll(' ', '')}`"
                         ></button>
                     </template>
                 </div>
@@ -192,14 +135,14 @@
                     @foreach ($categories as $category)
                         <button
                             class="shrink-0 rounded px-3.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em] transition-colors"
-                            :class="activeCategory === @js($category) ? 'bg-surface-high text-primary' : 'text-on-surface-variant hover:bg-surface hover:text-on-surface'"
+                            :class="activeCategory === @js($category['slug']) ? 'bg-surface-high text-primary' : 'text-on-surface-variant hover:bg-surface hover:text-on-surface'"
                             type="button"
                             role="tab"
                             aria-controls="articles"
-                            :aria-selected="activeCategory === @js($category)"
-                            @click="activeCategory = @js($category)"
+                            :aria-selected="activeCategory === @js($category['slug'])"
+                            @click="setCategory(@js($category['slug']))"
                         >
-                            {{ $category }}
+                            {{ $category['name'] }}
                         </button>
                     @endforeach
                 </div>
@@ -263,7 +206,7 @@
                             <p class="font-mono text-[10px] uppercase tracking-[0.16em] text-primary">The archive</p>
                             <h2 class="mt-1 font-display text-2xl font-semibold tracking-tight text-on-surface">Recent dispatches</h2>
                         </div>
-                        <span class="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-outline sm:inline">{{ count($posts) }} sample posts</span>
+                        <span class="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-outline sm:inline" x-text="`${pagination.total} published posts`">{{ $pagination['total'] }} published posts</span>
                     </div>
 
                     <div class="grid gap-4" :class="view === 'grid' ? 'md:grid-cols-2' : ''">
@@ -274,7 +217,14 @@
                                 :style="`animation-delay: ${Math.min(index * 45, 180)}ms`"
                             >
                                 <div class="relative shrink-0 overflow-hidden rounded bg-surface-lowest" :class="view === 'grid' ? 'h-44 w-full' : 'h-40 w-full sm:h-36 sm:w-48'">
-                                    <img class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" :src="post.image" :alt="post.title" loading="lazy">
+                                    <template x-if="post.image">
+                                        <img class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" :src="post.image" :alt="post.title" loading="lazy">
+                                    </template>
+                                    <template x-if="!post.image">
+                                        <div class="flex h-full w-full items-center justify-center bg-primary/5 text-primary/60">
+                                            <span class="material-symbols-outlined text-4xl" aria-hidden="true">article</span>
+                                        </div>
+                                    </template>
                                     <span class="absolute left-2 top-2 rounded bg-surface-lowest/90 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-primary backdrop-blur" x-text="post.label"></span>
                                 </div>
 
@@ -290,7 +240,7 @@
                                             <span class="text-outline" x-text="`${post.readMinutes} min read`"></span>
                                         </div>
                                         <h3 class="mt-2 font-display text-lg font-semibold leading-tight tracking-tight text-on-surface transition-colors group-hover:text-primary">
-                                            <a href="#articles" x-text="post.title"></a>
+                                            <a :href="post.url" x-text="post.title"></a>
                                         </h3>
                                         <p class="mt-2 line-clamp-2 text-sm leading-6 text-on-surface-variant" x-text="post.excerpt"></p>
                                     </div>
@@ -307,14 +257,24 @@
                                                 <span x-text="post.views"></span>
                                             </span>
                                             <button
-                                                class="inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:text-primary"
+                                                class="inline-flex items-center gap-1 rounded px-1 py-0.5 text-outline transition-colors hover:text-primary"
+                                                type="button"
+                                                aria-label="Copy article link"
+                                                title="Copy article link"
+                                                @click="copyLink(post.url)"
+                                            >
+                                                <span class="material-symbols-outlined text-[15px]" aria-hidden="true">content_copy</span>
+                                            </button>
+                                            <button
+                                                class="inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
                                                 :class="isBookmarked(post.id) ? 'text-primary' : 'text-outline'"
                                                 type="button"
+                                                :disabled="pendingBookmarkPosts[post.id]"
                                                 :aria-label="isBookmarked(post.id) ? 'Remove bookmark' : 'Save article'"
                                                 :aria-pressed="isBookmarked(post.id)"
-                                                @click="toggleBookmark(post.id)"
+                                                @click="toggleBookmark(post)"
                                             >
-                                                <span class="material-symbols-outlined text-[16px]" aria-hidden="true">bookmark</span>
+                                                <span class="material-symbols-outlined text-[16px]" x-text="isBookmarked(post.id) ? 'bookmark' : 'bookmark_border'" aria-hidden="true"></span>
                                                 <span x-text="bookmarkCount(post)"></span>
                                             </button>
                                         </div>
@@ -328,26 +288,35 @@
                         <span class="material-symbols-outlined text-3xl text-outline" aria-hidden="true">search_off</span>
                         <h3 class="mt-3 font-display text-lg font-semibold text-on-surface">No dispatches found</h3>
                         <p class="mt-1 text-sm text-on-surface-variant">Try another search term or reset the category filter.</p>
-                        <button class="mt-4 rounded bg-primary px-3 py-2 font-mono text-xs uppercase tracking-[0.1em] text-on-primary" type="button" @click="search = ''; activeCategory = 'All Posts'">Reset filters</button>
+                        <button class="mt-4 rounded bg-primary px-3 py-2 font-mono text-xs uppercase tracking-[0.1em] text-on-primary" type="button" @click="resetFilters()">Reset filters</button>
                     </div>
 
-                    <div class="mt-5 flex items-center justify-between border-t border-outline-variant/25 pt-5">
-                        <button class="inline-flex items-center gap-1.5 rounded bg-surface-low px-3.5 py-2 font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant transition-colors hover:bg-surface-high hover:text-on-surface" type="button" disabled>
-                            <span class="material-symbols-outlined text-[16px]" aria-hidden="true">arrow_back</span>
-                            Previous
-                        </button>
-                        <div class="hidden items-center gap-1 sm:flex" aria-label="Pagination">
-                            <span class="flex size-8 items-center justify-center rounded bg-primary font-mono text-xs font-semibold text-on-primary">1</span>
-                            <button class="flex size-8 cursor-not-allowed items-center justify-center rounded bg-surface-low font-mono text-xs text-on-surface-variant/50" type="button" disabled aria-disabled="true">2</button>
-                            <button class="flex size-8 cursor-not-allowed items-center justify-center rounded bg-surface-low font-mono text-xs text-on-surface-variant/50" type="button" disabled aria-disabled="true">3</button>
-                            <span class="px-1 font-mono text-xs text-outline">...</span>
-                            <button class="flex size-8 cursor-not-allowed items-center justify-center rounded bg-surface-low font-mono text-xs text-on-surface-variant/50" type="button" disabled aria-disabled="true">18</button>
+                    <div x-cloak x-show="pagination.previous_url || pagination.next_url" class="mt-5 border-t border-outline-variant/25 pt-5">
+                        <div class="flex flex-wrap items-center justify-between gap-3" aria-label="Pagination">
+                            <button
+                                class="inline-flex items-center gap-1.5 rounded bg-surface-low px-3.5 py-2 font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant transition-colors hover:bg-surface-high hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-40"
+                                type="button"
+                                :disabled="!pagination.previous_url || loading"
+                                @click="goToPage(pagination.previous_url)"
+                            >
+                                <span class="material-symbols-outlined text-[16px]" aria-hidden="true">arrow_back</span>
+                                Previous
+                            </button>
+
+                            <button
+                                class="inline-flex items-center gap-1.5 rounded bg-surface-low px-3.5 py-2 font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant transition-colors hover:bg-surface-high hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-40"
+                                type="button"
+                                :disabled="!pagination.next_url || loading"
+                                @click="goToPage(pagination.next_url)"
+                            >
+                                Next
+                                <span class="material-symbols-outlined text-[16px]" aria-hidden="true">arrow_forward</span>
+                            </button>
                         </div>
-                        <button class="inline-flex cursor-not-allowed items-center gap-1.5 rounded bg-surface-low px-3.5 py-2 font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant/50" type="button" disabled aria-disabled="true">
-                            Next
-                            <span class="material-symbols-outlined text-[16px]" aria-hidden="true">arrow_forward</span>
-                        </button>
+
                     </div>
+                    <p class="mt-3 text-center font-mono text-[10px] uppercase tracking-[0.1em] text-outline" role="status" x-text="loading ? 'Loading articles...' : `${pagination.count ?? 0} articles on this page · ${pagination.total ?? 0} total`"></p>
+                    <p x-cloak x-show="loadError" class="mt-3 text-center text-xs text-error" role="alert">Unable to load articles. Please try again.</p>
                 </div>
 
                 <aside class="flex flex-col gap-5 lg:col-span-4">
@@ -384,13 +353,13 @@
                     <section class="rounded-lg border border-outline-variant/30 bg-surface-low p-5 shadow-md">
                         <div class="flex items-center justify-between">
                             <span class="font-mono text-[10px] uppercase tracking-[0.15em] text-on-surface">Systems index</span>
-                            <span class="font-mono text-[10px] text-outline">04 domains</span>
+                            <span class="font-mono text-[10px] text-outline">{{ count($categories) - 1 }} domains</span>
                         </div>
                         <div class="mt-3 flex flex-col gap-1.5">
-                            @foreach (['LLM Architecture' => 34, 'Systems & CUDA' => 28, 'Autonomous Agents' => 19, 'Tutorials' => 15] as $topic => $count)
-                                <button class="flex items-center justify-between rounded bg-surface/50 p-2.5 text-left text-sm text-on-surface-variant transition-colors hover:bg-surface-high hover:text-primary" type="button" @click="activeCategory = @js($topic); document.getElementById('articles').scrollIntoView({ behavior: 'smooth' })">
-                                    <span>{{ $topic }}</span>
-                                    <span class="rounded bg-surface-high px-2 py-0.5 font-mono text-[10px] text-outline">{{ $count }}</span>
+                            @foreach (array_slice($categories, 1) as $category)
+                                <button class="flex items-center justify-between rounded bg-surface/50 p-2.5 text-left text-sm text-on-surface-variant transition-colors hover:bg-surface-high hover:text-primary" type="button" @click="setCategory(@js($category['slug']))">
+                                    <span>{{ $category['name'] }}</span>
+                                    <span class="rounded bg-surface-high px-2 py-0.5 font-mono text-[10px] text-outline">{{ $category['count'] }}</span>
                                 </button>
                             @endforeach
                         </div>
@@ -430,9 +399,9 @@
         </footer>
 
         <div x-cloak x-show="bookmarkNotice" x-transition class="fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-md items-center justify-between gap-4 rounded-lg border border-primary/30 bg-surface-high px-4 py-3 shadow-2xl shadow-black/30" role="status">
-            <p class="text-sm text-on-surface">Sign in to save articles to your bookmarks.</p>
+            <p class="text-sm text-on-surface" x-text="bookmarkNoticeMessage"></p>
             <div class="flex shrink-0 items-center gap-2">
-                <a class="rounded bg-primary px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-on-primary" :href="loginUrl">Sign in</a>
+                <a x-cloak x-show="bookmarkNoticeShowsLogin" class="rounded bg-primary px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-on-primary" :href="loginUrl">Sign in</a>
                 <button class="rounded p-1 text-outline transition-colors hover:text-on-surface" type="button" aria-label="Dismiss" @click="bookmarkNotice = false">
                     <span class="material-symbols-outlined text-[18px]" aria-hidden="true">close</span>
                 </button>

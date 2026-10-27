@@ -28,7 +28,14 @@
         <div class="flex-1 overflow-y-auto px-3 py-4 space-y-6">
             <nav class="space-y-1" data-active-classes="bg-surface-container-high text-primary border-l-2 border-primary font-semibold">
                 <div class="px-3 pb-1 font-label-sm text-label-sm text-outline tracking-wider uppercase">Content</div>
-                <a aria-current="page" class="flex items-center gap-3 px-3 py-2 rounded transition-all bg-surface-container-high text-primary border-l-2 border-primary font-semibold" data-path="admin-dashboard" href="{{ route('admin.dashboard') }}">
+                <a @class([
+                        'flex items-center gap-3 px-3 py-2 rounded transition-all font-body-sm text-body-sm',
+                        'bg-surface-container-high text-primary border-l-2 border-primary font-semibold' => request()->routeIs('admin.dashboard'),
+                        'text-on-surface-variant hover:bg-surface-container hover:text-on-surface' => ! request()->routeIs('admin.dashboard'),
+                    ])
+                    @if (request()->routeIs('admin.dashboard')) aria-current="page" @endif
+                    data-path="admin-dashboard"
+                    href="{{ route('admin.dashboard') }}">
                     <span class="material-symbols-outlined text-[18px]">dashboard</span>
                     <span>Dashboard</span>
                 </a>
@@ -48,35 +55,54 @@
                     <span class="material-symbols-outlined text-[18px]">label</span>
                     <span>Categories &amp; Tags</span>
                 </a>
-                <a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all font-body-sm text-body-sm" data-path="media-library" href="#">
+                <a @class([
+                    'flex items-center gap-3 px-3 py-2 rounded transition-all font-body-sm text-body-sm',
+                    'bg-surface-container-high text-primary border-l-2 border-primary font-semibold' => request()->routeIs('admin.media.*'),
+                    'text-on-surface-variant hover:bg-surface-container hover:text-on-surface' => ! request()->routeIs('admin.media.*'),
+                ])
+                @if (request()->routeIs('admin.media.*')) aria-current="page" @endif
+                data-path="media-library"
+                href="{{ route('admin.media.index') }}">
                     <span class="material-symbols-outlined text-[18px]">perm_media</span>
                     <span>Media Library</span>
                 </a>
             </nav>
             <nav class="space-y-1" data-active-classes="bg-surface-container-high text-primary border-l-2 border-primary font-semibold">
                 <div class="px-3 pb-1 font-label-sm text-label-sm text-outline tracking-wider uppercase">AI Automation</div>
-                <a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all font-body-sm text-body-sm" data-path="ai-weekly-review" href="#">
+                <a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all font-body-sm text-body-sm" data-path="ai-weekly-review" href="{{ route('admin.weekly-reviews.index') }}">
                     <span class="material-symbols-outlined text-[18px]">auto_awesome</span>
                     <span>AI Weekly Review</span>
                 </a>
-                <a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all font-body-sm text-body-sm" data-path="pipeline-sources" href="#">
+                <a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all font-body-sm text-body-sm" data-path="pipeline-sources" href="{{ route('admin.ai-sources.index') }}">
                     <span class="material-symbols-outlined text-[18px]">hub</span>
                     <span>Pipeline Sources</span>
                 </a>
-                <a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all font-body-sm text-body-sm" data-path="job-status" href="#">
+                <a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all font-body-sm text-body-sm" data-path="job-status" href="{{ route('admin.automation-runs.index') }}">
                     <span class="material-symbols-outlined text-[18px]">terminal</span>
                     <span>Job Status</span>
                 </a>
             </nav>
             <nav class="space-y-1" data-active-classes="bg-surface-container-high text-primary border-l-2 border-primary font-semibold">
                 <div class="px-3 pb-1 font-label-sm text-label-sm text-outline tracking-wider uppercase">Community</div>
-                <a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all font-body-sm text-body-sm" data-path="admin-users" href="#">
+                <a @class([
+                    'flex items-center gap-3 px-3 py-2 rounded transition-all font-body-sm text-body-sm',
+                    'bg-surface-container-high text-primary border-l-2 border-primary font-semibold' => request()->routeIs('admin.users.*'),
+                    'text-on-surface-variant hover:bg-surface-container hover:text-on-surface' => ! request()->routeIs('admin.users.*'),
+                ]) @if (request()->routeIs('admin.users.*')) aria-current="page" @endif data-path="admin-users" href="{{ route('admin.users.index') }}">
                     <span class="material-symbols-outlined text-[18px]">group</span>
                     <span>Users</span>
                 </a>
-                <a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all font-body-sm text-body-sm" data-path="comment-moderation" href="#">
+                <a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all font-body-sm text-body-sm" data-path="comment-moderation" href="{{ route('admin.comments.index') }}">
                     <span class="material-symbols-outlined text-[18px]">rate_review</span>
                     <span>Comments Moderation</span>
+                </a>
+                <a @class([
+                    'flex items-center gap-3 px-3 py-2 rounded transition-all font-body-sm text-body-sm',
+                    'bg-surface-container-high text-primary border-l-2 border-primary font-semibold' => request()->routeIs('admin.toxic-words.*'),
+                    'text-on-surface-variant hover:bg-surface-container hover:text-on-surface' => ! request()->routeIs('admin.toxic-words.*'),
+                ]) @if (request()->routeIs('admin.toxic-words.*')) aria-current="page" @endif data-path="toxic-words" href="{{ route('admin.toxic-words.index') }}">
+                    <span class="material-symbols-outlined text-[18px]">shield</span>
+                    <span>Toxic Words</span>
                 </a>
                 <a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all font-body-sm text-body-sm" data-path="direct-inbox" href="#">
                     <span class="material-symbols-outlined text-[18px]">inbox</span>
@@ -117,10 +143,26 @@
                 </div>
             </div>
             <div class="flex items-center gap-space-md">
-                <button class="relative p-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded transition-colors" type="button">
-                    <span class="material-symbols-outlined text-[20px]">notifications</span>
-                    <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary ring-2 ring-surface-container-lowest"></span>
-                </button>
+                <details x-data="adminNotifications" data-notifications-url="{{ route('admin.notifications.index') }}" class="relative" @toggle="if ($el.open) refresh()">
+                    <summary class="relative cursor-pointer list-none rounded p-2 text-on-surface-variant hover:bg-surface-container hover:text-on-surface" aria-label="Thông báo AI Weekly">
+                        <span class="material-symbols-outlined text-[20px]">notifications</span>
+                        <span x-show="unreadCount > 0" style="display: none" x-text="unreadCount" aria-live="polite" class="absolute -right-1 -top-1 rounded-full bg-primary px-1.5 text-xs text-on-primary"></span>
+                    </summary>
+                    <div class="absolute right-0 top-full mt-2 grid w-80 gap-2 rounded border border-outline-variant bg-surface-container-lowest p-4 shadow-xl">
+                        <h2 class="font-semibold">Thông báo AI Weekly</h2>
+                        <p x-show="items.length === 0" class="text-sm text-on-surface-variant">Chưa có thông báo mới.</p>
+                        <template x-for="item in items" :key="item.id">
+                            <form method="post" :action="item.open_url">
+                                @csrf
+                                <button type="submit" class="grid w-full gap-1 rounded p-2 text-left hover:bg-surface-container">
+                                    <span class="text-xs text-primary" x-text="item.is_candidate ? 'Bản sinh lại đã sẵn sàng' : 'Bài AI Weekly nháp đã sẵn sàng'"></span>
+                                    <span class="text-sm" x-text="item.title"></span>
+                                    <span class="text-xs text-on-surface-variant" x-text="item.week_start"></span>
+                                </button>
+                            </form>
+                        </template>
+                    </div>
+                </details>
                 <div class="h-4 w-px bg-outline-variant/40"></div>
                 <div class="flex items-center gap-space-sm">
                     <div class="flex flex-col items-end">

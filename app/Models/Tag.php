@@ -18,6 +18,6 @@ class Tag extends Model
 
     public function posts(): BelongsToMany
     {
-        return $this->belongsToMany(Post::class, 'post_tags')->withPivot('created_at');
+        return $this->belongsToMany(Post::class, 'post_tags')->using(PostTag::class)->withPivot('created_at');
     }
 }

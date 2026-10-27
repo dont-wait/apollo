@@ -9,12 +9,23 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    public function showLogin(): View
+    public function showLogin(Request $request): View
     {
+        $redirect = $request->string('redirect')->toString();
+
+        if (
+            Str::startsWith($redirect, '/')
+            && ! Str::startsWith($redirect, '//')
+            && ! Str::startsWith($redirect, '/\\')
+        ) {
+            $request->session()->put('url.intended', $redirect);
+        }
+
         return view('auth.login');
     }
 
@@ -40,6 +51,7 @@ class AuthController extends Controller
         }
 
         $request->session()->regenerate();
+        $request->session()->put('auth.session_version', $request->user()->session_version);
 
         return redirect()->intended(route('home'));
     }
@@ -59,6 +71,7 @@ class AuthController extends Controller
 
         Auth::login($user);
         $request->session()->regenerate();
+        $request->session()->put('auth.session_version', $user->session_version);
 
         return redirect()->route('home');
     }
