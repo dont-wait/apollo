@@ -20,6 +20,7 @@ class PostPublicationService
             ->where('status', PostStatus::Scheduled->value)
             ->whereNotNull('scheduled_at')
             ->where('scheduled_at', '<=', $cutoff)
+            ->orderBy('updated_at')
             ->orderBy('scheduled_at')
             ->orderBy('id')
             ->limit($limit)
@@ -45,6 +46,7 @@ class PostPublicationService
                     $post->update([
                         'status' => PostStatus::Published->value,
                         'published_at' => $cutoff,
+                        'scheduled_at' => null,
                     ]);
 
                     return true;
@@ -60,6 +62,13 @@ class PostPublicationService
                     'post_id' => (int) $id,
                     'exception' => $exception,
                 ]);
+
+                // Move a repeatedly failing post behind other due posts so it cannot
+                // monopolize every limited batch. The post remains SCHEDULED for retry.
+                Post::query()
+                    ->whereKey($id)
+                    ->where('status', PostStatus::Scheduled->value)
+                    ->update(['updated_at' => now()]);
             }
         }
 

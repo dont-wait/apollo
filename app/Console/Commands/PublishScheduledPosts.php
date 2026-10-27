@@ -20,6 +20,8 @@ class PublishScheduledPosts extends Command
 
         if ($result['failed'] > 0) {
             $this->warn("{$result['failed']} post(s) failed and remain scheduled for retry.");
+
+            return self::FAILURE;
         }
 
         return self::SUCCESS;

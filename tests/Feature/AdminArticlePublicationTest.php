@@ -89,6 +89,7 @@ class AdminArticlePublicationTest extends TestCase
         $future->refresh();
         $this->assertSame(PostStatus::Published->value, $due->status);
         $this->assertNotNull($due->published_at);
+        $this->assertNull($due->scheduled_at);
         $this->assertSame(PostStatus::Scheduled->value, $future->status);
         $this->assertNull($future->published_at);
         $this->get(route('articles.show', $due->slug))->assertOk();
@@ -111,12 +112,68 @@ class AdminArticlePublicationTest extends TestCase
         });
         Log::spy();
 
-        $this->assertSame(0, Artisan::call('posts:publish-scheduled'));
+        $this->assertSame(1, Artisan::call('posts:publish-scheduled'));
 
         $article->refresh();
         $this->assertSame(PostStatus::Scheduled->value, $article->status);
         $this->assertNull($article->published_at);
         Log::shouldHaveReceived('error')->once();
+    }
+
+    public function test_failed_due_post_does_not_starve_later_due_posts(): void
+    {
+        $failed = Post::factory()->create([
+            'status' => PostStatus::Scheduled->value,
+            'scheduled_at' => now()->subHours(2),
+            'published_at' => null,
+            'updated_at' => now()->subHours(2),
+        ]);
+        $later = Post::factory()->create([
+            'status' => PostStatus::Scheduled->value,
+            'scheduled_at' => now()->subHour(),
+            'published_at' => null,
+            'updated_at' => now()->subHour(),
+        ]);
+
+        Post::updating(function (Post $post) use ($failed): void {
+            if ($post->getKey() === $failed->getKey()
+                && $post->status === PostStatus::Published->value) {
+                throw new RuntimeException('Simulated persistent scheduled publish failure.');
+            }
+        });
+
+        $this->assertSame(1, Artisan::call('posts:publish-scheduled', ['--limit' => 1]));
+        $this->assertSame(0, Artisan::call('posts:publish-scheduled', ['--limit' => 1]));
+
+        $this->assertSame(PostStatus::Scheduled->value, $failed->fresh()->status);
+        $this->assertSame(PostStatus::Published->value, $later->fresh()->status);
+    }
+
+    public function test_stale_form_cannot_republish_article_archived_by_another_admin(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $publishedAt = now()->subDay()->startOfSecond();
+        $article = Post::factory()->published()->create(['published_at' => $publishedAt]);
+        $stalePayload = $this->payload($article, [
+            'status' => PostStatus::Published->value,
+            'original_status' => PostStatus::Published->value,
+        ]);
+
+        Post::query()->whereKey($article->id)->update([
+            'status' => PostStatus::Archived->value,
+            'scheduled_at' => null,
+        ]);
+
+        $this->actingAs($admin)
+            ->from(route('admin.articles.edit', $article))
+            ->put(route('admin.articles.update', $article), $stalePayload)
+            ->assertRedirect(route('admin.articles.edit', $article))
+            ->assertSessionHasErrors('status');
+
+        $article->refresh();
+        $this->assertSame(PostStatus::Archived->value, $article->status);
+        $this->assertTrue($article->published_at->equalTo($publishedAt));
+        $this->get(route('articles.show', $article->slug))->assertNotFound();
     }
 
     public function test_admin_can_archive_a_published_article_without_losing_publish_history(): void
@@ -149,7 +206,8 @@ class AdminArticlePublicationTest extends TestCase
             ->assertSee('value="SCHEDULED"', false)
             ->assertSee('value="PUBLISHED"', false)
             ->assertSee('value="ARCHIVED"', false)
-            ->assertSee('name="scheduled_at"', false);
+            ->assertSee('name="scheduled_at"', false)
+            ->assertSee('name="original_status"', false);
     }
 
     /**
@@ -165,6 +223,7 @@ class AdminArticlePublicationTest extends TestCase
             'excerpt' => $article->excerpt,
             'markdown_content' => $article->markdown_content,
             'status' => $article->status,
+            'original_status' => $article->status,
             ...$overrides,
         ];
     }

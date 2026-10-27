@@ -21,6 +21,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Throwable;
 
@@ -141,18 +142,21 @@ class ArticleController extends Controller
         $tagIds = $data['tags'] ?? [];
         $newTagNames = $data['new_tags'] ?? [];
         $thumbnail = $data['thumbnail'] ?? null;
-        unset($data['tags'], $data['new_tags'], $data['thumbnail']);
+        $originalStatus = $data['original_status'] ?? null;
+        unset($data['tags'], $data['new_tags'], $data['thumbnail'], $data['original_status']);
 
         $storedThumbnailPath = null;
         $thumbnailCleanup = null;
 
         try {
-            DB::transaction(function () use ($article, $data, $tagIds, $newTagNames, $thumbnail, $request, &$storedThumbnailPath, &$thumbnailCleanup): void {
+            DB::transaction(function () use ($article, $data, $tagIds, $newTagNames, $thumbnail, $request, $originalStatus, &$storedThumbnailPath, &$thumbnailCleanup): void {
                 $this->mediaOperationLock->lock();
 
                 $lockedArticle = Post::query()
                     ->lockForUpdate()
                     ->findOrFail($article->getKey());
+
+                $this->ensurePublicationStateIsCurrent($originalStatus, $lockedArticle);
 
                 $previousMedia = $lockedArticle->thumbnail_media_id === null
                     ? null
@@ -239,6 +243,17 @@ class ArticleController extends Controller
         $data['scheduled_at'] = null;
 
         return $data;
+    }
+
+    private function ensurePublicationStateIsCurrent(?string $originalStatus, Post $current): void
+    {
+        if ($originalStatus === null || $originalStatus === $current->status) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'status' => 'Trạng thái bài viết đã thay đổi. Vui lòng tải lại trang trước khi lưu.',
+        ]);
     }
 
     private function storeThumbnail(UploadedFile $thumbnail, int $uploadedBy, ?string &$storedPath): Media

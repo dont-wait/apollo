@@ -45,5 +45,5 @@ Schedule::command('app:prune-password-reset-otps')->hourly()->onOneServer();
 Schedule::command('posts:publish-scheduled --limit=100')
     ->name('posts:publish-scheduled')
     ->everyMinute()
-    ->withoutOverlapping()
+    ->withoutOverlapping(5)
     ->onOneServer();

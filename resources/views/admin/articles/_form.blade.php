@@ -13,6 +13,9 @@
     @if ($method !== 'POST')
         @method($method)
     @endif
+    @if ($article !== null)
+        <input type="hidden" name="original_status" value="{{ $article->status }}">
+    @endif
 
     @if (session('status'))
         <div role="status" class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
