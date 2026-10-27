@@ -46,6 +46,10 @@ class StoreArticleRequest extends FormRequest
             ]);
         }
 
+        if ($this->input('status') !== PostStatus::Scheduled->value) {
+            $this->merge(['scheduled_at' => null]);
+        }
+
         $tags = $this->input('new_tags');
 
         if (is_array($tags)) {
@@ -72,6 +76,7 @@ class StoreArticleRequest extends FormRequest
             'excerpt' => ['nullable', 'string', 'max:'.Post::MAX_EXCERPT_LENGTH],
             'markdown_content' => ['required', 'string', 'max:'.Post::MAX_CONTENT_LENGTH],
             'status' => ['required', Rule::in(PostStatus::selectableValues())],
+            'scheduled_at' => ['nullable', 'date', 'required_if:status,'.PostStatus::Scheduled->value, 'after:now'],
         ];
     }
 }

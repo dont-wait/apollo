@@ -100,10 +100,11 @@ class ArticleController extends Controller
                     $data['thumbnail_media_id'] = $media->id;
                 }
 
+                $data = $this->normalizePublicationState($data);
+
                 $article = Post::create([
                     ...$data,
                     'author_id' => $request->user()->id,
-                    'published_at' => $data['status'] === 'PUBLISHED' ? now() : null,
                 ]);
                 $article->tags()->sync($this->resolveTagIds($tagIds, $newTagNames));
 
@@ -164,9 +165,7 @@ class ArticleController extends Controller
                     $data['thumbnail_media_id'] = $media->id;
                 }
 
-                $data['published_at'] = $data['status'] === 'PUBLISHED'
-                    ? ($lockedArticle->published_at ?? now())
-                    : null;
+                $data = $this->normalizePublicationState($data, $lockedArticle);
 
                 $lockedArticle->update($data);
                 $lockedArticle->tags()->sync($this->resolveTagIds($tagIds, $newTagNames));
@@ -204,6 +203,42 @@ class ArticleController extends Controller
         return redirect()
             ->route('admin.articles.index')
             ->with('status', 'Bài viết đã được chuyển vào thùng rác.');
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function normalizePublicationState(array $data, ?Post $current = null): array
+    {
+        $status = PostStatus::from($data['status']);
+
+        if ($status === PostStatus::Published) {
+            $data['published_at'] = $current?->status === PostStatus::Published->value
+                ? ($current->published_at ?? now())
+                : now();
+            $data['scheduled_at'] = null;
+
+            return $data;
+        }
+
+        if ($status === PostStatus::Scheduled) {
+            $data['published_at'] = null;
+
+            return $data;
+        }
+
+        if ($status === PostStatus::Archived) {
+            $data['published_at'] = $current?->published_at;
+            $data['scheduled_at'] = null;
+
+            return $data;
+        }
+
+        $data['published_at'] = null;
+        $data['scheduled_at'] = null;
+
+        return $data;
     }
 
     private function storeThumbnail(UploadedFile $thumbnail, int $uploadedBy, ?string &$storedPath): Media
