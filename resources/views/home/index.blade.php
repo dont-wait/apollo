@@ -266,10 +266,9 @@
                                                 <span class="material-symbols-outlined text-[15px]" aria-hidden="true">content_copy</span>
                                             </button>
                                             <button
-                                                class="inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                                                class="inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:text-primary"
                                                 :class="isBookmarked(post.id) ? 'text-primary' : 'text-outline'"
                                                 type="button"
-                                                :disabled="pendingBookmarkPosts[post.id]"
                                                 :aria-label="isBookmarked(post.id) ? 'Remove bookmark' : 'Save article'"
                                                 :aria-pressed="isBookmarked(post.id)"
                                                 @click="toggleBookmark(post)"
