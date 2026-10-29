@@ -41,3 +41,9 @@ Schedule::command('media:cleanup-storage --limit=100')
     ->withoutOverlapping()
     ->onOneServer();
 Schedule::command('app:prune-password-reset-otps')->hourly()->onOneServer();
+
+Schedule::command('posts:publish-scheduled --limit=100')
+    ->name('posts:publish-scheduled')
+    ->everyMinute()
+    ->withoutOverlapping(5)
+    ->onOneServer();

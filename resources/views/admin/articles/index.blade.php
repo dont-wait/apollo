@@ -87,8 +87,13 @@
                                         <span @class([
                                             'inline-flex rounded-full px-2.5 py-1 text-xs font-medium',
                                             'bg-emerald-500/10 text-emerald-300' => $article->status === 'PUBLISHED',
-                                            'bg-amber-500/10 text-amber-300' => $article->status !== 'PUBLISHED',
+                                            'bg-amber-500/10 text-amber-300' => $article->status === 'SCHEDULED',
+                                            'bg-slate-500/10 text-slate-300' => $article->status === 'ARCHIVED',
+                                            'bg-sky-500/10 text-sky-300' => in_array($article->status, ['DRAFT', 'REVIEW'], true),
                                         ])>{{ ucfirst(strtolower($article->status)) }}</span>
+                                        @if ($article->status === 'SCHEDULED' && $article->scheduled_at)
+                                            <p class="mt-1 whitespace-nowrap text-[11px] text-[#87929a]">{{ $article->scheduled_at->format('d/m/Y H:i') }}</p>
+                                        @endif
                                     </td>
                                     <td class="whitespace-nowrap px-4 py-4 text-xs text-[#bdc8d1]">{{ $article->updated_at->format('d/m/Y H:i') }}</td>
                                     <td class="px-5 py-4">

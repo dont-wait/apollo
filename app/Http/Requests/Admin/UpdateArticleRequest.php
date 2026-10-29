@@ -46,6 +46,10 @@ class UpdateArticleRequest extends FormRequest
             ]);
         }
 
+        if ($this->input('status') !== PostStatus::Scheduled->value) {
+            $this->merge(['scheduled_at' => null]);
+        }
+
         $tags = $this->input('new_tags');
 
         if (is_array($tags)) {
@@ -84,6 +88,8 @@ class UpdateArticleRequest extends FormRequest
             'excerpt' => ['nullable', 'string', 'max:'.Post::MAX_EXCERPT_LENGTH],
             'markdown_content' => ['required', 'string', 'max:'.Post::MAX_CONTENT_LENGTH],
             'status' => ['required', Rule::in($statuses)],
+            'original_status' => ['nullable', Rule::in(array_keys(PostStatus::filterOptions()))],
+            'scheduled_at' => ['nullable', 'date', 'required_if:status,'.PostStatus::Scheduled->value, 'after:now'],
         ];
     }
 }

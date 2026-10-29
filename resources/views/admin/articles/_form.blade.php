@@ -13,6 +13,9 @@
     @if ($method !== 'POST')
         @method($method)
     @endif
+    @if ($article !== null)
+        <input type="hidden" name="original_status" value="{{ $article->status }}">
+    @endif
 
     @if (session('status'))
         <div role="status" class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
@@ -61,7 +64,7 @@
 
             <div>
                 <label for="status" class="mb-2 block text-sm font-medium">Trạng thái <span class="text-red-300">*</span></label>
-                <select id="status" name="status" required class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] focus:border-sky-400 focus:outline-none">
+                <select id="status" name="status" required data-publication-status class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] focus:border-sky-400 focus:outline-none">
                     @if (! array_key_exists($selectedStatus, $statusOptions))
                         <option value="{{ $selectedStatus }}" selected>{{ ucfirst(strtolower($selectedStatus)) }} (hiện tại)</option>
                     @endif
@@ -69,8 +72,16 @@
                         <option value="{{ $value }}" @selected($selectedStatus === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
+                <p class="mt-1.5 text-xs text-[#87929a]">Publish công khai ngay; Schedule sẽ tự publish khi đến thời điểm; Archive ngừng hiển thị public.</p>
                 @error('status') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
             </div>
+        </div>
+
+        <div data-schedule-field @if ($selectedStatus !== 'SCHEDULED') hidden @endif>
+            <label for="scheduled_at" class="mb-2 block text-sm font-medium">Thời điểm xuất bản <span class="text-red-300">*</span></label>
+            <input id="scheduled_at" name="scheduled_at" type="datetime-local" value="{{ old('scheduled_at', $article?->scheduled_at?->format('Y-m-d\TH:i')) }}" class="w-full max-w-md rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] focus:border-sky-400 focus:outline-none">
+            <p class="mt-1.5 text-xs text-[#87929a]">Phải là thời điểm trong tương lai (timezone hệ thống: {{ config('app.timezone') }}).</p>
+            @error('scheduled_at') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
         </div>
 
         <fieldset>
@@ -178,6 +189,23 @@
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
 <script>
     (() => {
+        const publicationStatus = document.querySelector('[data-publication-status]');
+        const scheduleField = document.querySelector('[data-schedule-field]');
+        const scheduledAtInput = document.querySelector('#scheduled_at');
+        const syncScheduleField = () => {
+            if (!publicationStatus || !scheduleField || !scheduledAtInput) {
+                return;
+            }
+
+            const scheduled = publicationStatus.value === 'SCHEDULED';
+            scheduleField.hidden = !scheduled;
+            scheduledAtInput.required = scheduled;
+            scheduledAtInput.disabled = !scheduled;
+        };
+
+        publicationStatus?.addEventListener('change', syncScheduleField);
+        syncScheduleField();
+
         const markdownInput = document.querySelector('#markdown_content');
         const markdownTabs = document.querySelectorAll('[data-markdown-tab]');
         const markdownPanels = document.querySelectorAll('[data-markdown-panel]');

@@ -17,7 +17,9 @@ enum PostStatus: string
     {
         return [
             self::Draft->value => 'Draft',
+            self::Scheduled->value => 'Scheduled',
             self::Published->value => 'Published',
+            self::Archived->value => 'Archived',
         ];
     }
 
