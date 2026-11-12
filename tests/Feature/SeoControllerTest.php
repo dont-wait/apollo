@@ -39,7 +39,8 @@ class SeoControllerTest extends TestCase
             ->assertHeader('Content-Type', 'application/xml; charset=UTF-8')
             ->assertSee('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">', false)
             ->assertSee(route('home'), false)
-            ->assertSee($published->canonical_url, false)
+            ->assertSee(\App\Support\SiteUrl::article($published->slug), false)
+            ->assertDontSee($published->canonical_url, false)
             ->assertDontSee(route('articles.show', $draft->slug), false)
             ->assertDontSee(route('articles.show', $review->slug), false)
             ->assertDontSee(route('articles.show', $scheduled->slug), false)
@@ -98,5 +99,31 @@ class SeoControllerTest extends TestCase
         $this->assertIsInt($newerPosition);
         $this->assertIsInt($olderPosition);
         $this->assertLessThan($olderPosition, $newerPosition);
+    }
+    public function test_sitemap_index_and_pages_split_large_catalog_without_external_urls(): void
+    {
+        config(['seo.sitemap_chunk_size' => 2]);
+        $articles = Post::factory()->published()->count(5)->create();
+        $articles[0]->update(['canonical_url' => 'https://external.example/somewhere']);
+
+        $this->get(route('sitemap'))
+            ->assertOk()
+            ->assertSee('<sitemapindex', false)
+            ->assertSee(\App\Support\SiteUrl::route('sitemap.page', ['page' => 1]), false)
+            ->assertSee(\App\Support\SiteUrl::route('sitemap.page', ['page' => 3]), false)
+            ->assertDontSee('external.example', false);
+
+        $pageOne = $this->get(route('sitemap.page', ['page' => 1]))
+            ->assertOk()
+            ->assertSee(\App\Support\SiteUrl::route('home'), false)
+            ->assertSee(\App\Support\SiteUrl::article($articles[0]->slug), false)
+            ->assertDontSee('external.example', false);
+
+        $this->assertSame(3, substr_count($pageOne->getContent(), '<url>'));
+
+        $pageTwo = $this->get(route('sitemap.page', ['page' => 2]))->assertOk();
+        $this->assertSame(2, substr_count($pageTwo->getContent(), '<url>'));
+        $this->get(route('sitemap.page', ['page' => 3]))->assertOk();
+        $this->get(route('sitemap.page', ['page' => 4]))->assertNotFound();
     }
 }

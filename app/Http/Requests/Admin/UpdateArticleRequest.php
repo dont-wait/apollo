@@ -92,6 +92,7 @@ class UpdateArticleRequest extends FormRequest
             'markdown_content' => ['required', 'string', 'max:'.Post::MAX_CONTENT_LENGTH],
             'status' => ['required', Rule::in($statuses)],
             'original_status' => ['nullable', Rule::in(array_keys(PostStatus::filterOptions()))],
+            'revision' => ['required', 'string', 'size:64', 'regex:/\A[a-f0-9]{64}\z/'],
             'scheduled_at' => ['nullable', 'date', 'required_if:status,'.PostStatus::Scheduled->value, 'after:now'],
         ];
     }

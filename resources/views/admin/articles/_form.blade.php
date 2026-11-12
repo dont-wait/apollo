@@ -15,6 +15,7 @@
     @endif
     @if ($article !== null)
         <input type="hidden" name="original_status" value="{{ $article->status }}">
+        <input type="hidden" name="revision" value="{{ old('revision', \App\Support\ArticleRevision::for($article)) }}">
     @endif
 
     @if (session('status'))
@@ -22,6 +23,11 @@
             {{ session('status') }}
         </div>
     @endif
+    @error('revision')
+        <div role="alert" class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+            {{ $message }} <a class="underline" href="{{ route('admin.articles.edit', $article) }}">Tải lại bài viết</a>.
+        </div>
+    @enderror
     @if ($errors->any())
         <div role="alert" class="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
             Vui lòng kiểm tra lại các trường được đánh dấu bên dưới.

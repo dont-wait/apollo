@@ -19,5 +19,9 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias(['auth.session' => AuthenticateSession::class]);
+        $middleware->trustHosts(
+            at: fn (): array => ['^'.preg_quote((string) parse_url(config('app.url'), PHP_URL_HOST), '/').'$'],
+            subdomains: false,
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {})->create();

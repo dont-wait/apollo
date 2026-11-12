@@ -2,12 +2,12 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>{{ config('app.name', 'Apollo Blog') }}</title>
-        <link>{{ route('home') }}</link>
+        <link>{{ \App\Support\SiteUrl::route('home') }}</link>
         <description>Latest published articles from {{ config('app.name', 'Apollo Blog') }}.</description>
         <language>{{ str_replace('_', '-', app()->getLocale()) }}</language>
-        <atom:link href="{{ route('rss') }}" rel="self" type="application/rss+xml" />
+        <atom:link href="{{ \App\Support\SiteUrl::route('rss') }}" rel="self" type="application/rss+xml" />
         @foreach ($articles as $article)
-            @php $articleUrl = $article->canonical_url ?: route('articles.show', ['article' => $article->slug]); @endphp
+            @php $articleUrl = $article->canonical_url ?: \App\Support\SiteUrl::article($article->slug); @endphp
             <item>
                 <title>{{ $article->seo_title ?: $article->title }}</title>
                 <link>{{ $articleUrl }}</link>

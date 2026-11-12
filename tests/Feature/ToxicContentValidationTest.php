@@ -119,6 +119,7 @@ class ToxicContentValidationTest extends TestCase
         $this->actingAs($admin)
             ->from(route('admin.articles.edit', $article))
             ->put(route('admin.articles.update', $article), [
+                'revision' => \App\Support\ArticleRevision::for($article),
                 'title' => 'badword replacement',
                 'markdown_content' => 'Clean body',
                 'status' => 'DRAFT',

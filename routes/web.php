@@ -27,6 +27,9 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
 Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('sitemap');
+Route::get('/sitemaps/articles/{page}.xml', [SeoController::class, 'sitemapPage'])
+    ->whereNumber('page')
+    ->name('sitemap.page');
 Route::get('/rss.xml', [SeoController::class, 'rss'])->name('rss');
 
 Route::get('/articles/{article:slug}', [PublicArticleController::class, 'show'])

@@ -33,6 +33,20 @@ class AdminArticlePublicationTest extends TestCase
         $this->assertSame(route('articles.show', $article->slug), $article->canonical_url);
     }
 
+    public function test_scheduled_publication_uses_the_configured_site_domain(): void
+    {
+        config(['app.url' => 'https://apollo.example']);
+        $article = Post::factory()->create([
+            'slug' => 'scheduled-trusted-domain',
+            'status' => PostStatus::Scheduled->value,
+            'scheduled_at' => now()->subMinute(),
+            'canonical_url' => null,
+        ]);
+
+        $this->assertSame(0, Artisan::call('posts:publish-scheduled'));
+        $this->assertSame('https://apollo.example/articles/scheduled-trusted-domain', $article->fresh()->canonical_url);
+    }
+
     public function test_admin_can_publish_a_draft_article(): void
     {
         $admin = User::factory()->admin()->create();
@@ -225,7 +239,8 @@ class AdminArticlePublicationTest extends TestCase
             ->assertSee('value="PUBLISHED"', false)
             ->assertSee('value="ARCHIVED"', false)
             ->assertSee('name="scheduled_at"', false)
-            ->assertSee('name="original_status"', false);
+            ->assertSee('name="original_status"', false)
+            ->assertSee('name="revision"', false);
     }
 
     /**
@@ -242,6 +257,7 @@ class AdminArticlePublicationTest extends TestCase
             'markdown_content' => $article->markdown_content,
             'status' => $article->status,
             'original_status' => $article->status,
+            'revision' => \App\Support\ArticleRevision::for($article),
             ...$overrides,
         ];
     }
