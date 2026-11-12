@@ -7,9 +7,11 @@ use App\Jobs\AiWeekly\CollectSource;
 use App\Jobs\AiWeekly\GenerateWeeklyReview;
 use App\Models\AiSource;
 use App\Models\AutomationRun;
+use Closure;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
+use Throwable;
 
 class RunCoordinator
 {
@@ -17,15 +19,21 @@ class RunCoordinator
     {
         $ids = AiSource::query()->where('status', 'ACTIVE')->whereIn('source_type', ['RSS', 'API'])->pluck('id');
         if ($ids->isEmpty()) {
+            $active = AutomationRun::query()->where('run_type', 'COLLECT')
+                ->whereIn('status', ['PENDING', 'RUNNING'])->orderBy('id')->first();
+            if ($active) {
+                $this->dispatch($active);
+
+                return $active;
+            }
+
             throw new RuntimeException('Không có nguồn đang hoạt động.');
         }
 
         $run = $this->create('COLLECT', $trigger, $userId, [
             'sources' => $ids->mapWithKeys(fn (int $id): array => [$id => ['status' => 'PENDING']])->all(),
         ]);
-        foreach ($ids as $id) {
-            CollectSource::dispatch($run->id, $id);
-        }
+        $this->dispatch($run);
 
         return $run;
     }
@@ -33,7 +41,7 @@ class RunCoordinator
     public function analyze(string $trigger, ?int $userId = null, ?int $articleId = null): AutomationRun
     {
         $run = $this->create('ANALYZE', $trigger, $userId, $articleId ? ['article_id' => $articleId] : []);
-        AnalyzeArticles::dispatch($run->id);
+        $this->dispatch($run);
 
         return $run;
     }
@@ -59,61 +67,86 @@ class RunCoordinator
                 ? AutomationRun::create(['idempotency_key' => 'weekly:'.$weekStart.':'.Str::uuid()] + $values)
                 : AutomationRun::query()->createOrFirst(['idempotency_key' => 'weekly:'.$weekStart], $values);
         });
-        if ($run->wasRecentlyCreated) {
-            GenerateWeeklyReview::dispatch($run->id);
-        }
+        $this->dispatch($run);
 
         return $run;
     }
 
+    public function dispatch(AutomationRun $run): void
+    {
+        $this->dispatchIfNeeded($run, function (AutomationRun $fresh): void {
+            if ($fresh->run_type === 'COLLECT') {
+                foreach (array_keys($fresh->payload['sources'] ?? []) as $id) {
+                    CollectSource::dispatch($fresh->id, (int) $id, $fresh->attempt);
+                }
+            } elseif ($fresh->run_type === 'ANALYZE') {
+                AnalyzeArticles::dispatch($fresh->id, $fresh->attempt);
+            } else {
+                GenerateWeeklyReview::dispatch($fresh->id, $fresh->attempt);
+            }
+        });
+    }
+
     public function retry(AutomationRun $run): bool
     {
-        $pending = DB::transaction(function () use ($run): ?array {
-            $locked = AutomationRun::query()->lockForUpdate()->findOrFail($run->id);
-            if (! in_array($locked->status, ['FAILED', 'PARTIAL'], true) || $locked->attempt >= $locked->max_attempts) {
-                return null;
-            }
-
-            $payload = $locked->payload ?? [];
-            $sourceIds = [];
-            if ($locked->run_type === 'COLLECT') {
-                foreach ($payload['sources'] ?? [] as $id => $result) {
-                    if (isset($result['retry_after_at']) && now()->lessThan($result['retry_after_at'])) {
-                        return null;
-                    }
-                    if (($result['status'] ?? '') === 'PENDING' || (($result['status'] ?? '') === 'FAILED' && ($result['retryable'] ?? true))) {
-                        $sourceIds[] = (int) $id;
-                        $payload['sources'][$id] = ['status' => 'PENDING'];
-                    }
-                }
-                if ($sourceIds === []) {
+        try {
+            $pending = $this->withDispatchLock($run->run_type, fn (): ?array => DB::transaction(function () use ($run): ?array {
+                if ($this->activeRunFor($run->run_type, $run->payload ?? [])) {
                     return null;
                 }
-            } elseif ($locked->run_type === 'ANALYZE') {
-                $payload['cursor'] = 0;
-                $payload['success'] = 0;
-                $payload['failed'] = 0;
-            }
+                $locked = AutomationRun::query()->lockForUpdate()->findOrFail($run->id);
+                if (! in_array($locked->status, ['FAILED', 'PARTIAL'], true) || $locked->attempt >= $locked->max_attempts) {
+                    return null;
+                }
 
-            $locked->update(['status' => 'PENDING', 'attempt' => $locked->attempt + 1,
-                'payload' => $payload, 'finished_at' => null, 'locked_at' => now(), 'error_message' => null]);
+                $payload = $locked->payload ?? [];
+                $sourceIds = [];
+                if ($locked->run_type === 'COLLECT') {
+                    foreach ($payload['sources'] ?? [] as $id => $result) {
+                        if (isset($result['retry_after_at']) && now()->lessThan($result['retry_after_at'])) {
+                            return null;
+                        }
+                        if (($result['status'] ?? '') === 'PENDING' || (($result['status'] ?? '') === 'FAILED' && ($result['retryable'] ?? true))) {
+                            $sourceIds[] = (int) $id;
+                            $payload['sources'][$id] = ['status' => 'PENDING'];
+                        }
+                    }
+                    if ($sourceIds === []) {
+                        return null;
+                    }
+                } elseif ($locked->run_type === 'ANALYZE') {
+                    $payload['cursor'] = 0;
+                    $payload['success'] = 0;
+                    $payload['failed'] = 0;
+                    unset($payload['total'], $payload['current_item'], $payload['article_results'], $payload['skipped']);
+                }
 
-            return [$locked->run_type, $sourceIds, $locked->attempt];
-        });
+                $locked->update(['status' => 'PENDING', 'attempt' => $locked->attempt + 1,
+                    'payload' => $payload, 'finished_at' => null, 'locked_at' => now(), 'dispatched_at' => null, 'error_message' => null]);
+
+                return [$locked->run_type, $sourceIds, $locked->attempt];
+            }));
+        } catch (RunDispatchBusyException $exception) {
+            report($exception);
+
+            return false;
+        }
         if ($pending === null) {
             return false;
         }
 
         [$type, $sourceIds, $attempt] = $pending;
-        if ($type === 'COLLECT') {
-            foreach ($sourceIds as $id) {
-                CollectSource::dispatch($run->id, $id, $attempt);
+        $this->dispatchIfNeeded($run->fresh(), function (AutomationRun $fresh) use ($type, $sourceIds, $attempt): void {
+            if ($type === 'COLLECT') {
+                foreach ($sourceIds as $id) {
+                    CollectSource::dispatch($fresh->id, $id, $attempt);
+                }
+            } elseif ($type === 'ANALYZE') {
+                AnalyzeArticles::dispatch($fresh->id, $attempt);
+            } else {
+                GenerateWeeklyReview::dispatch($fresh->id, $attempt);
             }
-        } elseif ($type === 'ANALYZE') {
-            AnalyzeArticles::dispatch($run->id, $attempt);
-        } else {
-            GenerateWeeklyReview::dispatch($run->id, $attempt);
-        }
+        });
 
         return true;
     }
@@ -143,7 +176,7 @@ class RunCoordinator
                     $payload = $locked->payload ?? [];
                     if ($locked->run_type === 'COLLECT') {
                         foreach ($payload['sources'] ?? [] as $id => $result) {
-                            if (($result['status'] ?? '') === 'PENDING') {
+                            if (in_array($result['status'] ?? '', ['PENDING', 'RUNNING'], true)) {
                                 $payload['sources'][$id] = ['status' => 'FAILED', 'retryable' => true, 'error' => 'Worker stopped before completion.'];
                             }
                         }
@@ -166,11 +199,114 @@ class RunCoordinator
     /** @param array<string, mixed> $payload */
     private function create(string $type, string $trigger, ?int $userId, array $payload): AutomationRun
     {
-        return AutomationRun::create([
-            'run_type' => $type, 'status' => 'PENDING', 'trigger_type' => $trigger,
-            'triggered_by' => $userId, 'idempotency_key' => (string) Str::uuid(),
-            'payload' => $payload, 'attempt' => 1,
-            'max_attempts' => config('ai_weekly.max_attempts'), 'created_at' => now(),
-        ]);
+        return $this->withDispatchLock($type, function () use ($type, $trigger, $userId, $payload): AutomationRun {
+            $existing = $this->activeRunFor($type, $payload);
+            if ($existing) {
+                return $existing;
+            }
+
+            return AutomationRun::create([
+                'run_type' => $type, 'status' => 'PENDING', 'trigger_type' => $trigger,
+                'triggered_by' => $userId, 'idempotency_key' => (string) Str::uuid(),
+                'payload' => $payload, 'attempt' => 1,
+                'max_attempts' => config('ai_weekly.max_attempts'), 'created_at' => now(),
+            ]);
+        });
+    }
+
+    /**
+     * @template T
+     *
+     * @param  Closure(): T  $callback
+     * @return T
+     */
+    private function withDispatchLock(string $type, Closure $callback): mixed
+    {
+        $name = 'ai-weekly:dispatch:'.$type;
+
+        try {
+            $acquired = DB::selectOne('SELECT GET_LOCK(?, 5) AS acquired', [$name]);
+        } catch (Throwable $exception) {
+            throw new RunDispatchBusyException('Hệ thống đang xử lý một job khác, vui lòng thử lại.', previous: $exception);
+        }
+
+        if ((int) ($acquired->acquired ?? 0) !== 1) {
+            throw new RunDispatchBusyException('Hệ thống đang xử lý một job khác, vui lòng thử lại.');
+        }
+
+        try {
+            return $callback();
+        } finally {
+            try {
+                DB::selectOne('SELECT RELEASE_LOCK(?) AS released', [$name]);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        }
+    }
+
+    /**
+     * @param  Closure(AutomationRun): void  $dispatch
+     */
+    private function dispatchIfNeeded(AutomationRun $run, Closure $dispatch): void
+    {
+        $this->withDispatchLock($run->run_type, function () use ($run, $dispatch): void {
+            $fresh = $run->fresh();
+            if ($fresh === null || $fresh->dispatched_at !== null || ! in_array($fresh->status, ['PENDING', 'RUNNING'], true)) {
+                return;
+            }
+
+            $dispatch($fresh);
+            $fresh->update(['dispatched_at' => now()]);
+        });
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function activeRunFor(string $type, array $payload): ?AutomationRun
+    {
+        return AutomationRun::query()
+            ->where('run_type', $type)
+            ->whereIn('status', ['PENDING', 'RUNNING'])
+            ->orderBy('id')
+            ->get()
+            ->first(fn (AutomationRun $run): bool => $this->runCovers($type, $run->payload ?? [], $payload));
+    }
+
+    /**
+     * @param  array<string, mixed>  $activePayload
+     * @param  array<string, mixed>  $requestedPayload
+     */
+    private function runCovers(string $type, array $activePayload, array $requestedPayload): bool
+    {
+        return match ($type) {
+            'COLLECT' => array_diff(
+                array_keys($requestedPayload['sources'] ?? []),
+                array_keys($activePayload['sources'] ?? []),
+            ) === [],
+            'ANALYZE' => $this->analysisRunCovers($activePayload, $requestedPayload),
+            'GENERATE_REVIEW' => ($activePayload['week_start'] ?? null) === ($requestedPayload['week_start'] ?? null)
+                && ($activePayload['mode'] ?? null) === ($requestedPayload['mode'] ?? null)
+                && ($activePayload['review_id'] ?? null) === ($requestedPayload['review_id'] ?? null),
+            default => true,
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $activePayload
+     * @param  array<string, mixed>  $requestedPayload
+     */
+    private function analysisRunCovers(array $activePayload, array $requestedPayload): bool
+    {
+        $activeArticleId = $activePayload['article_id'] ?? null;
+        $requestedArticleId = $requestedPayload['article_id'] ?? null;
+        if ($requestedArticleId === null) {
+            return $activeArticleId === null;
+        }
+        if ($activeArticleId !== null) {
+            return (int) $activeArticleId === (int) $requestedArticleId;
+        }
+
+        return (int) ($activePayload['cursor'] ?? 0) < (int) $requestedArticleId
+            && ! array_key_exists((int) $requestedArticleId, $activePayload['article_results'] ?? []);
     }
 }

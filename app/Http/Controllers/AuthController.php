@@ -51,6 +51,7 @@ class AuthController extends Controller
         }
 
         $request->session()->regenerate();
+        $request->session()->put('auth.session_version', $request->user()->session_version);
 
         return redirect()->intended(route('home'));
     }
@@ -70,6 +71,7 @@ class AuthController extends Controller
 
         Auth::login($user);
         $request->session()->regenerate();
+        $request->session()->put('auth.session_version', $user->session_version);
 
         return redirect()->route('home');
     }

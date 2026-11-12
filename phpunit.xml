@@ -19,6 +19,8 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <env name="ENABLE_MOCK_OTP" value="true"/>
+        <env name="MOCK_OTP" value="666666"/>
         <env name="SCOUT_DRIVER" value="null"/>
         <env name="SCOUT_QUEUE" value="false"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>

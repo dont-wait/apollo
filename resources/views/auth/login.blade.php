@@ -47,6 +47,10 @@
             </div>
         @endif
 
+        @if (session('status'))
+            <div class="rounded-lg border border-primary/30 bg-primary/10 px-3 py-3 text-sm text-on-surface" role="status">{{ session('status') }}</div>
+        @endif
+
         <form class="flex flex-col gap-4" method="POST" action="{{ route('login.store') }}">
             @csrf
 
@@ -83,7 +87,7 @@
                     <input class="size-4 rounded border-outline-variant bg-surface text-primary focus:ring-primary" name="remember" type="checkbox" value="1" @checked(old('remember', false))>
                     <span>Remember this device</span>
                 </label>
-                <span class="font-mono text-[10px] text-on-surface-variant/60">SESSION SECURE</span>
+                <a class="font-mono text-[10px] text-primary transition-colors hover:text-on-surface" href="{{ route('password.request') }}">Forgot password?</a>
             </div>
 
             <button class="mt-1 flex h-11 items-center justify-center rounded-lg bg-primary font-display text-sm font-semibold text-on-primary shadow-md transition-all hover:bg-surface-tint hover:shadow-lg active:scale-[0.99]" type="submit">

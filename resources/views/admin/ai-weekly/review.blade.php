@@ -10,9 +10,14 @@
     $snapshot = $review->generationRun?->payload['snapshot'] ?? null;
 @endphp
 <div class="-m-8 min-h-screen bg-[#111319] text-[#e1e2ea]">
+    <script type="application/json" data-toxic-moderation>@json(session('moderation', []))</script>
     <div class="border-b border-[#3e484f]/50 bg-[#191c21] px-4 py-6 sm:px-8 lg:px-10">
         <div class="mx-auto max-w-[1440px] space-y-5">
             @include('admin.ai-weekly.nav')
+            <div id="toxic-summary" data-toxic-summary hidden role="status" class="rounded border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200"></div>
+            <div class="flex justify-end">
+                <button type="button" data-toxic-jump="markdown_content" hidden class="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-500/20">Nhảy đến lỗi</button>
+            </div>
             <div class="flex flex-col justify-between gap-6 xl:flex-row xl:items-start">
                 <div class="space-y-3">
                     <a href="{{ route('admin.weekly-reviews.index') }}" class="inline-flex items-center gap-1 font-label-sm text-label-sm text-[#8ed5ff] hover:text-white"><span class="material-symbols-outlined text-base">arrow_back</span> Danh sách review</a>
@@ -60,8 +65,16 @@
                         @csrf
                         <input type="hidden" name="revision" value="{{ $review->revision }}">
                         <label class="grid gap-1.5 text-sm font-medium">Tiêu đề<input name="title" maxlength="255" required value="{{ $review->title }}" class="w-full rounded border border-[#3e484f] bg-[#111319] px-3 py-2 text-[#e1e2ea] outline-none focus:border-[#38bdf8]"></label>
+                        <div data-toxic-snippet="title" hidden class="rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"></div>
                         <label class="grid gap-1.5 text-sm font-medium">Tóm tắt<textarea name="excerpt" maxlength="500" rows="2" class="w-full rounded border border-[#3e484f] bg-[#111319] px-3 py-2 text-[#e1e2ea] outline-none focus:border-[#38bdf8]">{{ $review->excerpt }}</textarea></label>
-                        <label class="grid gap-1.5 text-sm font-medium">Nội dung Markdown<textarea name="markdown_content" rows="22" required class="w-full rounded border border-[#3e484f] bg-[#0b0e13] px-4 py-3 font-mono text-sm leading-7 text-[#e1e2ea] outline-none focus:border-[#38bdf8]">{{ $review->markdown_content }}</textarea></label>
+                        <div data-toxic-snippet="excerpt" hidden class="rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"></div>
+                        <div class="grid gap-1.5 text-sm font-medium">
+                            <label for="weekly-markdown-content">Nội dung Markdown</label>
+                            <div class="toxic-editor" data-toxic-editor data-toxic-field="markdown_content">
+                                <div class="toxic-editor__overlay rounded px-4 py-3 font-mono text-sm leading-7" data-toxic-overlay aria-hidden="true"></div>
+                                <textarea id="weekly-markdown-content" name="markdown_content" rows="22" required aria-describedby="toxic-summary" class="toxic-editor__textarea relative z-10 w-full rounded border border-[#3e484f] bg-[#0b0e13] px-4 py-3 font-mono text-sm leading-7 text-[#e1e2ea] outline-none focus:border-[#38bdf8]">{{ $review->markdown_content }}</textarea>
+                            </div>
+                        </div>
                         <div class="flex flex-wrap items-center gap-3"><button type="submit" class="inline-flex min-h-9 items-center gap-2 rounded bg-[#38bdf8] px-4 text-sm font-semibold text-[#00354a] hover:bg-[#8ed5ff]"><span class="material-symbols-outlined text-base">save</span>Lưu chỉnh sửa</button><span data-ai-feedback role="status" class="text-sm text-[#bdc8d1]"></span></div>
                     </form>
                 @else
@@ -97,7 +110,7 @@
 
             <section class="rounded border border-[#3e484f]/50 bg-[#1d2025]">
                 <div class="flex items-center gap-3 border-b border-[#3e484f]/50 px-5 py-4"><span class="material-symbols-outlined text-xl text-[#8ed5ff]">preview</span><div><h2 class="font-headline-sm text-lg font-semibold">Xem trước bài viết</h2><p class="font-label-sm text-label-sm text-[#87929a]">Bản đã lưu · revision {{ $review->revision }}</p></div></div>
-                <div class="ai-weekly-preview space-y-4 p-5 text-sm leading-7 text-[#e1e2ea]">{!! $previewHtml !!}</div>
+                <div class="ai-weekly-preview space-y-4 p-5 text-sm leading-7 text-[#e1e2ea]" data-toxic-preview="markdown_content">{!! $previewHtml !!}</div>
             </section>
         </div>
 

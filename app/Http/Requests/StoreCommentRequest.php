@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ValidatesToxicContent;
 use App\Models\Comment;
 use App\Models\Post;
 use Illuminate\Database\Query\Builder;
@@ -10,12 +11,27 @@ use Illuminate\Validation\Rule;
 
 class StoreCommentRequest extends FormRequest
 {
+    use ValidatesToxicContent;
+
     /**
      * Determine if the user is authorized to make this request.
      */
     public function authorize(): bool
     {
         return $this->user() !== null;
+    }
+
+    /** @return array<string, array{scope: string, label: string}> */
+    protected function toxicContentFields(): array
+    {
+        return [
+            'content' => ['scope' => 'comment', 'label' => 'Bình luận'],
+        ];
+    }
+
+    protected function toxicContentWithModeration(): bool
+    {
+        return false;
     }
 
     /**

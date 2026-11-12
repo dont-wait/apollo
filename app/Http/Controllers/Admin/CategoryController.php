@@ -18,7 +18,7 @@ class CategoryController extends Controller
     {
         $categories = Category::query()
             ->with('parent')
-            ->withCount('children')
+            ->withCount(['children', 'posts'])
             ->orderBy('name')
             ->get();
 

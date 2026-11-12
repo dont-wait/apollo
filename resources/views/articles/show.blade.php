@@ -51,10 +51,9 @@
                         ]))"
                     >
                         <button
-                            class="inline-flex items-center gap-1.5 rounded px-1 py-0.5 transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                            class="inline-flex items-center gap-1.5 rounded px-1 py-0.5 transition-colors hover:text-primary"
                             type="button"
                             :class="bookmarked ? 'text-primary' : 'text-on-surface-variant'"
-                            :disabled="loading"
                             :aria-label="bookmarked ? 'Remove bookmark' : 'Save article'"
                             :aria-pressed="bookmarked"
                             @click="toggle()"

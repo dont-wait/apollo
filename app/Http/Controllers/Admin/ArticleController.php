@@ -11,6 +11,9 @@ use App\Models\Category;
 use App\Models\Media;
 use App\Models\Post;
 use App\Models\Tag;
+use App\Services\MediaOperationLockService;
+use App\Services\MediaStorageCleanupService;
+use App\Services\MediaUsageService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,12 +21,18 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Throwable;
 
 class ArticleController extends Controller
 {
-    public function __construct(private MediaStorage $mediaStorage) {}
+    public function __construct(
+        private MediaStorage $mediaStorage,
+        private MediaOperationLockService $mediaOperationLock,
+        private MediaStorageCleanupService $cleanupService,
+        private MediaUsageService $mediaUsageService
+    ) {}
 
     public function index(Request $request): View
     {
@@ -85,15 +94,18 @@ class ArticleController extends Controller
 
         try {
             $article = DB::transaction(function () use ($data, $tagIds, $newTagNames, $thumbnail, $request, &$storedThumbnailPath): Post {
+                $this->mediaOperationLock->lock();
+
                 if ($thumbnail instanceof UploadedFile) {
                     $media = $this->storeThumbnail($thumbnail, $request->user()->id, $storedThumbnailPath);
                     $data['thumbnail_media_id'] = $media->id;
                 }
 
+                $data = $this->normalizePublicationState($data);
+
                 $article = Post::create([
                     ...$data,
                     'author_id' => $request->user()->id,
-                    'published_at' => $data['status'] === 'PUBLISHED' ? now() : null,
                 ]);
                 $article->tags()->sync($this->resolveTagIds($tagIds, $newTagNames));
 
@@ -130,40 +142,57 @@ class ArticleController extends Controller
         $tagIds = $data['tags'] ?? [];
         $newTagNames = $data['new_tags'] ?? [];
         $thumbnail = $data['thumbnail'] ?? null;
-        unset($data['tags'], $data['new_tags'], $data['thumbnail']);
+        $originalStatus = $data['original_status'] ?? null;
+        unset($data['tags'], $data['new_tags'], $data['thumbnail'], $data['original_status']);
 
-        $previousMedia = $article->thumbnail;
         $storedThumbnailPath = null;
+        $thumbnailCleanup = null;
 
         try {
-            DB::transaction(function () use ($article, $data, $tagIds, $newTagNames, $thumbnail, $request, &$storedThumbnailPath): void {
+            DB::transaction(function () use ($article, $data, $tagIds, $newTagNames, $thumbnail, $request, $originalStatus, &$storedThumbnailPath, &$thumbnailCleanup): void {
+                $this->mediaOperationLock->lock();
+
+                $lockedArticle = Post::query()
+                    ->lockForUpdate()
+                    ->findOrFail($article->getKey());
+
+                $this->ensurePublicationStateIsCurrent($originalStatus, $lockedArticle);
+
+                $previousMedia = $lockedArticle->thumbnail_media_id === null
+                    ? null
+                    : Media::query()
+                        ->lockForUpdate()
+                        ->find($lockedArticle->thumbnail_media_id);
+
                 if ($thumbnail instanceof UploadedFile) {
                     $media = $this->storeThumbnail($thumbnail, $request->user()->id, $storedThumbnailPath);
                     $data['thumbnail_media_id'] = $media->id;
                 }
 
-                $data['published_at'] = $data['status'] === 'PUBLISHED'
-                    ? ($article->published_at ?? now())
-                    : null;
+                $data = $this->normalizePublicationState($data, $lockedArticle);
 
-                $article->update($data);
-                $article->tags()->sync($this->resolveTagIds($tagIds, $newTagNames));
+                $lockedArticle->update($data);
+                $lockedArticle->tags()->sync($this->resolveTagIds($tagIds, $newTagNames));
+
+                if ($storedThumbnailPath !== null && $previousMedia !== null && ! $this->mediaUsageService->isInUse($previousMedia)) {
+                    $thumbnailCleanup = $this->cleanupService->schedule(
+                        $this->mediaStorage->diskName(),
+                        $previousMedia->storage_key
+                    );
+
+                    $previousMedia->delete();
+                }
             });
         } catch (Throwable $exception) {
             $this->cleanupStoredThumbnail($storedThumbnailPath);
             throw $exception;
         }
 
-        if ($storedThumbnailPath !== null && $previousMedia !== null) {
-            $mediaIsStillInUse = Post::withTrashed()
-                ->where('thumbnail_media_id', $previousMedia->id)
-                ->whereKeyNot($article->id)
-                ->exists();
-
-            if (! $mediaIsStillInUse) {
-                $this->mediaStorage->delete($previousMedia->storage_key);
-                $previousMedia->delete();
-            }
+        if ($thumbnailCleanup !== null) {
+            $this->cleanupService->attempt(
+                $thumbnailCleanup,
+                $this->mediaStorage
+            );
         }
 
         return redirect()
@@ -178,6 +207,53 @@ class ArticleController extends Controller
         return redirect()
             ->route('admin.articles.index')
             ->with('status', 'Bài viết đã được chuyển vào thùng rác.');
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function normalizePublicationState(array $data, ?Post $current = null): array
+    {
+        $status = PostStatus::from($data['status']);
+
+        if ($status === PostStatus::Published) {
+            $data['published_at'] = $current?->status === PostStatus::Published->value
+                ? ($current->published_at ?? now())
+                : now();
+            $data['scheduled_at'] = null;
+
+            return $data;
+        }
+
+        if ($status === PostStatus::Scheduled) {
+            $data['published_at'] = null;
+
+            return $data;
+        }
+
+        if ($status === PostStatus::Archived) {
+            $data['published_at'] = $current?->published_at;
+            $data['scheduled_at'] = null;
+
+            return $data;
+        }
+
+        $data['published_at'] = null;
+        $data['scheduled_at'] = null;
+
+        return $data;
+    }
+
+    private function ensurePublicationStateIsCurrent(?string $originalStatus, Post $current): void
+    {
+        if ($originalStatus === null || $originalStatus === $current->status) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'status' => 'Trạng thái bài viết đã thay đổi. Vui lòng tải lại trang trước khi lưu.',
+        ]);
     }
 
     private function storeThumbnail(UploadedFile $thumbnail, int $uploadedBy, ?string &$storedPath): Media

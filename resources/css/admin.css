@@ -54,6 +54,52 @@
     .ai-weekly-preview pre { overflow-x: auto; border-radius: 0.25rem; background: #0b0e13; padding: 1rem; }
     .ai-weekly-preview pre code { padding: 0; }
 
+    .toxic-editor {
+        position: relative;
+    }
+
+    .toxic-editor__overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        overflow: hidden;
+        border: 1px solid transparent;
+        border-radius: 0 0 0.5rem 0.5rem;
+        padding: 0.75rem;
+        background: #0b0e13;
+        color: transparent;
+        font-family: 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 0.875rem;
+        line-height: 1.5rem;
+        white-space: pre-wrap;
+        overflow-wrap: break-word;
+        pointer-events: none;
+    }
+
+    .toxic-editor.is-toxic-highlighted textarea {
+        background-color: transparent !important;
+    }
+
+    .toxic-editor__overlay .toxic-word-hit {
+        border-radius: 0.125rem;
+        border-bottom: 2px solid #facc15;
+        background: rgb(250 204 21 / 35%);
+        color: transparent;
+        padding: 0;
+    }
+
+    .markdown-preview .toxic-word-hit,
+    .ai-weekly-preview .toxic-word-hit,
+    [data-toxic-snippet] .toxic-word-hit {
+        border-radius: 0.125rem;
+        border-bottom: 1px dotted #92400e;
+        background: #facc15;
+        color: #111827;
+        padding: 0 0.1em;
+        box-decoration-break: clone;
+        scroll-margin: 4rem;
+    }
+
     .admin-sidebar,
     .admin-sidebar * {
         -ms-overflow-style: none;

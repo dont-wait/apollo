@@ -21,6 +21,8 @@ class DatabaseSeeder extends Seeder
 
         $this->call(BlogContentSeeder::class);
 
+        $this->call(ToxicWordSeeder::class);
+
         // User::factory(10)->create();
 
         if (! User::query()->where('email', 'test@example.com')->exists()) {
