@@ -20,10 +20,17 @@ use App\Http\Controllers\CommentController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ResetPasswordController;
+use App\Http\Controllers\SeoController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
+
+Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('sitemap');
+Route::get('/sitemaps/articles/{page}.xml', [SeoController::class, 'sitemapPage'])
+    ->whereNumber('page')
+    ->name('sitemap.page');
+Route::get('/rss.xml', [SeoController::class, 'rss'])->name('rss');
 
 Route::get('/articles/{article:slug}', [PublicArticleController::class, 'show'])
     ->name('articles.show');

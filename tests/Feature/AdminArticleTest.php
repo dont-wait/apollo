@@ -236,6 +236,7 @@ class AdminArticleTest extends TestCase
 
         $this->actingAs($admin)
             ->put(route('admin.articles.update', $article), [
+                'revision' => \App\Support\ArticleRevision::for($article),
                 'title' => 'Article with replacement thumbnail',
                 'markdown_content' => 'Updated content',
                 'status' => 'DRAFT',
@@ -270,6 +271,7 @@ class AdminArticleTest extends TestCase
 
         $this->actingAs($admin)
             ->put(route('admin.articles.update', $article), [
+                'revision' => \App\Support\ArticleRevision::for($article),
                 'title' => 'Article with replacement thumbnail',
                 'markdown_content' => 'Updated content',
                 'status' => 'DRAFT',
@@ -303,6 +305,7 @@ class AdminArticleTest extends TestCase
 
         $this->actingAs($admin)
             ->put(route('admin.articles.update', $article), [
+                'revision' => \App\Support\ArticleRevision::for($article),
                 'title' => 'Article with a referenced old thumbnail',
                 'markdown_content' => '![Old cover](/storage/articles/old-cover.png)',
                 'status' => 'DRAFT',
@@ -324,6 +327,7 @@ class AdminArticleTest extends TestCase
 
         $this->actingAs($admin)
             ->put(route('admin.articles.update', $article), [
+                'revision' => \App\Support\ArticleRevision::for($article),
                 'title' => 'Updated article',
                 'slug' => '',
                 'tags' => [$replacementTag->id],
@@ -352,6 +356,7 @@ class AdminArticleTest extends TestCase
         $this->actingAs($admin)
             ->from(route('admin.articles.edit', $article))
             ->put(route('admin.articles.update', $article), [
+                'revision' => \App\Support\ArticleRevision::for($article),
                 'title' => '',
                 'slug' => $article->slug,
                 'markdown_content' => '# Content',

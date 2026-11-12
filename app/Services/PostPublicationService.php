@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\PostStatus;
 use App\Models\Post;
+use App\Support\SiteUrl;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -47,6 +48,8 @@ class PostPublicationService
                         'status' => PostStatus::Published->value,
                         'published_at' => $cutoff,
                         'scheduled_at' => null,
+                        'canonical_url' => $post->canonical_url
+                            ?: SiteUrl::article($post->slug),
                     ]);
 
                     return true;

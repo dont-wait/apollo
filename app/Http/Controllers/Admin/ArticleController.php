@@ -14,6 +14,8 @@ use App\Models\Tag;
 use App\Services\MediaOperationLockService;
 use App\Services\MediaStorageCleanupService;
 use App\Services\MediaUsageService;
+use App\Support\ArticleRevision;
+use App\Support\SiteUrl;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -143,13 +145,14 @@ class ArticleController extends Controller
         $newTagNames = $data['new_tags'] ?? [];
         $thumbnail = $data['thumbnail'] ?? null;
         $originalStatus = $data['original_status'] ?? null;
-        unset($data['tags'], $data['new_tags'], $data['thumbnail'], $data['original_status']);
+        $originalRevision = $data['revision'];
+        unset($data['tags'], $data['new_tags'], $data['thumbnail'], $data['original_status'], $data['revision']);
 
         $storedThumbnailPath = null;
         $thumbnailCleanup = null;
 
         try {
-            DB::transaction(function () use ($article, $data, $tagIds, $newTagNames, $thumbnail, $request, $originalStatus, &$storedThumbnailPath, &$thumbnailCleanup): void {
+            DB::transaction(function () use ($article, $data, $tagIds, $newTagNames, $thumbnail, $request, $originalStatus, $originalRevision, &$storedThumbnailPath, &$thumbnailCleanup): void {
                 $this->mediaOperationLock->lock();
 
                 $lockedArticle = Post::query()
@@ -157,6 +160,11 @@ class ArticleController extends Controller
                     ->findOrFail($article->getKey());
 
                 $this->ensurePublicationStateIsCurrent($originalStatus, $lockedArticle);
+                if (! hash_equals(ArticleRevision::for($lockedArticle), $originalRevision)) {
+                    throw ValidationException::withMessages([
+                        'revision' => 'Bài viết đã được người khác cập nhật. Vui lòng tải lại trang trước khi lưu.',
+                    ]);
+                }
 
                 $previousMedia = $lockedArticle->thumbnail_media_id === null
                     ? null
@@ -215,6 +223,19 @@ class ArticleController extends Controller
      */
     private function normalizePublicationState(array $data, ?Post $current = null): array
     {
+        $previousCanonical = $current?->canonical_url;
+        $oldCanonicalWasGenerated = $current !== null
+            && filled($previousCanonical)
+            && $previousCanonical === SiteUrl::article($current->slug);
+
+        if ($oldCanonicalWasGenerated
+            && $current->slug !== $data['slug']
+            && (blank($data['canonical_url'] ?? null) || $data['canonical_url'] === $previousCanonical)) {
+            $data['canonical_url'] = SiteUrl::article($data['slug']);
+        } elseif (blank($data['canonical_url'] ?? null) && filled($previousCanonical)) {
+            $data['canonical_url'] = $previousCanonical;
+        }
+
         $status = PostStatus::from($data['status']);
 
         if ($status === PostStatus::Published) {
@@ -222,6 +243,9 @@ class ArticleController extends Controller
                 ? ($current->published_at ?? now())
                 : now();
             $data['scheduled_at'] = null;
+            $data['canonical_url'] = filled($data['canonical_url'] ?? null)
+                ? $data['canonical_url']
+                : SiteUrl::article($data['slug']);
 
             return $data;
         }
