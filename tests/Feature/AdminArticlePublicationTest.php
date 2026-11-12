@@ -15,6 +15,24 @@ class AdminArticlePublicationTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_scheduled_publication_generates_a_canonical_url(): void
+    {
+        $this->freezeTime();
+        $article = Post::factory()->create([
+            'slug' => 'scheduled-canonical-article',
+            'status' => PostStatus::Scheduled->value,
+            'scheduled_at' => now()->subMinute(),
+            'published_at' => null,
+            'canonical_url' => null,
+        ]);
+
+        $this->assertSame(0, Artisan::call('posts:publish-scheduled'));
+
+        $article->refresh();
+        $this->assertSame(PostStatus::Published->value, $article->status);
+        $this->assertSame(route('articles.show', $article->slug), $article->canonical_url);
+    }
+
     public function test_admin_can_publish_a_draft_article(): void
     {
         $admin = User::factory()->admin()->create();

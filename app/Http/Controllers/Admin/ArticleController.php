@@ -215,6 +215,10 @@ class ArticleController extends Controller
      */
     private function normalizePublicationState(array $data, ?Post $current = null): array
     {
+        if (blank($data['canonical_url'] ?? null) && filled($current?->canonical_url)) {
+            $data['canonical_url'] = $current->canonical_url;
+        }
+
         $status = PostStatus::from($data['status']);
 
         if ($status === PostStatus::Published) {
@@ -222,6 +226,9 @@ class ArticleController extends Controller
                 ? ($current->published_at ?? now())
                 : now();
             $data['scheduled_at'] = null;
+            $data['canonical_url'] = filled($data['canonical_url'] ?? null)
+                ? $data['canonical_url']
+                : route('articles.show', ['article' => $data['slug']]);
 
             return $data;
         }

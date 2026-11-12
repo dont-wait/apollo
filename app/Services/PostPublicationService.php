@@ -47,6 +47,8 @@ class PostPublicationService
                         'status' => PostStatus::Published->value,
                         'published_at' => $cutoff,
                         'scheduled_at' => null,
+                        'canonical_url' => $post->canonical_url
+                            ?: route('articles.show', ['article' => $post->slug]),
                     ]);
 
                     return true;

@@ -27,6 +27,10 @@ class ArticleController extends Controller
 
         return view('articles.show', [
             'article' => $article,
+            'seoTitle' => $article->seo_title ?: $article->title,
+            'seoDescription' => $article->seo_description ?: $article->excerpt,
+            'canonicalUrl' => $article->canonical_url
+                ?: route('articles.show', ['article' => $article->slug]),
             'content' => Str::markdown($article->markdown_content, [
                 'html_input' => 'strip',
                 'allow_unsafe_links' => false,

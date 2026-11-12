@@ -140,6 +140,32 @@
             <div data-toxic-snippet="excerpt" hidden class="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"></div>
         </div>
 
+        <section class="space-y-4 border-t border-[#32353b] pt-5">
+            <div>
+                <h3 class="text-sm font-semibold">SEO metadata</h3>
+                <p class="mt-1 text-xs text-[#87929a]">Để trống tiêu đề hoặc mô tả SEO để dùng dữ liệu bài viết. Canonical URL sẽ được tạo khi xuất bản nếu chưa nhập.</p>
+            </div>
+
+            <div>
+                <label for="seo_title" class="mb-2 block text-sm font-medium">Tiêu đề SEO</label>
+                <input id="seo_title" name="seo_title" type="text" value="{{ old('seo_title', $article?->seo_title) }}" maxlength="255" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">
+                @error('seo_title') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
+            </div>
+
+            <div>
+                <label for="seo_description" class="mb-2 block text-sm font-medium">Mô tả SEO</label>
+                <textarea id="seo_description" name="seo_description" rows="3" maxlength="320" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">{{ old('seo_description', $article?->seo_description) }}</textarea>
+                @error('seo_description') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
+            </div>
+
+            <div>
+                <label for="canonical_url" class="mb-2 block text-sm font-medium">Canonical URL</label>
+                <input id="canonical_url" name="canonical_url" type="url" value="{{ old('canonical_url') ?: $article?->canonical_url }}" maxlength="500" placeholder="https://example.com/articles/example" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">
+                <p class="mt-1.5 text-xs text-[#87929a]">Chỉ chấp nhận URL HTTP hoặc HTTPS. Canonical đã tạo sẽ được giữ ổn định khi lưu bài.</p>
+                @error('canonical_url') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
+            </div>
+        </section>
+
         <div>
             <label for="markdown_content" class="mb-2 block text-sm font-medium">Nội dung Markdown <span class="text-red-300">*</span></label>
             <div role="tablist" aria-label="Chế độ nội dung Markdown" class="flex border-b border-[#32353b]">
