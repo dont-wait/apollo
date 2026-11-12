@@ -12,7 +12,7 @@ class WeeklyReview extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['week_start', 'week_end', 'title', 'excerpt', 'markdown_content', 'status', 'quality_warning', 'suggested_category_id', 'suggested_tags', 'generation_run_id', 'model_name', 'generated_at', 'reviewed_by', 'reviewed_at'];
+    protected $fillable = ['week_start', 'week_end', 'title', 'excerpt', 'markdown_content', 'status', 'revision', 'quality_warning', 'suggested_category_id', 'suggested_tags', 'generation_run_id', 'model_name', 'generated_at', 'reviewed_by', 'reviewed_at'];
 
     public function suggestedCategory(): BelongsTo
     {
@@ -41,6 +41,6 @@ class WeeklyReview extends Model
 
     protected function casts(): array
     {
-        return ['week_start' => 'date', 'week_end' => 'date', 'suggested_tags' => 'array', 'generated_at' => 'datetime', 'reviewed_at' => 'datetime'];
+        return ['week_start' => 'date', 'week_end' => 'date', 'revision' => 'integer', 'suggested_tags' => 'array', 'generated_at' => 'datetime', 'reviewed_at' => 'datetime'];
     }
 }

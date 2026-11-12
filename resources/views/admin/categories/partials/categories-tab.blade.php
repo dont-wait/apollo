@@ -842,7 +842,7 @@
                                 <td class="px-3 py-3 text-center align-middle">
                                     <span class="inline-flex items-center gap-1 border border-[#2b3037] bg-[#1a1e24] px-2 py-1 font-mono text-[9px] text-[#dbe3ea]">
                                         <span class="material-symbols-outlined text-[12px]">description</span>
-                                        {{ isset($category->posts_count) ? $category->posts_count : '—' }}
+                                        {{ $category->posts_count }}
                                     </span>
                                 </td>
 
@@ -901,11 +901,6 @@
                 <div class="border-b border-[#2b3037] px-4 py-3">
                     <div class="flex items-start justify-between gap-3">
                         <div>
-                            <p class="font-mono text-[9px] uppercase tracking-[0.12em] text-[#80d4ff]">
-                                <span class="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-[#80d4ff]"></span>
-                                UC04 // Schema Inspector
-                            </p>
-
                             <h2 id="categoryEditorTitle" class="mt-1 text-sm font-semibold text-[#eef2f6]">
                                 New Category
                             </h2>
@@ -1037,24 +1032,6 @@
                                     maxlength="50"
                                     placeholder="psychology"
                                     class="min-w-0 flex-1 bg-transparent font-mono text-[9px] text-[#aeb7c0] outline-none">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="border border-[#2d3138] bg-[#12161b] p-3">
-                        <div class="flex items-start gap-2">
-                            <span class="material-symbols-outlined mt-0.5 text-[16px] text-[#80d4ff]">
-                                verified_user
-                            </span>
-
-                            <div>
-                                <p class="text-[10px] font-semibold text-[#dfe6eb]">
-                                    Quy tắc nghiệp vụ UC04:
-                                </p>
-                                <p class="mt-1 text-[9px] leading-5 text-[#98a3ad]">
-                                    Category đang được sử dụng không hard delete.
-                                    Có thể chuyển trạng thái Inactive và giữ nguyên liên kết phân cấp.
-                                </p>
                             </div>
                         </div>
                     </div>

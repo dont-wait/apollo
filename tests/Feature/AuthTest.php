@@ -26,6 +26,23 @@ class AuthTest extends TestCase
             ->assertDontSee('checked');
     }
 
+    public function test_login_honors_a_safe_local_redirect_from_comment_cta(): void
+    {
+        $password = fake()->password(minLength: 12);
+        $user = User::factory()->create([
+            'email' => 'commenter@example.com',
+            'password' => Hash::make($password),
+        ]);
+
+        $this->get(route('login', ['redirect' => '/articles/example#comments']))
+            ->assertOk();
+
+        $this->post(route('login.store'), [
+            'email' => $user->email,
+            'password' => $password,
+        ])->assertRedirect('/articles/example#comments');
+    }
+
     public function test_register_page_renders_the_account_creation_screen(): void
     {
         $response = $this->get(route('register'));

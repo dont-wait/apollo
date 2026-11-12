@@ -5,7 +5,10 @@
 @section('content')
     <div
         class="relative -mx-4 -my-10 overflow-hidden sm:-mx-6 sm:-my-14 lg:-mx-8"
-        x-data="homeFeed(@js($posts->getCollection()), @js(auth()->check()), @js(route('login')), @js($filters), @js($pagination))"
+        x-data="homeFeed(@js($posts->getCollection()), @js(auth()->check()), @js(route('login')), @js($filters), @js($pagination), @js([
+            'store' => route('bookmarks.store', ['post' => '__POST__']),
+            'destroy' => route('bookmarks.destroy', ['post' => '__POST__']),
+        ]))"
         @keydown.window="if (($event.metaKey || $event.ctrlKey) && $event.key.toLowerCase() === 'k') { $event.preventDefault(); focusSearch(); }"
     >
         <div class="pointer-events-none absolute left-1/2 top-0 h-80 w-[42rem] -translate-x-1/2 rounded-full bg-primary-container/10 blur-[120px]" aria-hidden="true"></div>
@@ -27,20 +30,26 @@
                     Practical deep dives into models, distributed systems, hardware-aware inference, and the tools that make intelligent software reliable.
                 </p>
 
-                <div class="mt-7 flex w-full max-w-2xl items-center gap-3 rounded-lg border border-outline-variant/50 bg-surface-low p-1.5 shadow-lg shadow-black/10">
+                <form action="{{ route('home') }}" method="GET" role="search" @submit.prevent="applyFilters()" class="mt-7 flex w-full max-w-2xl items-center gap-3 rounded-lg border border-outline-variant/50 bg-surface-low p-1.5 shadow-lg shadow-black/10">
+                    <input type="hidden" name="category" value="{{ $filters['category'] ?? '' }}" :value="activeCategory">
+                    <input type="hidden" name="sort" value="{{ $filters['sort'] }}" :value="sort">
                     <label class="sr-only" for="home-search">Search articles</label>
                     <span class="material-symbols-outlined pl-2 text-[20px] text-primary" aria-hidden="true">search</span>
                     <input
                         id="home-search"
                         x-ref="search"
                         x-model="search"
-                        @keydown.enter.prevent="applyFilters()"
+                        @input.debounce.300ms="applyFilters()"
+                        name="q"
+                        value="{{ $filters['q'] ?? '' }}"
+                        maxlength="255"
                         class="min-w-0 flex-1 bg-transparent px-1 py-2 text-sm text-on-surface outline-none placeholder:text-outline"
                         placeholder="Search kernels, papers, or system notes..."
                         type="search"
                     >
                     <kbd class="hidden rounded bg-surface-high px-2 py-1 font-mono text-[10px] text-outline sm:block">⌘ K</kbd>
-                </div>
+                    <button type="submit" class="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-on-primary transition-opacity hover:opacity-90">Search</button>
+                </form>
 
                 <div class="mt-4 flex flex-wrap items-center gap-2">
                     <span class="font-mono text-[10px] uppercase tracking-[0.14em] text-outline">Active topics:</span>
@@ -248,14 +257,23 @@
                                                 <span x-text="post.views"></span>
                                             </span>
                                             <button
+                                                class="inline-flex items-center gap-1 rounded px-1 py-0.5 text-outline transition-colors hover:text-primary"
+                                                type="button"
+                                                aria-label="Copy article link"
+                                                title="Copy article link"
+                                                @click="copyLink(post.url)"
+                                            >
+                                                <span class="material-symbols-outlined text-[15px]" aria-hidden="true">content_copy</span>
+                                            </button>
+                                            <button
                                                 class="inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:text-primary"
                                                 :class="isBookmarked(post.id) ? 'text-primary' : 'text-outline'"
                                                 type="button"
                                                 :aria-label="isBookmarked(post.id) ? 'Remove bookmark' : 'Save article'"
                                                 :aria-pressed="isBookmarked(post.id)"
-                                                @click="toggleBookmark(post.id)"
+                                                @click="toggleBookmark(post)"
                                             >
-                                                <span class="material-symbols-outlined text-[16px]" aria-hidden="true">bookmark</span>
+                                                <span class="material-symbols-outlined text-[16px]" x-text="isBookmarked(post.id) ? 'bookmark' : 'bookmark_border'" aria-hidden="true"></span>
                                                 <span x-text="bookmarkCount(post)"></span>
                                             </button>
                                         </div>
@@ -380,9 +398,9 @@
         </footer>
 
         <div x-cloak x-show="bookmarkNotice" x-transition class="fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-md items-center justify-between gap-4 rounded-lg border border-primary/30 bg-surface-high px-4 py-3 shadow-2xl shadow-black/30" role="status">
-            <p class="text-sm text-on-surface">Sign in to save articles to your bookmarks.</p>
+            <p class="text-sm text-on-surface" x-text="bookmarkNoticeMessage"></p>
             <div class="flex shrink-0 items-center gap-2">
-                <a class="rounded bg-primary px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-on-primary" :href="loginUrl">Sign in</a>
+                <a x-cloak x-show="bookmarkNoticeShowsLogin" class="rounded bg-primary px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-on-primary" :href="loginUrl">Sign in</a>
                 <button class="rounded p-1 text-outline transition-colors hover:text-on-surface" type="button" aria-label="Dismiss" @click="bookmarkNotice = false">
                     <span class="material-symbols-outlined text-[18px]" aria-hidden="true">close</span>
                 </button>

@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Enums\PostStatus;
+use App\Http\Requests\Concerns\ValidatesToxicContent;
 use App\Models\Post;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
@@ -10,7 +11,27 @@ use Illuminate\Validation\Rule;
 
 class UpdateArticleRequest extends FormRequest
 {
+    use ValidatesToxicContent;
+
     public function authorize(): bool
+    {
+        return true;
+    }
+
+    /** @return array<string, array{scope: string, label: string, markdown?: bool}> */
+    protected function toxicContentFields(): array
+    {
+        return [
+            'title' => ['scope' => 'post', 'label' => 'Tiêu đề'],
+            'slug' => ['scope' => 'post', 'label' => 'Slug'],
+            'excerpt' => ['scope' => 'post', 'label' => 'Tóm tắt'],
+            'markdown_content' => ['scope' => 'post', 'label' => 'Nội dung bài viết', 'markdown' => true],
+            'new_tags.*' => ['scope' => 'tag', 'label' => 'Tên tag'],
+            'new_tag_slugs.*' => ['scope' => 'tag', 'label' => 'Slug tag'],
+        ];
+    }
+
+    protected function toxicContentWithModeration(): bool
     {
         return true;
     }
@@ -22,6 +43,21 @@ class UpdateArticleRequest extends FormRequest
 
             $this->merge([
                 'slug' => is_string($title) ? Str::slug($title) : '',
+            ]);
+        }
+
+        if ($this->input('status') !== PostStatus::Scheduled->value) {
+            $this->merge(['scheduled_at' => null]);
+        }
+
+        $tags = $this->input('new_tags');
+
+        if (is_array($tags)) {
+            $this->merge([
+                'new_tag_slugs' => array_map(
+                    fn (mixed $tag): string => is_string($tag) ? Str::slug($tag) : '',
+                    $tags,
+                ),
             ]);
         }
     }
@@ -52,6 +88,8 @@ class UpdateArticleRequest extends FormRequest
             'excerpt' => ['nullable', 'string', 'max:'.Post::MAX_EXCERPT_LENGTH],
             'markdown_content' => ['required', 'string', 'max:'.Post::MAX_CONTENT_LENGTH],
             'status' => ['required', Rule::in($statuses)],
+            'original_status' => ['nullable', Rule::in(array_keys(PostStatus::filterOptions()))],
+            'scheduled_at' => ['nullable', 'date', 'required_if:status,'.PostStatus::Scheduled->value, 'after:now'],
         ];
     }
 }

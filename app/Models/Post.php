@@ -53,6 +53,25 @@ class Post extends Model
             && $this->published_at !== null;
     }
 
+    public function isPublished(): bool
+    {
+        return $this->status === PostStatus::Published->value
+            && $this->published_at?->lessThanOrEqualTo(now())
+            && ($this->category_id === null || $this->category?->status === 'ACTIVE');
+    }
+
+    public function scopePublished(Builder $query): Builder
+    {
+        return $query
+            ->where('posts.status', PostStatus::Published->value)
+            ->whereNotNull('posts.published_at')
+            ->where('posts.published_at', '<=', now())
+            ->where(function (Builder $query): void {
+                $query->whereNull('posts.category_id')
+                    ->orWhereHas('category', fn (Builder $query): Builder => $query->where('status', 'ACTIVE'));
+            });
+    }
+
     public static function makeAllSearchableQuery(): Builder
     {
         $post = new static;

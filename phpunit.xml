@@ -19,6 +19,8 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <env name="ENABLE_MOCK_OTP" value="true"/>
+        <env name="MOCK_OTP" value="666666"/>
         <env name="SCOUT_DRIVER" value="null"/>
         <env name="SCOUT_QUEUE" value="false"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
@@ -29,8 +31,8 @@
         <env name="DB_HOST" value="127.0.0.1"/>
         <env name="DB_PORT" value="3306"/>
         <env name="DB_DATABASE" value="apollo_test"/>
-        <env name="DB_USERNAME" value="apollo"/>
-        <env name="DB_PASSWORD" value="secret"/>
+        <env name="DB_USERNAME" value="root"/>
+        <env name="DB_PASSWORD" value=""/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

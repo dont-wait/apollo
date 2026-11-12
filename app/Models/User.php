@@ -6,6 +6,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -45,6 +46,13 @@ class User extends Authenticatable
         return $this->hasMany(Post::class, 'author_id');
     }
 
+    public function bookmarkedPosts(): BelongsToMany
+    {
+        return $this->belongsToMany(Post::class, 'bookmarks')
+            ->using(Bookmark::class)
+            ->withPivot('created_at');
+    }
+
     public function comments(): HasMany
     {
         return $this->hasMany(Comment::class);
@@ -71,6 +79,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
             'password' => 'hashed',
+            'session_version' => 'integer',
         ];
     }
 }
