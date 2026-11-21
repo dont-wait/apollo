@@ -4,11 +4,11 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\PostStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Bookmark;
 use App\Models\Comment;
 use App\Models\Post;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
-use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
@@ -36,7 +36,7 @@ class DashboardController extends Controller
         ];
 
         $commentCounts = Comment::query()
-            ->selectRaw('COUNT(*) as total')
+            ->selectRaw('COUNT(CASE WHEN status != ? THEN 1 END) as total', [Comment::STATUS_DELETED])
             ->selectRaw('COALESCE(SUM(CASE WHEN created_at BETWEEN ? AND ? THEN 1 ELSE 0 END), 0) as recent', [$periodStart, $periodEnd])
             ->selectRaw('COALESCE(SUM(CASE WHEN status = ? THEN 1 ELSE 0 END), 0) as pending', [Comment::STATUS_PENDING])
             ->selectRaw('COALESCE(SUM(CASE WHEN status = ? THEN 1 ELSE 0 END), 0) as hidden', [Comment::STATUS_HIDDEN])
@@ -82,13 +82,13 @@ class DashboardController extends Controller
         $topBookmarkedPosts = Post::query()
             ->select(['id', 'title', 'slug'])
             ->withCount('bookmarks')
-            ->whereHas('bookmarks')
+            ->having('bookmarks_count', '>', 0)
             ->orderByDesc('bookmarks_count')
             ->orderByDesc('id')
             ->limit(5)
             ->get();
 
-        $totalBookmarks = DB::table('bookmarks')->count();
+        $totalBookmarks = Bookmark::query()->count();
 
         return view('admin.dashboard', compact(
             'commentStats',

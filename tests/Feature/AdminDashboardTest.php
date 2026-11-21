@@ -161,4 +161,26 @@ class AdminDashboardTest extends TestCase
             ->assertSeeText('Chưa có bài viết nào.')
             ->assertSeeText('Chưa có bài viết được lưu.');
     }
+
+    public function test_non_admin_user_is_forbidden_from_viewing_the_dashboard(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('admin.dashboard'))
+            ->assertForbidden();
+    }
+
+    public function test_deleted_comments_are_excluded_from_the_total_comment_count(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $post = Post::factory()->for($admin, 'author')->create();
+
+        Comment::factory()->deleted()->for($post, 'post')->for($admin, 'user')->create();
+
+        $this->actingAs($admin)
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertViewHas('commentStats', fn (array $stats): bool => $stats['total'] === 0);
+    }
 }
