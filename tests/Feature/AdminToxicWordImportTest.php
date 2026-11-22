@@ -112,4 +112,104 @@ class AdminToxicWordImportTest extends TestCase
             ->assertOk()
             ->assertSee(route('admin.toxic-words.import'), false);
     }
+
+    public function test_template_rows_are_comments_and_import_nothing(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $path = tempnam(sys_get_temp_dir(), 'tw').'.xlsx';
+        $writer = new Writer;
+        $writer->openToFile($path);
+        $writer->addRow(Row::fromValues(['term', 'scopes']));
+        $writer->addRow(Row::fromValues(['# ví dụ: từ cần chặn', 'post']));
+        $writer->close();
+
+        $this->actingAs($admin)
+            ->post(route('admin.toxic-words.import'), ['file' => new UploadedFile($path, 'words.xlsx', null, null, true)])
+            ->assertSessionHas('status', 'Đã import 0 từ mới, bỏ qua 0 từ đã có.');
+        $this->assertDatabaseCount('toxic_words', 0);
+    }
+
+    public function test_xlsx_boolean_false_is_preserved_and_zero_note_is_kept(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $path = tempnam(sys_get_temp_dir(), 'tw').'.xlsx';
+        $writer = new Writer;
+        $writer->openToFile($path);
+        $writer->addRow(Row::fromValues(['term', 'is_active', 'note']));
+        $writer->addRow(Row::fromValues(['disabledword', false, '0']));
+        $writer->close();
+
+        $this->actingAs($admin)->post(route('admin.toxic-words.import'), ['file' => new UploadedFile($path, 'words.xlsx', null, null, true)]);
+
+        $word = ToxicWord::query()->where('term', 'disabledword')->firstOrFail();
+        $this->assertFalse($word->is_active);
+        $this->assertSame('0', $word->note);
+    }
+
+    public function test_semicolon_and_tab_delimited_csv_are_supported(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)->post(route('admin.toxic-words.import'), ['file' => $this->csv('term;scopes
+semiword;comment
+')]);
+        $this->actingAs($admin)->post(route('admin.toxic-words.import'), ['file' => $this->csv("term\tscopes\ntabword\tpost\n")]);
+
+        $this->assertSame(['comment'], ToxicWord::query()->where('term', 'semiword')->firstOrFail()->scopes);
+        $this->assertSame(['post'], ToxicWord::query()->where('term', 'tabword')->firstOrFail()->scopes);
+    }
+
+    public function test_empty_file_is_rejected(): void
+    {
+        $this->actingAs(User::factory()->admin()->create())
+            ->post(route('admin.toxic-words.import'), ['file' => $this->csv('')])
+            ->assertSessionHasErrors('file');
+    }
+
+    public function test_surrounding_unicode_whitespace_cannot_bypass_minimum_length(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)->post(route('admin.toxic-words.import'), ['file' => $this->csv("term\n\u{00A0}x\u{00A0}\n")]);
+
+        $this->assertDatabaseCount('toxic_words', 0);
+        $this->assertCount(1, session('import_errors'));
+    }
+
+    public function test_overlong_normalized_terms_are_reported_without_aborting_valid_rows(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $expanding = str_repeat("\u{0130}", 70);
+
+        $this->actingAs($admin)->post(route('admin.toxic-words.import'), ['file' => $this->csv("term\n{$expanding}\ngoodword\n")]);
+
+        $this->assertDatabaseHas('toxic_words', ['term' => 'goodword']);
+        $this->assertCount(1, session('import_errors'));
+    }
+
+    public function test_capacity_counts_only_active_words_and_continues_reporting_after_limit(): void
+    {
+        config(['toxic_words.max_terms' => 2]);
+        $admin = User::factory()->admin()->create();
+        ToxicWord::factory()->create(['term' => 'old inactive', 'normalized_term' => 'old inactive', 'is_active' => false]);
+        ToxicWord::factory()->create(['term' => 'old active', 'normalized_term' => 'old active', 'is_active' => true]);
+
+        $content = "term,is_active\nnew active,1\nanother active,1\nstill inactive,0\nold active,1\nx,1\n";
+        $this->actingAs($admin)->post(route('admin.toxic-words.import'), ['file' => $this->csv($content)]);
+
+        $this->assertDatabaseHas('toxic_words', ['term' => 'new active']);
+        $this->assertDatabaseHas('toxic_words', ['term' => 'still inactive']);
+        $this->assertDatabaseMissing('toxic_words', ['term' => 'another active']);
+        $this->assertStringContainsString('Đã import 2 từ mới, bỏ qua 1 từ đã có, 2 dòng lỗi', session('status'));
+    }
+
+    public function test_import_bumps_cache_version_so_new_words_apply_immediately(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $before = ToxicWord::cacheVersion();
+
+        $this->actingAs($admin)->post(route('admin.toxic-words.import'), ['file' => $this->csv("term\nversionword\n")]);
+
+        $this->assertGreaterThan($before, ToxicWord::cacheVersion());
+    }
 }

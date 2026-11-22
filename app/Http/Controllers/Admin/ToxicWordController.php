@@ -103,8 +103,8 @@ class ToxicWordController extends Controller
             $writer = new Writer;
             $writer->openToFile('php://output');
             $writer->addRow(Row::fromValues(ToxicWordImporter::COLUMNS));
-            $writer->addRow(Row::fromValues(['từ ví dụ', 'post,comment', 'WORD', 0, 1, 'Ghi chú tuỳ chọn']));
-            $writer->addRow(Row::fromValues(['cụm từ ví dụ', '', 'LOOSE', 1, 1, 'Để trống scopes = áp dụng tất cả']));
+            $writer->addRow(Row::fromValues(['# ví dụ: từ cần chặn', 'post,comment', 'WORD', 0, 1, 'Dòng bắt đầu bằng # là ghi chú, sẽ không được import']));
+            $writer->addRow(Row::fromValues(['# ví dụ: cụm từ cần chặn', '', 'LOOSE', 1, 1, 'Để trống scopes = áp dụng tất cả']));
             $writer->close();
         }, 'toxic-words-template.xlsx', [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

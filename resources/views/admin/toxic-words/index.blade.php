@@ -45,7 +45,7 @@
                     <p class="text-xs leading-5 text-[#87929a]">
                         File <code>.xlsx</code> hoặc <code>.csv</code> (tối đa 2MB, 2000 dòng). Dòng đầu là tiêu đề, bắt buộc có cột <code>term</code>.
                         Cột tuỳ chọn: <code>scopes</code> (cách nhau bằng dấu phẩy; trống = tất cả), <code>match_mode</code> (WORD/LOOSE),
-                        <code>fold_diacritics</code>, <code>is_active</code>, <code>note</code>. Từ đã có trong từ điển sẽ được bỏ qua.
+                        <code>fold_diacritics</code>, <code>is_active</code>, <code>note</code>. Từ đã có trong từ điển sẽ được bỏ qua. Dòng có <code>term</code> bắt đầu bằng <code>#</code> được coi là ghi chú và không import. CSV dùng dấu phẩy, chấm phẩy hoặc tab đều được.
                     </p>
                     <form method="POST" action="{{ route('admin.toxic-words.import') }}" enctype="multipart/form-data" class="flex flex-wrap items-center gap-3">
                         @csrf
