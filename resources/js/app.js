@@ -6,6 +6,22 @@ import './admin/toxic-highlight.js';
 import './admin/notifications.js';
 window.Alpine = Alpine;
 
+document.addEventListener('click', (event) => {
+    if (! event.target.closest('[data-theme-toggle]')) {
+        return;
+    }
+
+    const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+
+    document.documentElement.setAttribute('data-theme', next);
+
+    try {
+        localStorage.setItem('apollo-theme', next);
+    } catch (error) {
+        // Storage unavailable; theme applies for this page only.
+    }
+});
+
 const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
 
 const bookmarkUrl = (template, postId) => template.replace('__POST__', String(postId));

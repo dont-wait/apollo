@@ -11,6 +11,7 @@
         <link rel="canonical" href="@yield('canonical')">
     @endif
     <link rel="alternate" type="application/rss+xml" title="{{ config('app.name', 'Apollo Blog') }} RSS Feed" href="{{ route('rss') }}">
+    <x-theme-init />
     <title>@yield('title', config('app.name', 'Laravel'))</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -36,6 +37,8 @@
                 <a class="font-mono text-[11px] uppercase tracking-[0.14em] text-on-surface-variant transition-colors hover:text-primary" href="#categories">Categories</a>
                 <a class="font-mono text-[11px] uppercase tracking-[0.14em] text-on-surface-variant transition-colors hover:text-primary" href="#about">About</a>
             </nav>
+
+            <x-theme-toggle class="ml-auto lg:ml-0" />
 
             <div class="hidden items-center gap-3 lg:flex">
                 @auth

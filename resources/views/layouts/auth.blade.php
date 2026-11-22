@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <x-theme-init />
     <title>@yield('title', 'Authentication · Apollo Blog')</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -10,6 +11,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="relative flex min-h-screen items-center justify-center overflow-x-hidden bg-background px-4 py-8 font-sans text-on-surface sm:px-6">
+    <x-theme-toggle class="fixed right-4 top-4 z-50" />
     <div class="pointer-events-none absolute -left-32 -top-32 size-80 rounded-full bg-primary/10 blur-3xl" aria-hidden="true"></div>
     <div class="pointer-events-none absolute -bottom-32 -right-32 size-80 rounded-full bg-tertiary/10 blur-3xl" aria-hidden="true"></div>
 

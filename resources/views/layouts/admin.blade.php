@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <x-theme-init />
     <title>@yield('title', 'Apollo Admin')</title>
     @vite(['resources/css/admin.css', 'resources/js/app.js'])
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -151,6 +152,7 @@
                 </div>
             </div>
             <div class="flex items-center gap-space-md">
+                <x-theme-toggle />
                 <details x-data="adminNotifications" data-notifications-url="{{ route('admin.notifications.index') }}" class="relative" @toggle="if ($el.open) refresh()">
                     <summary class="relative cursor-pointer list-none rounded p-2 text-on-surface-variant hover:bg-surface-container hover:text-on-surface" aria-label="Thông báo AI Weekly">
                         <span class="material-symbols-outlined text-[20px]">notifications</span>
