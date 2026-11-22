@@ -59,6 +59,7 @@ class SocialAuthTest extends TestCase
             'id' => 'github-123',
             'name' => 'Grace Hopper',
             'email' => 'grace@example.com',
+            'email_verified' => true,
         ]));
 
         $response = $this->get(route('oauth.callback', ['provider' => 'github']));
@@ -82,6 +83,7 @@ class SocialAuthTest extends TestCase
         Socialite::fake('github', SocialiteUser::fake([
             'id' => 'github-456',
             'email' => 'ADA@EXAMPLE.COM',
+            'email_verified' => true,
         ]));
 
         $response = $this->get(route('oauth.callback', ['provider' => 'github']));
@@ -144,6 +146,44 @@ class SocialAuthTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_github_callback_rejects_an_unverified_email(): void
+    {
+        $user = User::factory()->create(['email' => 'unverified-github@example.com']);
+
+        Socialite::fake('github', SocialiteUser::fake([
+            'id' => 'github-unverified',
+            'email' => $user->email,
+            'email_verified' => false,
+        ]));
+
+        $response = $this->get(route('oauth.callback', ['provider' => 'github']));
+
+        $response->assertRedirect(route('login'))
+            ->assertSessionHasErrors('oauth');
+        $this->assertGuest();
+        $this->assertDatabaseMissing('social_accounts', [
+            'provider' => 'github',
+            'provider_id' => 'github-unverified',
+        ]);
+    }
+
+    public function test_linked_provider_can_authenticate_without_returning_an_email(): void
+    {
+        $user = User::factory()->create();
+        SocialAccount::factory()->for($user)->google()->create(['provider_id' => 'google-no-email']);
+
+        Socialite::fake('google', SocialiteUser::fake([
+            'id' => 'google-no-email',
+            'email' => null,
+            'email_verified' => false,
+        ]));
+
+        $response = $this->get(route('oauth.callback', ['provider' => 'google']));
+
+        $response->assertRedirect(route('home'));
+        $this->assertAuthenticatedAs($user);
+    }
+
     public function test_callback_rejects_an_inactive_user(): void
     {
         $user = User::factory()->create(['status' => User::STATUS_INACTIVE]);
@@ -161,6 +201,26 @@ class SocialAuthTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_callback_rejects_a_soft_deleted_user_without_creating_a_replacement(): void
+    {
+        $user = User::factory()->create();
+        SocialAccount::factory()->for($user)->google()->create(['provider_id' => 'google-deleted']);
+        $user->delete();
+
+        Socialite::fake('google', SocialiteUser::fake([
+            'id' => 'google-deleted',
+            'email' => $user->email,
+            'email_verified' => true,
+        ]));
+
+        $response = $this->get(route('oauth.callback', ['provider' => 'google']));
+
+        $response->assertRedirect(route('login'))
+            ->assertSessionHasErrors('oauth');
+        $this->assertGuest();
+        $this->assertSame(1, User::withTrashed()->where('email', $user->email)->count());
+    }
+
     public function test_callback_honors_the_existing_intended_redirect(): void
     {
         $this->get(route('login', ['redirect' => '/articles/example#comments']))
@@ -174,6 +234,18 @@ class SocialAuthTest extends TestCase
 
         $this->get(route('oauth.callback', ['provider' => 'google']))
             ->assertRedirect('/articles/example#comments');
+    }
+
+    public function test_second_oauth_redirect_is_rejected_while_another_flow_is_in_flight(): void
+    {
+        Socialite::fake('google');
+
+        $this->get(route('oauth.redirect', ['provider' => 'google']))
+            ->assertRedirect('https://socialite.fake/google/authorize');
+
+        $this->get(route('oauth.redirect', ['provider' => 'github']))
+            ->assertRedirect(route('login'))
+            ->assertSessionHasErrors('oauth');
     }
 
     public function test_callback_regenerates_the_session_after_authentication(): void

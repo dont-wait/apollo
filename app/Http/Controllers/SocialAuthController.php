@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\SocialAccount;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,11 +19,28 @@ class SocialAuthController extends Controller
 {
     private const PROVIDERS = ['google', 'github'];
 
-    public function redirect(string $provider): RedirectResponse
+    public function redirect(Request $request, string $provider): RedirectResponse
     {
         $provider = $this->resolveProvider($provider);
 
-        return Socialite::driver($provider)->redirect();
+        if ($request->session()->has('oauth.in_flight')) {
+            return $this->redirectToLoginWithError('Another sign-in attempt is already in progress. Please finish it or try again.');
+        }
+
+        $request->session()->put('oauth.in_flight', true);
+
+        try {
+            return Socialite::driver($provider)->redirect();
+        } catch (Throwable $exception) {
+            $request->session()->forget('oauth.in_flight');
+
+            Log::warning('Social authentication provider redirect failed.', [
+                'provider' => $provider,
+                'exception' => $exception::class,
+            ]);
+
+            return $this->redirectToLoginWithError('We could not connect to the selected sign-in provider. Please try again.');
+        }
     }
 
     public function callback(Request $request, string $provider): RedirectResponse
@@ -38,25 +56,22 @@ class SocialAuthController extends Controller
             ]);
 
             return $this->redirectToLoginWithError('We could not connect to the selected sign-in provider. Please try again.');
+        } finally {
+            $request->session()->forget('oauth.in_flight');
         }
 
-        if (! $this->hasVerifiedEmail($provider, $providerUser)) {
+        $providerId = trim((string) $providerUser->getId());
+        $linkedUser = $this->findLinkedUser($provider, $providerId);
+
+        if ($linkedUser !== null) {
+            return $this->authenticateUser($request, $linkedUser);
+        }
+
+        if (blank($providerId) || ! $this->hasVerifiedEmail($provider, $providerUser)) {
             return $this->redirectToLoginWithError('This provider did not return a verified email address. Please use another sign-in method.');
         }
 
-        $user = $this->resolveUser($provider, $providerUser);
-
-        if ($user === null || ! $user->isActive()) {
-            return $this->redirectToLoginWithError('This account is not available for sign in.');
-        }
-
-        Auth::login($user);
-        $request->session()->regenerate();
-        $request->session()->put('auth.session_version', $user->session_version);
-
-        $user->forceFill(['last_login_at' => now()])->save();
-
-        return redirect()->intended(route('home'));
+        return $this->authenticateUser($request, $this->resolveUser($provider, $providerUser));
     }
 
     private function resolveProvider(string $provider): string
@@ -66,6 +81,9 @@ class SocialAuthController extends Controller
         return $provider;
     }
 
+    /**
+     * Socialite's GitHub adapter requests user:email and maps only the primary verified email.
+     */
     private function hasVerifiedEmail(string $provider, SocialiteUser $providerUser): bool
     {
         if (blank($providerUser->getEmail())) {
@@ -78,9 +96,23 @@ class SocialAuthController extends Controller
                 'email_verified',
                 data_get($providerUser->getRaw(), 'verified_email', false),
             ),
-            'github' => true,
+            'github' => (bool) data_get($providerUser->getRaw(), 'email_verified', filled($providerUser->getEmail())),
             default => false,
         };
+    }
+
+    private function findLinkedUser(string $provider, string $providerId): ?User
+    {
+        if (blank($providerId)) {
+            return null;
+        }
+
+        $socialAccount = SocialAccount::query()
+            ->where('provider', $provider)
+            ->where('provider_id', $providerId)
+            ->first();
+
+        return $socialAccount?->user()->withTrashed()->first();
     }
 
     private function resolveUser(string $provider, SocialiteUser $providerUser): ?User
@@ -92,54 +124,100 @@ class SocialAuthController extends Controller
             return null;
         }
 
-        return DB::transaction(function () use ($email, $provider, $providerId, $providerUser): User {
-            $socialAccount = SocialAccount::query()
-                ->with('user')
-                ->where('provider', $provider)
-                ->where('provider_id', $providerId)
-                ->first();
+        for ($attempt = 0; $attempt < 2; $attempt++) {
+            try {
+                return DB::transaction(function () use ($email, $provider, $providerId, $providerUser): ?User {
+                    $socialAccount = SocialAccount::query()
+                        ->where('provider', $provider)
+                        ->where('provider_id', $providerId)
+                        ->lockForUpdate()
+                        ->first();
 
-            if ($socialAccount?->user !== null) {
-                return $socialAccount->user;
-            }
+                    $linkedUser = $socialAccount?->user()->withTrashed()->first();
 
-            $user = User::query()
-                ->whereRaw('LOWER(email) = ?', [$email])
-                ->first();
+                    if ($linkedUser !== null) {
+                        return $linkedUser;
+                    }
 
-            if ($user !== null) {
-                if (! $user->isActive()) {
+                    $matchingUsers = User::withTrashed()
+                        ->whereRaw('LOWER(email) = ?', [$email])
+                        ->lockForUpdate()
+                        ->limit(2)
+                        ->get();
+
+                    if ($matchingUsers->count() > 1) {
+                        return null;
+                    }
+
+                    $user = $matchingUsers->first();
+
+                    if ($user !== null) {
+                        if (! $user->isActive() || $user->trashed()) {
+                            return $user;
+                        }
+
+                        $user->socialAccounts()->create([
+                            'provider' => $provider,
+                            'provider_id' => $providerId,
+                        ]);
+
+                        return $user;
+                    }
+
+                    $user = User::create([
+                        'name' => $this->userName($providerUser, $email),
+                        'email' => $email,
+                        'password' => Str::random(64),
+                        'role' => User::ROLE_USER,
+                        'status' => User::STATUS_ACTIVE,
+                    ]);
+
+                    $user->forceFill([
+                        'email_verified_at' => now(),
+                        'avatar_url' => $this->avatarUrl($providerUser),
+                    ])->save();
+
+                    $user->socialAccounts()->create([
+                        'provider' => $provider,
+                        'provider_id' => $providerId,
+                    ]);
+
                     return $user;
+                });
+            } catch (QueryException $exception) {
+                if (! $this->isUniqueConstraintViolation($exception) || $attempt === 1) {
+                    throw $exception;
                 }
-
-                $user->socialAccounts()->create([
-                    'provider' => $provider,
-                    'provider_id' => $providerId,
-                ]);
-
-                return $user;
             }
+        }
 
-            $user = User::create([
-                'name' => $this->userName($providerUser, $email),
-                'email' => $email,
-                'password' => Str::random(64),
-                'role' => User::ROLE_USER,
-                'status' => User::STATUS_ACTIVE,
-            ]);
+        return null;
+    }
 
-            $user->forceFill([
-                'email_verified_at' => now(),
-                'avatar_url' => $this->avatarUrl($providerUser),
-            ])->save();
+    private function authenticateUser(Request $request, ?User $user): RedirectResponse
+    {
+        if ($user === null) {
+            return $this->redirectToLoginWithError('This account is not available for sign in.');
+        }
 
-            $user->socialAccounts()->create([
-                'provider' => $provider,
-                'provider_id' => $providerId,
-            ]);
+        $currentUser = User::query()->whereKey($user->getKey())->first();
 
-            return $user;
-        });
+        if ($currentUser === null || ! $currentUser->isActive()) {
+            return $this->redirectToLoginWithError('This account is not available for sign in.');
+        }
+
+        Auth::login($currentUser);
+        $request->session()->regenerate();
+        $request->session()->put('auth.session_version', $currentUser->session_version);
+
+        $currentUser->forceFill(['last_login_at' => now()])->save();
+
+        return redirect()->intended(route('home'));
+    }
+
+    private function isUniqueConstraintViolation(QueryException $exception): bool
+    {
+        return in_array((string) $exception->getCode(), ['23000', '23505'], true);
     }
 
     private function userName(SocialiteUser $providerUser, string $email): string
