@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\BulkUpdateCommentStatusRequest;
 use App\Http\Requests\Admin\UpdateCommentStatusRequest;
 use App\Models\Comment;
+use App\Models\CommentReport;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Http\RedirectResponse;
@@ -100,7 +101,7 @@ class CommentController extends Controller
                     $query->where('status', '!=', Comment::STATUS_DELETED);
                 }
 
-                $updated += $query->update([
+                $changed = $query->update([
                     'status' => $status,
                     'moderated_by' => $request->user()->id,
                     'moderated_at' => now(),
@@ -109,6 +110,11 @@ class CommentController extends Controller
                     'version' => DB::raw('version + 1'),
                     'updated_at' => now(),
                 ]);
+                $updated += $changed;
+
+                if ($changed > 0 && in_array($status, [Comment::STATUS_HIDDEN, Comment::STATUS_DELETED], true)) {
+                    CommentReport::resolveOpenFor((int) $commentId, $request->user()->id);
+                }
             }
         }, attempts: 3);
 
@@ -149,6 +155,10 @@ class CommentController extends Controller
                 'version' => DB::raw('version + 1'),
                 'updated_at' => now(),
             ]);
+            if (in_array($status, [Comment::STATUS_HIDDEN, Comment::STATUS_DELETED], true)) {
+                CommentReport::resolveOpenFor($lockedComment->id, $request->user()->id);
+            }
+
             $updated = true;
         }, attempts: 3);
 

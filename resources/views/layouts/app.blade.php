@@ -4,6 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    @hasSection('meta_description')
+        <meta name="description" content="@yield('meta_description')">
+    @endif
+    @hasSection('canonical')
+        <link rel="canonical" href="@yield('canonical')">
+    @endif
+    <link rel="alternate" type="application/rss+xml" title="{{ config('app.name', 'Apollo Blog') }} RSS Feed" href="{{ route('rss') }}">
     <title>@yield('title', config('app.name', 'Laravel'))</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

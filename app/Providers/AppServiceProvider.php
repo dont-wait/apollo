@@ -39,6 +39,13 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        RateLimiter::for('comment-reports', function (Request $request): array {
+            return [
+                Limit::perMinute(5)->by('user:'.$request->user()->id),
+                Limit::perMinute(20)->by('ip:'.$request->ip()),
+            ];
+        });
+
         RateLimiter::for('bookmarks', function (Request $request): array {
             return [
                 Limit::perMinute(60)->by('user:'.$request->user()->id),

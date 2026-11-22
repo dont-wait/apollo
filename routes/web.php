@@ -6,6 +6,8 @@ use App\Http\Controllers\Admin\ArticleController;
 use App\Http\Controllers\Admin\AutomationRunController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CommentController as AdminCommentController;
+use App\Http\Controllers\Admin\CommentReportController as AdminCommentReportController;
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\TagController;
@@ -17,13 +19,21 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BookmarkController;
 use App\Http\Controllers\ChangePasswordController;
 use App\Http\Controllers\CommentController;
+use App\Http\Controllers\CommentReportController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ResetPasswordController;
+use App\Http\Controllers\SeoController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
+
+Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('sitemap');
+Route::get('/sitemaps/articles/{page}.xml', [SeoController::class, 'sitemapPage'])
+    ->whereNumber('page')
+    ->name('sitemap.page');
+Route::get('/rss.xml', [SeoController::class, 'rss'])->name('rss');
 
 Route::get('/articles/{article:slug}', [PublicArticleController::class, 'show'])
     ->name('articles.show');
@@ -43,6 +53,10 @@ Route::prefix('articles/{article:slug}/comments')
             ->middleware(['auth', 'auth.session'])
             ->scopeBindings()
             ->name('destroy');
+        Route::post('/{comment}/report', [CommentReportController::class, 'store'])
+            ->middleware(['auth', 'auth.session', 'throttle:comment-reports'])
+            ->scopeBindings()
+            ->name('report');
         Route::get('/{comment}/replies', [CommentController::class, 'replies'])
             ->scopeBindings()
             ->name('replies');
@@ -110,9 +124,7 @@ Route::prefix('admin')
     ->group(function (): void {
         Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
         Route::post('/notifications/{notification}/open', [NotificationController::class, 'open'])->name('notifications.open');
-        Route::get('/dashboard', function () {
-            return view('admin.dashboard');
-        })->name('dashboard');
+        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
         Route::resource('articles', ArticleController::class)->except(['show']);
         Route::resource('users', UserController::class)->except(['show']);
@@ -152,6 +164,12 @@ Route::prefix('admin')
 
         Route::post('/toxic-words', [ToxicWordController::class, 'store'])
             ->name('toxic-words.store');
+
+        Route::post('/toxic-words/import', [ToxicWordController::class, 'import'])
+            ->name('toxic-words.import');
+
+        Route::get('/toxic-words/import-template', [ToxicWordController::class, 'importTemplate'])
+            ->name('toxic-words.import-template');
 
         Route::put('/toxic-words/{toxicWord}', [ToxicWordController::class, 'update'])
             ->name('toxic-words.update');
@@ -202,4 +220,10 @@ Route::prefix('admin')
 
         Route::patch('/comments/bulk-status', [AdminCommentController::class, 'bulkUpdateStatus'])
             ->name('comments.bulk-status');
+
+        Route::get('/comment-reports', [AdminCommentReportController::class, 'index'])
+            ->name('comment-reports.index');
+
+        Route::patch('/comment-reports/{report}', [AdminCommentReportController::class, 'update'])
+            ->name('comment-reports.update');
     });

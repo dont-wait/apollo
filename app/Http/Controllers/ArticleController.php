@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Post;
+use App\Support\SiteUrl;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -27,6 +28,9 @@ class ArticleController extends Controller
 
         return view('articles.show', [
             'article' => $article,
+            'seoTitle' => $article->seo_title ?: $article->title,
+            'seoDescription' => $article->seo_description ?: $article->excerpt,
+            'canonicalUrl' => SiteUrl::canonical($article->slug, $article->canonical_url),
             'content' => Str::markdown($article->markdown_content, [
                 'html_input' => 'strip',
                 'allow_unsafe_links' => false,
