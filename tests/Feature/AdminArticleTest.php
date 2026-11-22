@@ -192,6 +192,37 @@ class AdminArticleTest extends TestCase
         $this->assertSoftDeleted($article);
     }
 
+    public function test_article_form_renders_status_cards_tag_chips_and_helpers(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $tag = Tag::factory()->create(['name' => 'Inference']);
+        $article = Post::factory()->create([
+            'status' => 'SCHEDULED',
+            'scheduled_at' => now()->addDay(),
+            'seo_title' => 'Custom SEO title',
+        ]);
+        $article->tags()->attach($tag);
+
+        $this->actingAs($admin)
+            ->get(route('admin.articles.create'))
+            ->assertOk()
+            ->assertSee('type="radio" name="status" value="DRAFT"', false)
+            ->assertSee('type="radio" name="status" value="PUBLISHED"', false)
+            ->assertSee('data-tag-picker', false)
+            ->assertSee('data-char-count', false)
+            ->assertSee('data-slug-preview', false)
+            ->assertSee('data-thumbnail-field', false)
+            ->assertSee('data-dirty-indicator', false)
+            ->assertSeeText('Create article');
+
+        $this->get(route('admin.articles.edit', $article))
+            ->assertOk()
+            ->assertSee('name="status" value="SCHEDULED" data-publication-status required checked', false)
+            ->assertSee('name="tags[]" value="'.$tag->id.'" checked', false)
+            ->assertSeeText('Save changes')
+            ->assertSeeText('#Inference');
+    }
+
     public function test_admin_can_open_create_and_edit_forms(): void
     {
         $admin = User::factory()->admin()->create();
