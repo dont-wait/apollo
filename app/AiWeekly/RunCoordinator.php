@@ -79,6 +79,13 @@ class RunCoordinator
                 ? AutomationRun::create(['idempotency_key' => 'weekly:'.$weekStart.':'.Str::uuid()] + $values)
                 : AutomationRun::query()->createOrFirst(['idempotency_key' => 'weekly:'.$weekStart], $values);
         });
+
+        // Someone pressing "generate" for a week whose run failed (and still has attempts left) expects it to
+        // run again, not to be handed the same failed run back. Scheduled triggers keep waiting for reconcile().
+        if ($trigger === 'MANUAL' && in_array($run->status, ['FAILED', 'PARTIAL'], true) && $run->attempt < $run->max_attempts && $this->retry($run)) {
+            return $run->fresh();
+        }
+
         $this->dispatch($run);
 
         return $run;

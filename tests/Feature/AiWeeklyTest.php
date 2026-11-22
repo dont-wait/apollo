@@ -160,6 +160,108 @@ class AiWeeklyTest extends TestCase
         $this->assertSame(0, WeeklyReview::count());
     }
 
+    public function test_manual_generate_retries_a_failed_run_that_still_has_attempts(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'ADMIN']));
+        $failed = AutomationRun::factory()->create([
+            'run_type' => 'GENERATE_REVIEW', 'status' => 'FAILED', 'attempt' => 1, 'max_attempts' => 3,
+            'idempotency_key' => 'weekly:2026-10-12', 'payload' => ['week_start' => '2026-10-12'],
+            'finished_at' => now(), 'error_message' => 'RuntimeException: boom',
+        ]);
+        Queue::fake([GenerateWeeklyReview::class]);
+
+        $id = $this->postJson('/admin/weekly-reviews/generate', ['week_start' => '2026-10-12'])->assertAccepted()->json('run_id');
+
+        $this->assertSame($failed->id, $id);
+        $failed->refresh();
+        $this->assertSame('PENDING', $failed->status);
+        $this->assertSame(2, $failed->attempt);
+        $this->assertNull($failed->error_message);
+        $this->assertDatabaseCount('automation_runs', 1);
+        Queue::assertPushed(GenerateWeeklyReview::class, fn (GenerateWeeklyReview $job): bool => $job->runId === $failed->id && $job->attempt === 2);
+    }
+
+    public function test_scheduled_generate_leaves_a_failed_run_for_the_reconciler(): void
+    {
+        $failed = AutomationRun::factory()->create([
+            'run_type' => 'GENERATE_REVIEW', 'status' => 'FAILED', 'attempt' => 1, 'max_attempts' => 3,
+            'idempotency_key' => 'weekly:2026-10-12', 'payload' => ['week_start' => '2026-10-12'], 'finished_at' => now(),
+        ]);
+        Queue::fake([GenerateWeeklyReview::class]);
+
+        $run = app(RunCoordinator::class)->generate('2026-10-12', 'SCHEDULED');
+
+        $this->assertSame($failed->id, $run->id);
+        $this->assertSame('FAILED', $failed->fresh()->status);
+        Queue::assertNothingPushed();
+    }
+
+    private function generationFixture(): array
+    {
+        $article = AiArticle::factory()->create(['published_at' => '2026-10-13 00:00:00']);
+        $article->analyses()->create(['version' => 1, 'is_current' => true, 'status' => 'SUCCESS', 'summary' => 'Research summary']);
+        $run = AutomationRun::factory()->create(['run_type' => 'GENERATE_REVIEW', 'payload' => ['week_start' => '2026-10-12'], 'attempt' => 1]);
+
+        return [$article, $run];
+    }
+
+    public function test_generation_trusts_the_citation_tokens_in_the_text_over_the_models_list(): void
+    {
+        User::factory()->create(['role' => 'ADMIN']);
+        [$first, $run] = $this->generationFixture();
+        $second = AiArticle::factory()->create(['published_at' => '2026-10-14 00:00:00']);
+        $second->analyses()->create(['version' => 1, 'is_current' => true, 'status' => 'SUCCESS', 'summary' => 'Another summary']);
+        $model = $this->mock(ModelClient::class);
+        // The text cites both articles, but the model only listed one of them in citation_ids (a known small-model slip).
+        $model->shouldReceive('complete')->once()->andReturn([
+            'title' => 'AI Weekly', 'excerpt' => 'Summary',
+            'markdown_content' => $this->structuredMarkdown($first->id)." Also [[{$second->id}]].",
+            'citation_ids' => [$first->id], 'suggested_tags' => [],
+        ]);
+
+        (new GenerateWeeklyReview($run->id))->handle(app(WeeklyDraftBuilder::class), app(DraftPostCreator::class));
+
+        $this->assertSame('SUCCESS', $run->fresh()->status);
+        $this->assertEqualsCanonicalizing([$first->id, $second->id], WeeklyReview::firstOrFail()->sourceArticles()->pluck('ai_articles.id')->all());
+    }
+
+    public function test_generation_explains_a_draft_without_citation_tokens(): void
+    {
+        [$article, $run] = $this->generationFixture();
+        $model = $this->mock(ModelClient::class);
+        $model->shouldReceive('complete')->once()->andReturn([
+            'title' => 'AI Weekly', 'excerpt' => 'Summary',
+            'markdown_content' => str_replace("[[{$article->id}]]", '[1]', $this->structuredMarkdown($article->id)),
+            'citation_ids' => [$article->id], 'suggested_tags' => [],
+        ]);
+
+        (new GenerateWeeklyReview($run->id))->handle(app(WeeklyDraftBuilder::class), app(DraftPostCreator::class));
+
+        $run->refresh();
+        $this->assertSame('FAILED', $run->status);
+        $this->assertStringContainsString('no [[ID]] citation tokens', $run->error_message);
+        $this->assertStringContainsString((string) $article->id, $run->error_message);
+        $this->assertSame(0, WeeklyReview::count());
+    }
+
+    public function test_generation_rejects_text_citing_an_article_outside_the_snapshot(): void
+    {
+        [$article, $run] = $this->generationFixture();
+        $model = $this->mock(ModelClient::class);
+        $model->shouldReceive('complete')->once()->andReturn([
+            'title' => 'AI Weekly', 'excerpt' => 'Summary',
+            'markdown_content' => $this->structuredMarkdown($article->id).' Extra claim [[999999]].',
+            'citation_ids' => [$article->id], 'suggested_tags' => [],
+        ]);
+
+        (new GenerateWeeklyReview($run->id))->handle(app(WeeklyDraftBuilder::class), app(DraftPostCreator::class));
+
+        $run->refresh();
+        $this->assertSame('FAILED', $run->status);
+        $this->assertStringContainsString('outside the approved snapshot', $run->error_message);
+        $this->assertSame(0, WeeklyReview::count());
+    }
+
     public function test_exhausted_generation_can_start_new_linked_run(): void
     {
         $this->actingAs(User::factory()->create(['role' => 'ADMIN']));
