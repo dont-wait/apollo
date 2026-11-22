@@ -6,6 +6,7 @@ use App\Models\SocialAccount;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Laravel\Socialite\Facades\Socialite;
+use Laravel\Socialite\Two\InvalidStateException;
 use Laravel\Socialite\Two\User as SocialiteUser;
 use Tests\TestCase;
 
@@ -173,5 +174,58 @@ class SocialAuthTest extends TestCase
 
         $this->get(route('oauth.callback', ['provider' => 'google']))
             ->assertRedirect('/articles/example#comments');
+    }
+
+    public function test_callback_regenerates_the_session_after_authentication(): void
+    {
+        $this->get(route('login'))->assertOk();
+        $oldSessionId = session()->getId();
+
+        Socialite::fake('google', SocialiteUser::fake([
+            'id' => 'google-session',
+            'email' => 'session@example.com',
+            'email_verified' => true,
+        ]));
+
+        $this->get(route('oauth.callback', ['provider' => 'google']))
+            ->assertRedirect(route('home'));
+
+        $this->assertNotSame($oldSessionId, session()->getId());
+    }
+
+    public function test_callback_redirects_to_login_when_provider_throws(): void
+    {
+        Socialite::fake('google', static function (): never {
+            throw new InvalidStateException('OAuth state mismatch.');
+        });
+
+        $response = $this->get(route('oauth.callback', ['provider' => 'google']));
+
+        $response->assertRedirect(route('login'))
+            ->assertSessionHasErrors([
+                'oauth' => 'We could not connect to the selected sign-in provider. Please try again.',
+            ]);
+        $this->assertGuest();
+    }
+
+    public function test_unsupported_oauth_provider_is_not_found(): void
+    {
+        $this->get('/oauth/linkedin/redirect')->assertNotFound();
+    }
+
+    public function test_callback_rejects_a_provider_without_an_id(): void
+    {
+        Socialite::fake('google', SocialiteUser::fake([
+            'id' => null,
+            'email' => 'missing-id@example.com',
+            'email_verified' => true,
+        ]));
+
+        $response = $this->get(route('oauth.callback', ['provider' => 'google']));
+
+        $response->assertRedirect(route('login'))
+            ->assertSessionHasErrors('oauth');
+        $this->assertGuest();
+        $this->assertDatabaseMissing('users', ['email' => 'missing-id@example.com']);
     }
 }
