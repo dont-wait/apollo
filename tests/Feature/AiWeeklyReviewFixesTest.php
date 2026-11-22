@@ -209,6 +209,45 @@ class AiWeeklyReviewFixesTest extends TestCase
         Queue::assertPushed(AnalyzeArticles::class, fn (AnalyzeArticles $job): bool => $job->runId === $second->id && $job->delay === 5);
     }
 
+    public function test_analysis_run_stops_after_the_configured_batch_size(): void
+    {
+        config(['ai_weekly.analyze_batch_size' => 2]);
+        $articles = AiArticle::factory()->count(5)->create();
+        $run = AutomationRun::factory()->create(['run_type' => 'ANALYZE', 'attempt' => 1]);
+        $model = $this->mock(ModelClient::class);
+        $model->shouldReceive('complete')->twice()->andReturn($this->analysis());
+        Queue::fake([AnalyzeArticles::class]);
+
+        // Two articles are analyzed, then the third call finds the batch full and finishes the run.
+        foreach (range(1, 3) as $step) {
+            (new AnalyzeArticles($run->id))->handle($model);
+        }
+
+        $run->refresh();
+        $this->assertSame('SUCCESS', $run->status);
+        $this->assertSame(2, $run->payload['total']);
+        $this->assertSame(2, $run->payload['success']);
+        $this->assertCount(2, $articles->filter(fn (AiArticle $article): bool => $article->fresh()->status === 'ANALYZED'));
+        $this->assertCount(3, $articles->filter(fn (AiArticle $article): bool => $article->fresh()->status !== 'ANALYZED'));
+    }
+
+    public function test_a_batch_size_of_zero_removes_the_limit(): void
+    {
+        config(['ai_weekly.analyze_batch_size' => 0]);
+        AiArticle::factory()->count(3)->create();
+        $run = AutomationRun::factory()->create(['run_type' => 'ANALYZE', 'attempt' => 1]);
+        $model = $this->mock(ModelClient::class);
+        $model->shouldReceive('complete')->times(3)->andReturn($this->analysis());
+        Queue::fake([AnalyzeArticles::class]);
+
+        foreach (range(1, 4) as $step) {
+            (new AnalyzeArticles($run->id))->handle($model);
+        }
+
+        $this->assertSame('SUCCESS', $run->fresh()->status);
+        $this->assertSame(3, $run->fresh()->payload['total']);
+    }
+
     public function test_batch_analysis_excludes_articles_without_usable_content(): void
     {
         AiArticle::factory()->create(['raw_summary' => null, 'raw_content' => '']);

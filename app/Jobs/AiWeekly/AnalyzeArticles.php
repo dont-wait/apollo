@@ -53,8 +53,13 @@ class AnalyzeArticles implements ShouldQueue
                     $pending->whereNotIn('status', ['ANALYZED'])->orWhereDoesntHave('analyses', fn ($analysis) => $analysis->where('is_current', true));
                 });
             });
-        $payload['total'] ??= (clone $articlesQuery)->count();
-        $articles = $articlesQuery->orderBy('id')->limit(1)->get();
+        // A full backlog can overwhelm a small local model, so each run only takes a batch;
+        // the remaining articles are picked up by the next scheduled run.
+        $batchSize = isset($payload['article_id']) ? 0 : (int) config('ai_weekly.analyze_batch_size');
+        $pendingTotal = (clone $articlesQuery)->count();
+        $payload['total'] ??= $batchSize > 0 ? min($batchSize, $pendingTotal) : $pendingTotal;
+        $batchReached = $batchSize > 0 && count($payload['article_results'] ?? []) >= $batchSize;
+        $articles = $batchReached ? collect() : $articlesQuery->orderBy('id')->limit(1)->get();
         if ($articles->isEmpty()) {
             $payload['total'] = count($payload['article_results'] ?? []);
             $failed = $payload['failed'] ?? 0;
