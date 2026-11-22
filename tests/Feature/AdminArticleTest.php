@@ -150,12 +150,15 @@ class AdminArticleTest extends TestCase
             ->assertOk()
             ->assertDontSeeText('Accidentally deleted')
             ->assertSeeText('Still here')
+            ->assertDontSee('return confirm', false)
             ->assertViewHas('trashedCount', 1);
 
         $this->get(route('admin.articles.index', ['trashed' => 1]))
             ->assertOk()
             ->assertSeeText('Accidentally deleted')
             ->assertSeeText('Restore')
+            ->assertSeeText('Delete permanently')
+            ->assertSee('data-confirm-form', false)
             ->assertSeeText('Deleted')
             ->assertDontSeeText('Still here');
 
@@ -166,6 +169,20 @@ class AdminArticleTest extends TestCase
         $this->assertNotSoftDeleted($article);
         $this->assertSame('PUBLISHED', $article->fresh()->status);
         $this->get(route('admin.articles.index'))->assertSeeText('Accidentally deleted');
+    }
+
+    public function test_admin_can_permanently_delete_a_trashed_article(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $article = Post::factory()->create(['title' => 'Permanently deleted article']);
+        $article->delete();
+
+        $this->actingAs($admin)
+            ->delete(route('admin.articles.force-destroy', $article))
+            ->assertRedirect(route('admin.articles.index', ['trashed' => 1]))
+            ->assertSessionHas('status', 'Article "Permanently deleted article" permanently deleted.');
+
+        $this->assertDatabaseMissing('posts', ['id' => $article->id]);
     }
 
     public function test_restoring_an_article_that_is_not_deleted_is_a_noop(): void
