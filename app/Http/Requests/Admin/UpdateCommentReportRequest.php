@@ -13,7 +13,7 @@ class UpdateCommentReportRequest extends FormRequest
     }
 
     /**
-     * @return array<string, array<mixed>>
+     * @return array{action: array<int, mixed>}
      */
     public function rules(): array
     {

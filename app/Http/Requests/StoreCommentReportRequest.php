@@ -14,7 +14,7 @@ class StoreCommentReportRequest extends FormRequest
     }
 
     /**
-     * @return array<string, array<mixed>>
+     * @return array{reason: array<int, mixed>, details: array<int, mixed>}
      */
     public function rules(): array
     {

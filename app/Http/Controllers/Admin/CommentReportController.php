@@ -27,7 +27,7 @@ class CommentReportController extends Controller
         $reports = CommentReport::query()
             ->with([
                 'reporter' => fn (BelongsTo $relation) => $relation->withTrashed()->select('id', 'name'),
-                'handler:id,name',
+                'handler' => fn (BelongsTo $relation) => $relation->withTrashed()->select('id', 'name'),
                 'comment.user' => fn (BelongsTo $relation) => $relation->withTrashed()->select('id', 'name'),
                 'comment.post' => fn (BelongsTo $relation) => $relation->withTrashed()->select('id', 'title', 'slug', 'deleted_at'),
             ])
@@ -60,13 +60,19 @@ class CommentReportController extends Controller
     {
         $action = $request->validated('action');
         $moderatorId = $request->user()->id;
+        $applied = false;
 
-        DB::transaction(function () use ($action, $moderatorId, $report): void {
+        DB::transaction(function () use ($action, $moderatorId, $report, &$applied): void {
+            // Lock order: comment first, then report (same as report creation) to avoid deadlocks
+            // and to serialize concurrent moderation of the same comment.
+            $comment = Comment::query()->whereKey($report->comment_id)->lockForUpdate()->first();
             $locked = CommentReport::query()->whereKey($report->id)->lockForUpdate()->firstOrFail();
 
             if ($locked->status !== CommentReport::STATUS_OPEN) {
                 return;
             }
+
+            $applied = true;
 
             if ($action === 'dismiss') {
                 $locked->update([
@@ -78,28 +84,28 @@ class CommentReportController extends Controller
                 return;
             }
 
-            $newStatus = $action === 'delete' ? Comment::STATUS_DELETED : Comment::STATUS_HIDDEN;
+            // A comment already deleted (e.g. by its author) stays deleted so the normal
+            // restore flow keeps working; only the reports are closed.
+            if ($comment !== null && $comment->status !== Comment::STATUS_DELETED) {
+                $newStatus = $action === 'delete' ? Comment::STATUS_DELETED : Comment::STATUS_HIDDEN;
 
-            Comment::query()->whereKey($locked->comment_id)->update([
-                'status' => $newStatus,
-                'moderated_by' => $moderatorId,
-                'moderated_at' => now(),
-                'deleted_by' => $newStatus === Comment::STATUS_DELETED ? $moderatorId : null,
-                'deleted_at' => $newStatus === Comment::STATUS_DELETED ? now() : null,
-                'version' => DB::raw('version + 1'),
-                'updated_at' => now(),
-            ]);
-
-            CommentReport::query()
-                ->where('comment_id', $locked->comment_id)
-                ->where('status', CommentReport::STATUS_OPEN)
-                ->update([
-                    'status' => CommentReport::STATUS_RESOLVED,
-                    'handled_by' => $moderatorId,
-                    'handled_at' => now(),
+                Comment::query()->whereKey($comment->id)->update([
+                    'status' => $newStatus,
+                    'moderated_by' => $moderatorId,
+                    'moderated_at' => now(),
+                    'deleted_by' => $newStatus === Comment::STATUS_DELETED ? $moderatorId : null,
+                    'deleted_at' => $newStatus === Comment::STATUS_DELETED ? now() : null,
+                    'version' => DB::raw('version + 1'),
                     'updated_at' => now(),
                 ]);
+            }
+
+            CommentReport::resolveOpenFor($locked->comment_id, $moderatorId);
         }, attempts: 3);
+
+        if (! $applied) {
+            return back()->withErrors(['report' => 'This report was already handled by another moderator.']);
+        }
 
         return back()->with('status', 'Report updated.');
     }

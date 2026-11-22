@@ -26,6 +26,24 @@ class CommentReport extends Model
 
     protected $fillable = ['comment_id', 'reporter_id', 'reason', 'details', 'status', 'handled_by', 'handled_at'];
 
+    /**
+     * Close every open report on the given comments (used whenever a moderator hides or deletes them).
+     *
+     * @param  list<int>|int  $commentIds
+     */
+    public static function resolveOpenFor(array|int $commentIds, int $moderatorId): int
+    {
+        return static::query()
+            ->whereIn('comment_id', (array) $commentIds)
+            ->where('status', self::STATUS_OPEN)
+            ->update([
+                'status' => self::STATUS_RESOLVED,
+                'handled_by' => $moderatorId,
+                'handled_at' => now(),
+                'updated_at' => now(),
+            ]);
+    }
+
     public function comment(): BelongsTo
     {
         return $this->belongsTo(Comment::class);
