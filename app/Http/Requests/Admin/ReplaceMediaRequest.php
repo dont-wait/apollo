@@ -31,7 +31,7 @@ class ReplaceMediaRequest extends FormRequest
 
                     if (mb_strlen($fileName) > 255) {
                         $fail(
-                            'Tên file không được vượt quá 255 ký tự.'
+                            'The file name may not be greater than 255 characters.'
                         );
                     }
                 },

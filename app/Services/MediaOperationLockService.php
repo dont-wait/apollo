@@ -19,7 +19,7 @@ class MediaOperationLockService
             ->first();
 
         if ($lock === null) {
-            throw new RuntimeException('Không thể khóa các thao tác media.');
+            throw new RuntimeException('Could not lock media operations.');
         }
     }
 }

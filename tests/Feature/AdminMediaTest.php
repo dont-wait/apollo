@@ -289,7 +289,7 @@ class AdminMediaTest extends TestCase
         $response->assertOk();
 
         $response->assertJson([
-            'message' => 'Xóa media thành công.',
+            'message' => 'Media deleted successfully.',
         ]);
 
         $this->assertDatabaseMissing('media', [
@@ -341,7 +341,7 @@ class AdminMediaTest extends TestCase
         $response->assertStatus(409);
 
         $response->assertJson([
-            'message' => 'Không thể xóa media vì đang được sử dụng.',
+            'message' => 'Cannot delete this media because it is in use.',
         ]);
 
         $this->assertDatabaseHas('media', [
@@ -392,7 +392,7 @@ class AdminMediaTest extends TestCase
         $response->assertStatus(409);
 
         $response->assertJson([
-            'message' => 'Không thể xóa media vì đang được sử dụng.',
+            'message' => 'Cannot delete this media because it is in use.',
         ]);
 
         $this->assertDatabaseHas('media', [
@@ -591,7 +591,7 @@ class AdminMediaTest extends TestCase
         $response->assertStatus(409);
 
         $response->assertJson([
-            'message' => 'Không thể thay thế media vì URL đang được sử dụng trong nội dung Markdown.',
+            'message' => 'Cannot replace this media because its URL is used in Markdown content.',
         ]);
 
         $media->refresh();
@@ -651,7 +651,7 @@ class AdminMediaTest extends TestCase
         $response->assertOk();
 
         $response->assertJson([
-            'message' => 'Xóa media thành công.',
+            'message' => 'Media deleted successfully.',
         ]);
 
         $this->assertDatabaseMissing('media', [
@@ -750,7 +750,7 @@ class AdminMediaTest extends TestCase
         $response->assertOk();
 
         $response->assertJson([
-            'message' => 'Thay thế media thành công.',
+            'message' => 'Media replaced successfully.',
         ]);
 
         $media->refresh();

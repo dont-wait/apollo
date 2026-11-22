@@ -77,8 +77,7 @@
                     class="font-body-sm text-body-sm
                            text-on-surface-variant max-w-3xl"
                 >
-                    Lưu trữ, quản lý và tái sử dụng hình ảnh hoặc
-                    tài liệu kỹ thuật cho bài viết.
+                    Store, manage and reuse images and technical documents for your articles.
                 </p>
             </div>
 
@@ -89,7 +88,7 @@
                 <button
                     type="button"
                     disabled
-                    title="Chưa triển khai CDN Sync"
+                    title="CDN Sync is not available yet"
                     class="flex items-center gap-1.5 px-3 py-2
                            bg-surface-container-high
                            text-outline text-label-md
@@ -109,7 +108,7 @@
                 <button
                     type="button"
                     disabled
-                    title="Chưa triển khai Clean Orphaned"
+                    title="Clean Orphaned is not available yet"
                     class="flex items-center gap-1.5 px-3 py-2
                            bg-surface-container-high
                            text-outline text-label-md
@@ -267,8 +266,7 @@
                                            text-headline-sm
                                            text-on-surface"
                                 >
-                                    Kéo thả hình ảnh hoặc tài liệu
-                                    kỹ thuật vào đây
+                                    Drag and drop images or documents here
                                 </span>
 
                                 <span
@@ -353,7 +351,7 @@
                                text-on-surface
                                focus:outline-none w-full
                                placeholder:text-outline"
-                        placeholder="Tìm kiếm file theo tên..."
+                        placeholder="Search files by name..."
                         type="text"
                     >
                 </div>
@@ -411,10 +409,14 @@
                     >
                         <button
                             type="button"
-                            class="p-1 rounded
-                                   bg-surface-container
-                                   text-primary shadow-sm"
-                            title="Grid View"
+                            data-media-view="grid"
+                            aria-pressed="true"
+                            class="p-1 rounded text-outline
+                                   hover:text-on-surface
+                                   aria-pressed:bg-surface-container
+                                   aria-pressed:text-primary
+                                   aria-pressed:shadow-sm"
+                            title="Grid view"
                         >
                             <span
                                 class="material-symbols-outlined
@@ -426,10 +428,14 @@
 
                         <button
                             type="button"
-                            disabled
+                            data-media-view="list"
+                            aria-pressed="false"
                             class="p-1 rounded text-outline
-                                   opacity-50 cursor-not-allowed"
-                            title="List View chưa triển khai"
+                                   hover:text-on-surface
+                                   aria-pressed:bg-surface-container
+                                   aria-pressed:text-primary
+                                   aria-pressed:shadow-sm"
+                            title="List view"
                         >
                             <span
                                 class="material-symbols-outlined
@@ -460,17 +466,11 @@
                            font-label-sm text-label-sm"
                 >
                     <span>
-                        Hiển thị
-                        <span id="visibleMediaCount">
-                            {{ $totalAssets }}
-                        </span>
-                        trong tổng số
-                        {{ $totalAssets }}
-                        tài nguyên
+                        Showing <span id="visibleMediaCount">{{ $totalAssets }}</span> of {{ $totalAssets }} assets
                     </span>
 
                     <span class="text-outline hidden md:block">
-                        Nhấp vào thẻ để mở bảng Inspector chi tiết
+                        Click an item to open the inspector
                     </span>
                 </div>
 
@@ -496,20 +496,20 @@
                                    text-headline-sm
                                    text-on-surface"
                         >
-                            Chưa có media
+                            No media yet
                         </h3>
 
                         <p
                             class="font-body-sm text-body-sm
                                    text-on-surface-variant mt-1"
                         >
-                            Upload hình ảnh hoặc tài liệu đầu tiên
-                            để bắt đầu Media Library.
+                            Upload your first image or document to get started.
                         </p>
                     </div>
                 @else
                     <div
                         id="mediaGrid"
+                        data-view="grid"
                         class="grid grid-cols-1
                                sm:grid-cols-2
                                xl:grid-cols-3
@@ -557,7 +557,7 @@
                                 data-height="{{ $asset->height }}"
                                 data-type="{{ $type }}"
                                 data-uploader="{{ $asset->uploader?->name ?? 'Admin' }}"
-                                data-created="{{ optional($asset->created_at)->format('d/m/Y H:i') }}"
+                                data-created="{{ optional($asset->created_at)->format('M j, Y · H:i') }}"
                             >
                                 <div
                                     class="relative aspect-video
@@ -843,7 +843,7 @@
                            text-on-surface-variant
                            font-body-sm text-body-sm"
                 >
-                    Chọn một media để xem chi tiết.
+                    Select a media item to see its details.
                 </div>
 
                 <div
@@ -976,7 +976,7 @@
                                    font-label-md text-label-md
                                    rounded opacity-60
                                    cursor-not-allowed"
-                            title="Sẽ kết nối với UC01/UC02"
+                            title="Coming soon"
                         >
                             <span
                                 class="material-symbols-outlined
@@ -1003,7 +1003,7 @@
                                 class="font-label-sm text-label-sm
                                        text-on-surface-variant"
                             >
-                                Tên file
+                                File name
                             </label>
 
                             <input
@@ -1162,6 +1162,44 @@
 
             let activeFilter = 'all';
 
+            const mediaGrid = document.getElementById('mediaGrid');
+            const viewButtons = [...document.querySelectorAll('[data-media-view]')];
+
+            function setMediaView(view) {
+                if (mediaGrid) {
+                    mediaGrid.dataset.view = view;
+                }
+
+                viewButtons.forEach((button) => {
+                    button.setAttribute(
+                        'aria-pressed',
+                        String(button.dataset.mediaView === view)
+                    );
+                });
+
+                try {
+                    localStorage.setItem('apollo.mediaView', view);
+                } catch (error) {
+                    // Storage unavailable; the choice only lasts for this page.
+                }
+            }
+
+            viewButtons.forEach((button) => {
+                button.addEventListener('click', () => {
+                    setMediaView(button.dataset.mediaView);
+                });
+            });
+
+            try {
+                const savedView = localStorage.getItem('apollo.mediaView');
+
+                if (savedView === 'list' || savedView === 'grid') {
+                    setMediaView(savedView);
+                }
+            } catch (error) {
+                // Keep the default grid view.
+            }
+
             function showRenameMediaModal({
                 currentName,
                 renameUrl,
@@ -1243,7 +1281,7 @@
 
                         if (!name) {
                             renameMediaError.textContent =
-                                'Tên media không được để trống.';
+                                'Media name cannot be empty.';
 
                             renameMediaError.classList.remove(
                                 'hidden'
@@ -1352,7 +1390,7 @@
                 () => {
                     const file = fileInput.files?.[0];
 
-                    // Reset input để có thể chọn lại chính file này nếu upload thất bại.
+                    // Reset the input so the same file can be picked again if the upload fails.
                     fileInput.value = '';
 
                     if (file) {
@@ -1384,10 +1422,10 @@
 
                     const confirmed =
                         await window.showConfirmModal({
-                            title: 'Thay thế media',
+                            title: 'Replace media',
                             message:
-                                `Bạn có chắc muốn thay "${currentFileName}" bằng "${file.name}" không?`,
-                            confirmText: 'Thay thế',
+                                `Replace "${currentFileName}" with "${file.name}"?`,
+                            confirmText: 'Replace',
                         });
 
                     if (!confirmed) {
@@ -1420,12 +1458,12 @@
 
                             await window.showConfirmModal({
                                 title:
-                                    'Không thể thay thế media',
+                                    'Could not replace media',
                                 message:
                                     validationMessage ??
                                     result.message ??
-                                    'Không thể thay thế media.',
-                                confirmText: 'Đóng',
+                                    'Could not replace the media.',
+                                confirmText: 'Close',
                                 showCancel: false,
                             });
 
@@ -1435,10 +1473,10 @@
                         window.location.reload();
                     } catch (error) {
                         await window.showConfirmModal({
-                            title: 'Lỗi',
+                            title: 'Error',
                             message:
-                                'Có lỗi xảy ra khi thay thế media.',
-                            confirmText: 'Đóng',
+                                'Something went wrong while replacing the media.',
+                            confirmText: 'Close',
                             showCancel: false,
                         });
                     }
@@ -1485,14 +1523,14 @@
                         const error =
                             result.errors?.file?.[0]
                             ?? result.message
-                            ?? 'Upload thất bại.';
+                            ?? 'Upload failed.';
 
                         throw new Error(error);
                     }
 
                     if (uploadMessage) {
                         uploadMessage.textContent =
-                            'Upload thành công.';
+                            'Upload successful.';
 
                         uploadMessage.className =
                             'font-label-sm text-label-sm text-tertiary';
@@ -1873,12 +1911,12 @@
 
                                 await window.showConfirmModal({
                                     title:
-                                        'Không thể đổi tên',
+                                        'Could not rename',
                                     message:
                                         validationMessage ??
                                         result.message ??
-                                        'Không thể đổi tên media.',
-                                    confirmText: 'Đóng',
+                                        'Could not rename the media.',
+                                    confirmText: 'Close',
                                     showCancel: false,
                                 });
 
@@ -1888,10 +1926,10 @@
                             window.location.reload();
                         } catch (error) {
                             await window.showConfirmModal({
-                                title: 'Lỗi',
+                                title: 'Error',
                                 message:
-                                    'Có lỗi xảy ra khi đổi tên media.',
-                                confirmText: 'Đóng',
+                                    'Something went wrong while renaming the media.',
+                                confirmText: 'Close',
                                 showCancel: false,
                             });
                         } finally {
@@ -1922,10 +1960,10 @@
 
                         const confirmed =
                             await window.showConfirmModal({
-                                title: 'Xóa media',
+                                title: 'Delete media',
                                 message:
-                                    `Bạn có chắc muốn xóa "${fileName}" không?`,
-                                confirmText: 'Xóa',
+                                    `Are you sure you want to delete "${fileName}"?`,
+                                confirmText: 'Delete',
                             });
 
                         if (!confirmed) {
@@ -1952,11 +1990,11 @@
                             if (!response.ok) {
                                 await window.showConfirmModal({
                                     title:
-                                        'Không thể xóa media',
+                                        'Could not delete media',
                                     message:
                                         result.message ??
-                                        'Không thể xóa media.',
-                                    confirmText: 'Đóng',
+                                        'Could not delete the media.',
+                                    confirmText: 'Close',
                                     showCancel: false,
                                 });
 
@@ -1966,10 +2004,10 @@
                             window.location.reload();
                         } catch (error) {
                             await window.showConfirmModal({
-                                title: 'Lỗi',
+                                title: 'Error',
                                 message:
-                                    'Có lỗi xảy ra khi xóa media.',
-                                confirmText: 'Đóng',
+                                    'Something went wrong while deleting the media.',
+                                confirmText: 'Close',
                                 showCancel: false,
                             });
                         } finally {

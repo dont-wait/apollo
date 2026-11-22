@@ -52,7 +52,7 @@ class MediaController extends Controller
 
             if ($dimensions === false) {
                 throw ValidationException::withMessages([
-                    'file' => 'File ảnh không hợp lệ hoặc đã bị hỏng.',
+                    'file' => 'The image file is invalid or corrupted.',
                 ]);
             }
 
@@ -79,7 +79,7 @@ class MediaController extends Controller
         }
 
         return response()->json([
-            'message' => 'Upload media thành công.',
+            'message' => 'Media uploaded successfully.',
             'data' => $media,
         ], 201);
     }
@@ -121,7 +121,7 @@ class MediaController extends Controller
 
         if ($cleanup === null) {
             return response()->json([
-                'message' => 'Không thể xóa media vì đang được sử dụng.',
+                'message' => 'Cannot delete this media because it is in use.',
             ], 409);
         }
 
@@ -131,7 +131,7 @@ class MediaController extends Controller
         );
 
         return response()->json([
-            'message' => 'Xóa media thành công.',
+            'message' => 'Media deleted successfully.',
         ]);
     }
 
@@ -164,7 +164,7 @@ class MediaController extends Controller
 
             if (mb_strlen($fileName) > 255) {
                 throw ValidationException::withMessages([
-                    'name' => 'Tên media quá dài.',
+                    'name' => 'The media name is too long.',
                 ]);
             }
 
@@ -176,7 +176,7 @@ class MediaController extends Controller
         });
 
         return response()->json([
-            'message' => 'Đổi tên media thành công.',
+            'message' => 'Media renamed successfully.',
             'data' => $renamedMedia,
         ]);
     }
@@ -201,7 +201,7 @@ class MediaController extends Controller
 
             if ($dimensions === false) {
                 throw ValidationException::withMessages([
-                    'file' => 'File ảnh không hợp lệ hoặc đã bị hỏng.',
+                    'file' => 'The image file is invalid or corrupted.',
                 ]);
             }
 
@@ -257,7 +257,7 @@ class MediaController extends Controller
                         || $size > Post::MAX_THUMBNAIL_KB * 1024
                     ) {
                         throw ValidationException::withMessages([
-                            'file' => 'Media đang được dùng làm thumbnail nên chỉ chấp nhận JPG, JPEG, PNG, WebP và tối đa 5MB.',
+                            'file' => 'This media is used as a thumbnail, so only JPG, JPEG, PNG and WebP files up to 5 MB are accepted.',
                         ]);
                     }
                 }
@@ -305,7 +305,7 @@ class MediaController extends Controller
             );
 
             return response()->json([
-                'message' => 'Không thể thay thế media vì URL đang được sử dụng trong nội dung Markdown.',
+                'message' => 'Cannot replace this media because its URL is used in Markdown content.',
             ], 409);
         }
 
@@ -320,7 +320,7 @@ class MediaController extends Controller
          * into an HTTP error. The durable cleanup record will retry.
          */
         return response()->json([
-            'message' => 'Thay thế media thành công.',
+            'message' => 'Media replaced successfully.',
             'data' => $media->fresh(),
         ]);
     }

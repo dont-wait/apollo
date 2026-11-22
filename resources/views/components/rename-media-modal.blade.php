@@ -23,7 +23,7 @@
                 for="renameMediaInput"
                 class="block text-sm font-medium text-c-c5cad1"
             >
-                Tên mới
+                New name
             </label>
 
             <input
@@ -32,7 +32,7 @@
                 maxlength="250"
                 autocomplete="off"
                 class="w-full rounded-lg border border-c-3a3f47 bg-background px-3 py-2.5 text-sm text-on-surface outline-none transition placeholder:text-c-626a72 focus:border-c-80d4ff"
-                placeholder="Nhập tên media mới"
+                placeholder="Enter a new media name"
             >
 
             <p
@@ -41,7 +41,7 @@
             ></p>
 
             <p class="text-xs text-outline">
-                Phần mở rộng file sẽ được giữ nguyên.
+                The file extension is kept as is.
             </p>
         </div>
 
