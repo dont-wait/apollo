@@ -6,8 +6,11 @@
         </url>
     @endif
     @foreach ($articles as $article)
-        <url>
-            <loc>{{ \App\Support\SiteUrl::article($article->slug) }}</loc>
-        </url>
+        @php $articleUrl = \App\Support\SiteUrl::sitemapArticle($article->slug, $article->canonical_url); @endphp
+        @if ($articleUrl !== null)
+            <url>
+                <loc>{{ $articleUrl }}</loc>
+            </url>
+        @endif
     @endforeach
 </urlset>

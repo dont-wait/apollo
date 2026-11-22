@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Category;
 use App\Models\Post;
+use App\Support\SiteUrl;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
@@ -15,7 +16,10 @@ class SeoControllerTest extends TestCase
     {
         $this->freezeTime();
         $published = Post::factory()->published()->create([
-            'canonical_url' => 'https://example.com/articles/public-article',
+            'canonical_url' => null,
+        ]);
+        $external = Post::factory()->published()->create([
+            'canonical_url' => 'https://outside.example/external-article',
         ]);
         $draft = Post::factory()->create();
         $review = Post::factory()->create(['status' => 'REVIEW']);
@@ -39,8 +43,9 @@ class SeoControllerTest extends TestCase
             ->assertHeader('Content-Type', 'application/xml; charset=UTF-8')
             ->assertSee('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">', false)
             ->assertSee(route('home'), false)
-            ->assertSee(\App\Support\SiteUrl::article($published->slug), false)
-            ->assertDontSee($published->canonical_url, false)
+            ->assertSee(SiteUrl::article($published->slug), false)
+            ->assertDontSee(SiteUrl::article($external->slug), false)
+            ->assertDontSee($external->canonical_url, false)
             ->assertDontSee(route('articles.show', $draft->slug), false)
             ->assertDontSee(route('articles.show', $review->slug), false)
             ->assertDontSee(route('articles.show', $scheduled->slug), false)
@@ -100,6 +105,34 @@ class SeoControllerTest extends TestCase
         $this->assertIsInt($olderPosition);
         $this->assertLessThan($olderPosition, $newerPosition);
     }
+    public function test_trusted_host_allowlist_matches_only_explicit_hosts(): void
+    {
+        config(['seo.trusted_hosts' => ['example.com', 'www.example.com']]);
+
+        $patterns = app(\Illuminate\Http\Middleware\TrustHosts::class)->hosts();
+
+        $this->assertCount(2, $patterns);
+        foreach (['example.com', 'www.example.com'] as $host) {
+            $this->assertTrue((bool) array_filter($patterns, fn (string $pattern): bool => preg_match('/'.$pattern.'/i', $host) === 1));
+        }
+        $this->assertFalse((bool) array_filter($patterns, fn (string $pattern): bool => preg_match('/'.$pattern.'/i', 'evil.example.com') === 1));
+    }
+
+    public function test_same_site_custom_canonical_appears_in_both_sitemap_and_rss(): void
+    {
+        $custom = SiteUrl::route('home').'custom-path';
+        $article = Post::factory()->published()->create(['canonical_url' => $custom]);
+
+        $this->get(route('sitemap'))
+            ->assertOk()
+            ->assertSee('<loc>'.$custom.'</loc>', false)
+            ->assertDontSee('<loc>'.SiteUrl::article($article->slug).'</loc>', false);
+
+        $this->get(route('rss'))
+            ->assertOk()
+            ->assertSee('<link>'.$custom.'</link>', false);
+    }
+
     public function test_sitemap_index_and_pages_split_large_catalog_without_external_urls(): void
     {
         config(['seo.sitemap_chunk_size' => 2]);
@@ -116,10 +149,10 @@ class SeoControllerTest extends TestCase
         $pageOne = $this->get(route('sitemap.page', ['page' => 1]))
             ->assertOk()
             ->assertSee(\App\Support\SiteUrl::route('home'), false)
-            ->assertSee(\App\Support\SiteUrl::article($articles[0]->slug), false)
+            ->assertDontSee(SiteUrl::article($articles[0]->slug), false)
             ->assertDontSee('external.example', false);
 
-        $this->assertSame(3, substr_count($pageOne->getContent(), '<url>'));
+        $this->assertSame(2, substr_count($pageOne->getContent(), '<url>'));
 
         $pageTwo = $this->get(route('sitemap.page', ['page' => 2]))->assertOk();
         $this->assertSame(2, substr_count($pageTwo->getContent(), '<url>'));

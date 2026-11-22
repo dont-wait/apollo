@@ -46,7 +46,7 @@ class SeoController extends Controller
     {
         return Post::query()
             ->published()
-            ->select(['id', 'slug'])
+            ->select(['id', 'slug', 'canonical_url'])
             ->orderBy('published_at')
             ->orderBy('id')
             ->forPage($page, $pageSize)

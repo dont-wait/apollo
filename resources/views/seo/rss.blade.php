@@ -7,7 +7,7 @@
         <language>{{ str_replace('_', '-', app()->getLocale()) }}</language>
         <atom:link href="{{ \App\Support\SiteUrl::route('rss') }}" rel="self" type="application/rss+xml" />
         @foreach ($articles as $article)
-            @php $articleUrl = $article->canonical_url ?: \App\Support\SiteUrl::article($article->slug); @endphp
+            @php $articleUrl = \App\Support\SiteUrl::canonical($article->slug, $article->canonical_url); @endphp
             <item>
                 <title>{{ $article->seo_title ?: $article->title }}</title>
                 <link>{{ $articleUrl }}</link>

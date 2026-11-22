@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Post;
+use App\Support\SiteUrl;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
@@ -43,7 +44,19 @@ class ArticleSeoTest extends TestCase
             ->assertOk()
             ->assertSee('<title>Fallback article · Apollo Blog</title>', false)
             ->assertSee('<meta name="description" content="Fallback excerpt">', false)
-            ->assertSee('<link rel="canonical" href="'.e(route('articles.show', $article->slug)).'">', false);
+            ->assertSee('<link rel="canonical" href="'.e(SiteUrl::article($article->slug)).'">', false);
+    }
+
+    public function test_article_fallback_canonical_uses_app_url_not_request_host(): void
+    {
+        config(['app.url' => 'https://site.example']);
+        $article = Post::factory()->published()->create(['canonical_url' => null]);
+
+        $this->withServerVariables(['HTTP_HOST' => 'other.example'])
+            ->get(route('articles.show', $article->slug, false))
+            ->assertOk()
+            ->assertSee('<link rel="canonical" href="'.SiteUrl::article($article->slug).'">', false)
+            ->assertDontSee('href="http://other.example/articles/', false);
     }
 
     public function test_article_seo_fields_are_escaped_in_the_document_head(): void
