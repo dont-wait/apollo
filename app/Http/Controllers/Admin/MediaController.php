@@ -12,29 +12,52 @@ use App\Models\Post;
 use App\Services\MediaOperationLockService;
 use App\Services\MediaStorageCleanupService;
 use App\Services\MediaUsageService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class MediaController extends Controller
 {
-    public function index(Request $request): JsonResponse|View
+    private const int PER_PAGE = 6;
+
+    public function index(Request $request): JsonResponse|View|RedirectResponse
     {
+        $filters = $request->validate([
+            'q' => ['nullable', 'string', 'max:255'],
+            'type' => ['nullable', Rule::in(['image', 'pdf'])],
+        ]);
+
         $media = Media::query()
             ->with('uploader:id,name,email')
+            ->when($filters['q'] ?? null, function (Builder $query, string $search): void {
+                $query->where('file_name', 'like', '%'.addcslashes($search, '%_\\').'%');
+            })
+            ->when(($filters['type'] ?? null) === 'image', fn (Builder $query) => $query->where('mime_type', 'like', 'image/%'))
+            ->when(($filters['type'] ?? null) === 'pdf', fn (Builder $query) => $query->where('mime_type', 'application/pdf'))
             ->latest()
-            ->get();
+            ->orderByDesc('id')
+            ->paginate(self::PER_PAGE)
+            ->withQueryString();
 
         if ($request->expectsJson()) {
-            return response()->json([
-                'data' => $media,
-            ]);
+            return response()->json($media);
+        }
+
+        // Deleting the last item of the last page would leave an empty page behind.
+        if ($media->isEmpty() && $media->currentPage() > 1) {
+            return redirect()->route('admin.media.index', [...$request->query(), 'page' => $media->lastPage()]);
         }
 
         return view('admin.media.index', [
             'media' => $media,
+            'filters' => $filters,
+            'totalAssets' => Media::query()->count(),
+            'totalBytes' => (int) Media::query()->sum('size_bytes'),
         ]);
     }
 
@@ -52,7 +75,7 @@ class MediaController extends Controller
 
             if ($dimensions === false) {
                 throw ValidationException::withMessages([
-                    'file' => 'File ảnh không hợp lệ hoặc đã bị hỏng.',
+                    'file' => 'The image file is invalid or corrupted.',
                 ]);
             }
 
@@ -79,7 +102,7 @@ class MediaController extends Controller
         }
 
         return response()->json([
-            'message' => 'Upload media thành công.',
+            'message' => 'Media uploaded successfully.',
             'data' => $media,
         ], 201);
     }
@@ -121,7 +144,7 @@ class MediaController extends Controller
 
         if ($cleanup === null) {
             return response()->json([
-                'message' => 'Không thể xóa media vì đang được sử dụng.',
+                'message' => 'Cannot delete this media because it is in use.',
             ], 409);
         }
 
@@ -131,7 +154,7 @@ class MediaController extends Controller
         );
 
         return response()->json([
-            'message' => 'Xóa media thành công.',
+            'message' => 'Media deleted successfully.',
         ]);
     }
 
@@ -164,7 +187,7 @@ class MediaController extends Controller
 
             if (mb_strlen($fileName) > 255) {
                 throw ValidationException::withMessages([
-                    'name' => 'Tên media quá dài.',
+                    'name' => 'The media name is too long.',
                 ]);
             }
 
@@ -176,7 +199,7 @@ class MediaController extends Controller
         });
 
         return response()->json([
-            'message' => 'Đổi tên media thành công.',
+            'message' => 'Media renamed successfully.',
             'data' => $renamedMedia,
         ]);
     }
@@ -201,7 +224,7 @@ class MediaController extends Controller
 
             if ($dimensions === false) {
                 throw ValidationException::withMessages([
-                    'file' => 'File ảnh không hợp lệ hoặc đã bị hỏng.',
+                    'file' => 'The image file is invalid or corrupted.',
                 ]);
             }
 
@@ -257,7 +280,7 @@ class MediaController extends Controller
                         || $size > Post::MAX_THUMBNAIL_KB * 1024
                     ) {
                         throw ValidationException::withMessages([
-                            'file' => 'Media đang được dùng làm thumbnail nên chỉ chấp nhận JPG, JPEG, PNG, WebP và tối đa 5MB.',
+                            'file' => 'This media is used as a thumbnail, so only JPG, JPEG, PNG and WebP files up to 5 MB are accepted.',
                         ]);
                     }
                 }
@@ -305,7 +328,7 @@ class MediaController extends Controller
             );
 
             return response()->json([
-                'message' => 'Không thể thay thế media vì URL đang được sử dụng trong nội dung Markdown.',
+                'message' => 'Cannot replace this media because its URL is used in Markdown content.',
             ], 409);
         }
 
@@ -320,7 +343,7 @@ class MediaController extends Controller
          * into an HTTP error. The durable cleanup record will retry.
          */
         return response()->json([
-            'message' => 'Thay thế media thành công.',
+            'message' => 'Media replaced successfully.',
             'data' => $media->fresh(),
         ]);
     }

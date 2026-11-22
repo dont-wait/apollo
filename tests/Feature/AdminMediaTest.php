@@ -64,6 +64,71 @@ class AdminMediaTest extends TestCase
         ]);
     }
 
+    public function test_media_list_is_paginated_and_totals_cover_every_page(): void
+    {
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+        Media::factory()->count(30)->create(['uploaded_by' => $admin->id, 'size_bytes' => 1024]);
+
+        $this->actingAs($admin)
+            ->get('/admin/media')
+            ->assertOk()
+            ->assertSeeText('Showing 1–6 of 30 assets')
+            ->assertViewHas('totalAssets', 30)
+            ->assertViewHas('totalBytes', 30 * 1024)
+            ->assertViewHas('media', fn ($media): bool => $media->count() === 6 && $media->lastPage() === 5);
+
+        $this->get('/admin/media?page=2')
+            ->assertOk()
+            ->assertSeeText('Showing 7–12 of 30 assets')
+            ->assertViewHas('media', fn ($media): bool => $media->count() === 6 && $media->currentPage() === 2);
+
+        $this->getJson('/admin/media?page=2')
+            ->assertOk()
+            ->assertJsonPath('total', 30)
+            ->assertJsonCount(6, 'data');
+    }
+
+    public function test_media_list_can_be_searched_and_filtered_by_type_across_pages(): void
+    {
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+        Media::factory()->count(14)->create(['uploaded_by' => $admin->id, 'mime_type' => 'image/png']);
+        Media::factory()->create(['uploaded_by' => $admin->id, 'file_name' => 'quarterly-report.pdf', 'mime_type' => 'application/pdf']);
+        Media::factory()->create(['uploaded_by' => $admin->id, 'file_name' => 'hero_banner.png', 'mime_type' => 'image/png']);
+
+        $this->actingAs($admin)
+            ->get('/admin/media?type=pdf')
+            ->assertOk()
+            ->assertSeeText('quarterly-report.pdf')
+            ->assertSeeText('Showing 1–1 of 1 asset')
+            ->assertSeeText('(16 total)');
+
+        $this->get('/admin/media?q=hero_banner')
+            ->assertOk()
+            ->assertSeeText('hero_banner.png')
+            ->assertDontSeeText('quarterly-report.pdf');
+
+        $this->get('/admin/media?type=image')
+            ->assertOk()
+            ->assertViewHas('media', fn ($media): bool => $media->total() === 15);
+
+        $this->get('/admin/media?q=zzz-no-match')
+            ->assertOk()
+            ->assertSeeText('No media found')
+            ->assertSeeText('Clear filters');
+
+        $this->get('/admin/media?type=video')->assertSessionHasErrors('type');
+    }
+
+    public function test_requesting_a_page_past_the_end_redirects_to_the_last_page(): void
+    {
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+        Media::factory()->count(13)->create(['uploaded_by' => $admin->id]);
+
+        $this->actingAs($admin)
+            ->get('/admin/media?page=9')
+            ->assertRedirect('/admin/media?page=3');
+    }
+
     public function test_media_page_shows_the_configured_storage_label(): void
     {
         config([
@@ -289,7 +354,7 @@ class AdminMediaTest extends TestCase
         $response->assertOk();
 
         $response->assertJson([
-            'message' => 'Xóa media thành công.',
+            'message' => 'Media deleted successfully.',
         ]);
 
         $this->assertDatabaseMissing('media', [
@@ -341,7 +406,7 @@ class AdminMediaTest extends TestCase
         $response->assertStatus(409);
 
         $response->assertJson([
-            'message' => 'Không thể xóa media vì đang được sử dụng.',
+            'message' => 'Cannot delete this media because it is in use.',
         ]);
 
         $this->assertDatabaseHas('media', [
@@ -392,7 +457,7 @@ class AdminMediaTest extends TestCase
         $response->assertStatus(409);
 
         $response->assertJson([
-            'message' => 'Không thể xóa media vì đang được sử dụng.',
+            'message' => 'Cannot delete this media because it is in use.',
         ]);
 
         $this->assertDatabaseHas('media', [
@@ -591,7 +656,7 @@ class AdminMediaTest extends TestCase
         $response->assertStatus(409);
 
         $response->assertJson([
-            'message' => 'Không thể thay thế media vì URL đang được sử dụng trong nội dung Markdown.',
+            'message' => 'Cannot replace this media because its URL is used in Markdown content.',
         ]);
 
         $media->refresh();
@@ -651,7 +716,7 @@ class AdminMediaTest extends TestCase
         $response->assertOk();
 
         $response->assertJson([
-            'message' => 'Xóa media thành công.',
+            'message' => 'Media deleted successfully.',
         ]);
 
         $this->assertDatabaseMissing('media', [
@@ -750,7 +815,7 @@ class AdminMediaTest extends TestCase
         $response->assertOk();
 
         $response->assertJson([
-            'message' => 'Thay thế media thành công.',
+            'message' => 'Media replaced successfully.',
         ]);
 
         $media->refresh();

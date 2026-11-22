@@ -4,10 +4,12 @@
 
 @section('content')
     @php
-        $totalAssets = $media->count();
-        $totalBytes = $media->sum('size_bytes');
-
         $storageLabel = strtoupper((string) config('filesystems.media_disk', 'local'));
+
+        $activeType = $filters['type'] ?? null;
+        $searchTerm = $filters['q'] ?? '';
+        $isFiltered = $activeType !== null || $searchTerm !== '';
+        $filterUrl = fn (?string $type) => route('admin.media.index', array_filter(['q' => $searchTerm ?: null, 'type' => $type]));
 
         $formatBytes = function ($bytes) {
             return match (true) {
@@ -77,8 +79,7 @@
                     class="font-body-sm text-body-sm
                            text-on-surface-variant max-w-3xl"
                 >
-                    Lưu trữ, quản lý và tái sử dụng hình ảnh hoặc
-                    tài liệu kỹ thuật cho bài viết.
+                    Store, manage and reuse images and technical documents for your articles.
                 </p>
             </div>
 
@@ -89,7 +90,7 @@
                 <button
                     type="button"
                     disabled
-                    title="Chưa triển khai CDN Sync"
+                    title="CDN Sync is not available yet"
                     class="flex items-center gap-1.5 px-3 py-2
                            bg-surface-container-high
                            text-outline text-label-md
@@ -109,7 +110,7 @@
                 <button
                     type="button"
                     disabled
-                    title="Chưa triển khai Clean Orphaned"
+                    title="Clean Orphaned is not available yet"
                     class="flex items-center gap-1.5 px-3 py-2
                            bg-surface-container-high
                            text-outline text-label-md
@@ -199,7 +200,7 @@
         </div>
 
         {{-- DROPZONE --}}
-        <div class="p-space-lg w-full">
+        <div class="px-space-lg pt-space-md pb-1 w-full">
             <input
                 id="mediaFileInput"
                 type="file"
@@ -220,7 +221,9 @@
                        bg-surface-container-low
                        hover:bg-surface-container
                        transition-all duration-300
-                       rounded-xl p-6 shadow-sm overflow-hidden"
+                       border border-dashed border-outline-variant/50
+                       hover:border-primary/60
+                       rounded-lg px-4 py-2.5 overflow-hidden"
             >
                 <div
                     class="absolute -inset-1
@@ -235,60 +238,49 @@
                 ></div>
 
                 <div
-                    class="relative flex flex-col md:flex-row
+                    class="relative flex flex-col sm:flex-row
                            items-center justify-between
-                           gap-6 z-10"
+                           gap-3 z-10"
                 >
-                    <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-3">
                         <div
-                            class="w-14 h-14 rounded-lg
+                            class="w-8 h-8 rounded-md
                                    bg-surface-container-high
                                    flex items-center justify-center
                                    text-primary
-                                   group-hover:scale-105
-                                   transition-transform
-                                   shrink-0 shadow-inner"
+                                   shrink-0"
                         >
                             <span
                                 class="material-symbols-outlined
-                                       text-[32px]"
+                                       text-[20px]"
                             >
                                 file_upload
                             </span>
                         </div>
 
-                        <div>
-                            <div
-                                class="flex items-center
-                                       gap-2 flex-wrap"
+                        <div class="flex flex-wrap items-baseline gap-x-2">
+                            <span
+                                class="font-body-sm text-body-sm
+                                       font-medium text-on-surface"
                             >
-                                <span
-                                    class="font-headline-sm
-                                           text-headline-sm
-                                           text-on-surface"
-                                >
-                                    Kéo thả hình ảnh hoặc tài liệu
-                                    kỹ thuật vào đây
-                                </span>
+                                Drag and drop images or documents here
+                            </span>
 
-                                <span
-                                    class="font-label-sm text-label-sm
-                                           text-primary
-                                           bg-surface-container-high
-                                           px-2 py-0.5 rounded"
-                                >
-                                </span>
-                            </div>
+                            <span
+                                class="font-label-sm text-label-sm
+                                       text-outline"
+                            >
+                                or click to browse
+                            </span>
                         </div>
                     </div>
 
                     <div
                         id="uploadStatus"
-                        class="hidden w-full md:w-auto
+                        class="hidden w-full sm:w-auto
                                bg-surface-container-lowest
-                               px-4 py-2.5 rounded-lg
-                               items-center gap-3 shrink-0
-                               shadow-sm"
+                               px-3 py-1.5 rounded-md
+                               items-center gap-2.5 shrink-0"
                     >
                         <div
                             class="w-8 h-8 rounded
@@ -332,13 +324,20 @@
                        items-center justify-between gap-3
                        shadow-sm"
             >
-                <div
+                <form
+                    method="GET"
+                    action="{{ route('admin.media.index') }}"
+                    role="search"
                     class="flex items-center gap-2
                            bg-surface-container-highest
                            px-3 py-2 rounded
                            w-full xl:w-96
                            text-on-surface-variant"
                 >
+                    @if ($activeType)
+                        <input type="hidden" name="type" value="{{ $activeType }}">
+                    @endif
+
                     <span
                         class="material-symbols-outlined
                                text-[18px] text-outline"
@@ -348,15 +347,17 @@
 
                     <input
                         id="mediaSearch"
+                        name="q"
+                        value="{{ $searchTerm }}"
                         class="bg-transparent
                                font-body-sm text-body-sm
                                text-on-surface
                                focus:outline-none w-full
                                placeholder:text-outline"
-                        placeholder="Tìm kiếm file theo tên..."
+                        placeholder="Search files by name..."
                         type="text"
                     >
-                </div>
+                </form>
 
                 <div
                     class="flex items-center gap-2
@@ -369,39 +370,50 @@
                                p-1 rounded
                                font-label-sm text-label-sm"
                     >
-                        <button
-                            type="button"
-                            data-media-filter="all"
+                        <a
+                            href="{{ $filterUrl(null) }}"
+                            aria-current="{{ $activeType === null ? 'page' : 'false' }}"
                             class="media-filter
                                    px-2.5 py-1 rounded
-                                   bg-surface-container
-                                   text-primary font-semibold
-                                   shadow-sm"
+                                   text-on-surface-variant
+                                   hover:text-on-surface
+                                   aria-[current=page]:bg-surface-container
+                                   aria-[current=page]:text-primary
+                                   aria-[current=page]:font-semibold
+                                   aria-[current=page]:shadow-sm"
                         >
                             All
-                        </button>
+                        </a>
 
-                        <button
-                            type="button"
-                            data-media-filter="image"
+                        <a
+                            href="{{ $filterUrl('image') }}"
+                            aria-current="{{ $activeType === 'image' ? 'page' : 'false' }}"
                             class="media-filter
                                    px-2.5 py-1 rounded
                                    text-on-surface-variant
-                                   hover:text-on-surface"
+                                   hover:text-on-surface
+                                   aria-[current=page]:bg-surface-container
+                                   aria-[current=page]:text-primary
+                                   aria-[current=page]:font-semibold
+                                   aria-[current=page]:shadow-sm"
                         >
                             Images
-                        </button>
+                        </a>
 
-                        <button
-                            type="button"
-                            data-media-filter="pdf"
+                        <a
+                            href="{{ $filterUrl('pdf') }}"
+                            aria-current="{{ $activeType === 'pdf' ? 'page' : 'false' }}"
                             class="media-filter
                                    px-2.5 py-1 rounded
                                    text-on-surface-variant
-                                   hover:text-on-surface"
+                                   hover:text-on-surface
+                                   aria-[current=page]:bg-surface-container
+                                   aria-[current=page]:text-primary
+                                   aria-[current=page]:font-semibold
+                                   aria-[current=page]:shadow-sm"
                         >
                             PDFs
-                        </button>
+                        </a>
                     </div>
 
                     <div
@@ -411,10 +423,14 @@
                     >
                         <button
                             type="button"
-                            class="p-1 rounded
-                                   bg-surface-container
-                                   text-primary shadow-sm"
-                            title="Grid View"
+                            data-media-view="grid"
+                            aria-pressed="true"
+                            class="p-1 rounded text-outline
+                                   hover:text-on-surface
+                                   aria-pressed:bg-surface-container
+                                   aria-pressed:text-primary
+                                   aria-pressed:shadow-sm"
+                            title="Grid view"
                         >
                             <span
                                 class="material-symbols-outlined
@@ -426,10 +442,14 @@
 
                         <button
                             type="button"
-                            disabled
+                            data-media-view="list"
+                            aria-pressed="false"
                             class="p-1 rounded text-outline
-                                   opacity-50 cursor-not-allowed"
-                            title="List View chưa triển khai"
+                                   hover:text-on-surface
+                                   aria-pressed:bg-surface-container
+                                   aria-pressed:text-primary
+                                   aria-pressed:shadow-sm"
+                            title="List view"
                         >
                             <span
                                 class="material-symbols-outlined
@@ -460,17 +480,20 @@
                            font-label-sm text-label-sm"
                 >
                     <span>
-                        Hiển thị
-                        <span id="visibleMediaCount">
-                            {{ $totalAssets }}
-                        </span>
-                        trong tổng số
-                        {{ $totalAssets }}
-                        tài nguyên
+                        @if ($media->total() > 0)
+                            Showing
+                            <span id="visibleMediaCount">{{ $media->firstItem() }}–{{ $media->lastItem() }}</span>
+                            of {{ number_format($media->total()) }} {{ \Illuminate\Support\Str::plural('asset', $media->total()) }}
+                            @if ($isFiltered)
+                                <span class="text-outline">({{ number_format($totalAssets) }} total)</span>
+                            @endif
+                        @else
+                            No assets
+                        @endif
                     </span>
 
                     <span class="text-outline hidden md:block">
-                        Nhấp vào thẻ để mở bảng Inspector chi tiết
+                        Click an item to open the inspector
                     </span>
                 </div>
 
@@ -496,20 +519,25 @@
                                    text-headline-sm
                                    text-on-surface"
                         >
-                            Chưa có media
+                            {{ $isFiltered ? 'No media found' : 'No media yet' }}
                         </h3>
 
                         <p
                             class="font-body-sm text-body-sm
                                    text-on-surface-variant mt-1"
                         >
-                            Upload hình ảnh hoặc tài liệu đầu tiên
-                            để bắt đầu Media Library.
+                            @if ($isFiltered)
+                                Try a different search or filter.
+                                <a href="{{ route('admin.media.index') }}" class="text-primary hover:underline">Clear filters</a>
+                            @else
+                                Upload your first image or document to get started.
+                            @endif
                         </p>
                     </div>
                 @else
                     <div
                         id="mediaGrid"
+                        data-view="grid"
                         class="grid grid-cols-1
                                sm:grid-cols-2
                                xl:grid-cols-3
@@ -557,7 +585,7 @@
                                 data-height="{{ $asset->height }}"
                                 data-type="{{ $type }}"
                                 data-uploader="{{ $asset->uploader?->name ?? 'Admin' }}"
-                                data-created="{{ optional($asset->created_at)->format('d/m/Y H:i') }}"
+                                data-created="{{ optional($asset->created_at)->format('M j, Y · H:i') }}"
                             >
                                 <div
                                     class="relative aspect-video
@@ -793,6 +821,12 @@
                             </div>
                         @endforeach
                     </div>
+
+                    @if ($media->hasPages())
+                        <div class="pt-2">
+                            {{ $media->links() }}
+                        </div>
+                    @endif
                 @endif
             </div>
 
@@ -843,7 +877,7 @@
                            text-on-surface-variant
                            font-body-sm text-body-sm"
                 >
-                    Chọn một media để xem chi tiết.
+                    Select a media item to see its details.
                 </div>
 
                 <div
@@ -976,7 +1010,7 @@
                                    font-label-md text-label-md
                                    rounded opacity-60
                                    cursor-not-allowed"
-                            title="Sẽ kết nối với UC01/UC02"
+                            title="Coming soon"
                         >
                             <span
                                 class="material-symbols-outlined
@@ -1003,7 +1037,7 @@
                                 class="font-label-sm text-label-sm
                                        text-on-surface-variant"
                             >
-                                Tên file
+                                File name
                             </label>
 
                             <input
@@ -1153,14 +1187,43 @@
                 ...document.querySelectorAll('.media-card'),
             ];
 
-            const filterButtons = [
-                ...document.querySelectorAll('.media-filter'),
-            ];
+            const mediaGrid = document.getElementById('mediaGrid');
+            const viewButtons = [...document.querySelectorAll('[data-media-view]')];
 
-            const visibleCount =
-                document.getElementById('visibleMediaCount');
+            function setMediaView(view) {
+                if (mediaGrid) {
+                    mediaGrid.dataset.view = view;
+                }
 
-            let activeFilter = 'all';
+                viewButtons.forEach((button) => {
+                    button.setAttribute(
+                        'aria-pressed',
+                        String(button.dataset.mediaView === view)
+                    );
+                });
+
+                try {
+                    localStorage.setItem('apollo.mediaView', view);
+                } catch (error) {
+                    // Storage unavailable; the choice only lasts for this page.
+                }
+            }
+
+            viewButtons.forEach((button) => {
+                button.addEventListener('click', () => {
+                    setMediaView(button.dataset.mediaView);
+                });
+            });
+
+            try {
+                const savedView = localStorage.getItem('apollo.mediaView');
+
+                if (savedView === 'list' || savedView === 'grid') {
+                    setMediaView(savedView);
+                }
+            } catch (error) {
+                // Keep the default grid view.
+            }
 
             function showRenameMediaModal({
                 currentName,
@@ -1243,7 +1306,7 @@
 
                         if (!name) {
                             renameMediaError.textContent =
-                                'Tên media không được để trống.';
+                                'Media name cannot be empty.';
 
                             renameMediaError.classList.remove(
                                 'hidden'
@@ -1352,7 +1415,7 @@
                 () => {
                     const file = fileInput.files?.[0];
 
-                    // Reset input để có thể chọn lại chính file này nếu upload thất bại.
+                    // Reset the input so the same file can be picked again if the upload fails.
                     fileInput.value = '';
 
                     if (file) {
@@ -1384,10 +1447,10 @@
 
                     const confirmed =
                         await window.showConfirmModal({
-                            title: 'Thay thế media',
+                            title: 'Replace media',
                             message:
-                                `Bạn có chắc muốn thay "${currentFileName}" bằng "${file.name}" không?`,
-                            confirmText: 'Thay thế',
+                                `Replace "${currentFileName}" with "${file.name}"?`,
+                            confirmText: 'Replace',
                         });
 
                     if (!confirmed) {
@@ -1420,12 +1483,12 @@
 
                             await window.showConfirmModal({
                                 title:
-                                    'Không thể thay thế media',
+                                    'Could not replace media',
                                 message:
                                     validationMessage ??
                                     result.message ??
-                                    'Không thể thay thế media.',
-                                confirmText: 'Đóng',
+                                    'Could not replace the media.',
+                                confirmText: 'Close',
                                 showCancel: false,
                             });
 
@@ -1435,10 +1498,10 @@
                         window.location.reload();
                     } catch (error) {
                         await window.showConfirmModal({
-                            title: 'Lỗi',
+                            title: 'Error',
                             message:
-                                'Có lỗi xảy ra khi thay thế media.',
-                            confirmText: 'Đóng',
+                                'Something went wrong while replacing the media.',
+                            confirmText: 'Close',
                             showCancel: false,
                         });
                     }
@@ -1485,14 +1548,14 @@
                         const error =
                             result.errors?.file?.[0]
                             ?? result.message
-                            ?? 'Upload thất bại.';
+                            ?? 'Upload failed.';
 
                         throw new Error(error);
                     }
 
                     if (uploadMessage) {
                         uploadMessage.textContent =
-                            'Upload thành công.';
+                            'Upload successful.';
 
                         uploadMessage.className =
                             'font-label-sm text-label-sm text-tertiary';
@@ -1512,90 +1575,23 @@
                 }
             }
 
-            function applyFilters() {
-                const keyword =
-                    searchInput?.value
-                        .toLocaleLowerCase('vi-VN')
-                        .trim() ?? '';
+            // Search and type filters run on the server so they cover every page.
+            let searchTimer;
 
-                let count = 0;
-
-                cards.forEach((card) => {
-                    const name =
-                        card.dataset.name
-                            ?.toLocaleLowerCase('vi-VN')
-                        ?? '';
-
-                    const type =
-                        card.dataset.type ?? '';
-
-                    const matchesSearch =
-                        name.includes(keyword);
-
-                    const matchesType =
-                        activeFilter === 'all'
-                        || activeFilter === type;
-
-                    const visible =
-                        matchesSearch && matchesType;
-
-                    card.classList.toggle(
-                        'hidden',
-                        !visible
-                    );
-
-                    if (visible) {
-                        count++;
-                    }
-                });
-
-                if (visibleCount) {
-                    visibleCount.textContent = count;
-                }
-            }
-
-            searchInput?.addEventListener(
-                'input',
-                applyFilters
-            );
-
-            filterButtons.forEach((button) => {
-                button.addEventListener(
-                    'click',
-                    () => {
-                        activeFilter =
-                            button.dataset.mediaFilter;
-
-                        filterButtons.forEach(
-                            (item) => {
-                                item.classList.remove(
-                                    'bg-surface-container',
-                                    'text-primary',
-                                    'font-semibold',
-                                    'shadow-sm'
-                                );
-
-                                item.classList.add(
-                                    'text-on-surface-variant'
-                                );
-                            }
-                        );
-
-                        button.classList.remove(
-                            'text-on-surface-variant'
-                        );
-
-                        button.classList.add(
-                            'bg-surface-container',
-                            'text-primary',
-                            'font-semibold',
-                            'shadow-sm'
-                        );
-
-                        applyFilters();
-                    }
-                );
+            searchInput?.addEventListener('input', () => {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(() => {
+                    searchInput.form?.requestSubmit();
+                }, 450);
             });
+
+            if (searchInput && new URLSearchParams(window.location.search).has('q')) {
+                searchInput.focus();
+                searchInput.setSelectionRange(
+                    searchInput.value.length,
+                    searchInput.value.length
+                );
+            }
 
             const inspectorEmpty =
                 document.getElementById(
@@ -1873,12 +1869,12 @@
 
                                 await window.showConfirmModal({
                                     title:
-                                        'Không thể đổi tên',
+                                        'Could not rename',
                                     message:
                                         validationMessage ??
                                         result.message ??
-                                        'Không thể đổi tên media.',
-                                    confirmText: 'Đóng',
+                                        'Could not rename the media.',
+                                    confirmText: 'Close',
                                     showCancel: false,
                                 });
 
@@ -1888,10 +1884,10 @@
                             window.location.reload();
                         } catch (error) {
                             await window.showConfirmModal({
-                                title: 'Lỗi',
+                                title: 'Error',
                                 message:
-                                    'Có lỗi xảy ra khi đổi tên media.',
-                                confirmText: 'Đóng',
+                                    'Something went wrong while renaming the media.',
+                                confirmText: 'Close',
                                 showCancel: false,
                             });
                         } finally {
@@ -1922,10 +1918,10 @@
 
                         const confirmed =
                             await window.showConfirmModal({
-                                title: 'Xóa media',
+                                title: 'Delete media',
                                 message:
-                                    `Bạn có chắc muốn xóa "${fileName}" không?`,
-                                confirmText: 'Xóa',
+                                    `Are you sure you want to delete "${fileName}"?`,
+                                confirmText: 'Delete',
                             });
 
                         if (!confirmed) {
@@ -1952,11 +1948,11 @@
                             if (!response.ok) {
                                 await window.showConfirmModal({
                                     title:
-                                        'Không thể xóa media',
+                                        'Could not delete media',
                                     message:
                                         result.message ??
-                                        'Không thể xóa media.',
-                                    confirmText: 'Đóng',
+                                        'Could not delete the media.',
+                                    confirmText: 'Close',
                                     showCancel: false,
                                 });
 
@@ -1966,10 +1962,10 @@
                             window.location.reload();
                         } catch (error) {
                             await window.showConfirmModal({
-                                title: 'Lỗi',
+                                title: 'Error',
                                 message:
-                                    'Có lỗi xảy ra khi xóa media.',
-                                confirmText: 'Đóng',
+                                    'Something went wrong while deleting the media.',
+                                confirmText: 'Close',
                                 showCancel: false,
                             });
                         } finally {
