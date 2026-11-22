@@ -35,6 +35,25 @@ class HomePageTest extends TestCase
             ->assertDontSeeText($user->email);
     }
 
+    public function test_admin_sees_the_dashboard_link_in_the_public_header(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)
+            ->get(route('home'))
+            ->assertSee('href="'.route('admin.dashboard').'"', false)
+            ->assertSeeText('Dashboard');
+    }
+
+    public function test_regular_user_does_not_see_the_dashboard_link_in_the_public_header(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('home'))
+            ->assertDontSee('href="'.route('admin.dashboard').'"', false);
+    }
+
     public function test_home_page_lists_published_articles_only(): void
     {
         $publishedArticle = Post::factory()->published()->create([
