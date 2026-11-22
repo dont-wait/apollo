@@ -156,55 +156,7 @@
                 </div>
             </div>
             <div class="flex items-center gap-space-md">
-                <details data-theme-picker class="relative">
-                    <summary class="cursor-pointer list-none rounded p-2 text-on-surface-variant hover:bg-surface-container hover:text-on-surface" aria-label="Change theme" title="Theme">
-                        <span class="material-symbols-outlined text-[20px]">palette</span>
-                    </summary>
-                    <div class="absolute right-0 top-full z-50 mt-2 grid w-60 gap-1 rounded border border-outline-variant bg-surface-container-lowest p-2 shadow-xl">
-                        <p class="px-2 pt-1 text-[10px] uppercase tracking-wider text-outline">Dark</p>
-                        <button type="button" data-theme-option="dark" class="flex w-full items-center justify-between gap-3 rounded px-2 py-2 text-left text-sm text-on-surface hover:bg-surface-container-high aria-[current=true]:bg-surface-container-high">
-                            <span class="flex items-center gap-2"><span class="flex overflow-hidden rounded-full border border-outline-variant/50"><i class="h-4 w-4" style="background:#111319"></i><i class="h-4 w-4" style="background:#38bdf8"></i><i class="h-4 w-4" style="background:#c0c1ff"></i><i class="h-4 w-4" style="background:#56e5a9"></i></span>Apollo Dark</span>
-                            <span class="material-symbols-outlined text-base text-primary opacity-0 [[aria-current=true]>&]:opacity-100">check</span>
-                        </button>
-                        <button type="button" data-theme-option="catppuccin" class="flex w-full items-center justify-between gap-3 rounded px-2 py-2 text-left text-sm text-on-surface hover:bg-surface-container-high aria-[current=true]:bg-surface-container-high">
-                            <span class="flex items-center gap-2"><span class="flex overflow-hidden rounded-full border border-outline-variant/50"><i class="h-4 w-4" style="background:#181825"></i><i class="h-4 w-4" style="background:#cba6f7"></i><i class="h-4 w-4" style="background:#89b4fa"></i><i class="h-4 w-4" style="background:#a6e3a1"></i></span>Catppuccin Mocha</span>
-                            <span class="material-symbols-outlined text-base text-primary opacity-0 [[aria-current=true]>&]:opacity-100">check</span>
-                        </button>
-                        <button type="button" data-theme-option="tokyonight" class="flex w-full items-center justify-between gap-3 rounded px-2 py-2 text-left text-sm text-on-surface hover:bg-surface-container-high aria-[current=true]:bg-surface-container-high">
-                            <span class="flex items-center gap-2"><span class="flex overflow-hidden rounded-full border border-outline-variant/50"><i class="h-4 w-4" style="background:#16161e"></i><i class="h-4 w-4" style="background:#7aa2f7"></i><i class="h-4 w-4" style="background:#bb9af7"></i><i class="h-4 w-4" style="background:#9ece6a"></i></span>Tokyo Night</span>
-                            <span class="material-symbols-outlined text-base text-primary opacity-0 [[aria-current=true]>&]:opacity-100">check</span>
-                        </button>
-                        <button type="button" data-theme-option="kanagawa" class="flex w-full items-center justify-between gap-3 rounded px-2 py-2 text-left text-sm text-on-surface hover:bg-surface-container-high aria-[current=true]:bg-surface-container-high">
-                            <span class="flex items-center gap-2"><span class="flex overflow-hidden rounded-full border border-outline-variant/50"><i class="h-4 w-4" style="background:#181820"></i><i class="h-4 w-4" style="background:#7e9cd8"></i><i class="h-4 w-4" style="background:#957fb8"></i><i class="h-4 w-4" style="background:#98bb6c"></i></span>Kanagawa Wave</span>
-                            <span class="material-symbols-outlined text-base text-primary opacity-0 [[aria-current=true]>&]:opacity-100">check</span>
-                        </button>
-                        <button type="button" data-theme-option="gruvbox" class="flex w-full items-center justify-between gap-3 rounded px-2 py-2 text-left text-sm text-on-surface hover:bg-surface-container-high aria-[current=true]:bg-surface-container-high">
-                            <span class="flex items-center gap-2"><span class="flex overflow-hidden rounded-full border border-outline-variant/50"><i class="h-4 w-4" style="background:#282828"></i><i class="h-4 w-4" style="background:#fabd2f"></i><i class="h-4 w-4" style="background:#d3869b"></i><i class="h-4 w-4" style="background:#b8bb26"></i></span>Gruvbox Dark</span>
-                            <span class="material-symbols-outlined text-base text-primary opacity-0 [[aria-current=true]>&]:opacity-100">check</span>
-                        </button>
-                        <p class="px-2 pt-2 text-[10px] uppercase tracking-wider text-outline">Light</p>
-                        <button type="button" data-theme-option="light" class="flex w-full items-center justify-between gap-3 rounded px-2 py-2 text-left text-sm text-on-surface hover:bg-surface-container-high aria-[current=true]:bg-surface-container-high">
-                            <span class="flex items-center gap-2"><span class="flex overflow-hidden rounded-full border border-outline-variant/50"><i class="h-4 w-4" style="background:#f4f6fa"></i><i class="h-4 w-4" style="background:#0284c7"></i><i class="h-4 w-4" style="background:#6366f1"></i><i class="h-4 w-4" style="background:#059669"></i></span>Apollo Light</span>
-                            <span class="material-symbols-outlined text-base text-primary opacity-0 [[aria-current=true]>&]:opacity-100">check</span>
-                        </button>
-                        <button type="button" data-theme-option="catppuccin-latte" class="flex w-full items-center justify-between gap-3 rounded px-2 py-2 text-left text-sm text-on-surface hover:bg-surface-container-high aria-[current=true]:bg-surface-container-high">
-                            <span class="flex items-center gap-2"><span class="flex overflow-hidden rounded-full border border-outline-variant/50"><i class="h-4 w-4" style="background:#eff1f5"></i><i class="h-4 w-4" style="background:#8839ef"></i><i class="h-4 w-4" style="background:#1e66f5"></i><i class="h-4 w-4" style="background:#40a02b"></i></span>Catppuccin Latte</span>
-                            <span class="material-symbols-outlined text-base text-primary opacity-0 [[aria-current=true]>&]:opacity-100">check</span>
-                        </button>
-                        <button type="button" data-theme-option="tokyonight-day" class="flex w-full items-center justify-between gap-3 rounded px-2 py-2 text-left text-sm text-on-surface hover:bg-surface-container-high aria-[current=true]:bg-surface-container-high">
-                            <span class="flex items-center gap-2"><span class="flex overflow-hidden rounded-full border border-outline-variant/50"><i class="h-4 w-4" style="background:#e1e2e7"></i><i class="h-4 w-4" style="background:#2e7de9"></i><i class="h-4 w-4" style="background:#9854f1"></i><i class="h-4 w-4" style="background:#587539"></i></span>Tokyo Night Day</span>
-                            <span class="material-symbols-outlined text-base text-primary opacity-0 [[aria-current=true]>&]:opacity-100">check</span>
-                        </button>
-                        <button type="button" data-theme-option="kanagawa-lotus" class="flex w-full items-center justify-between gap-3 rounded px-2 py-2 text-left text-sm text-on-surface hover:bg-surface-container-high aria-[current=true]:bg-surface-container-high">
-                            <span class="flex items-center gap-2"><span class="flex overflow-hidden rounded-full border border-outline-variant/50"><i class="h-4 w-4" style="background:#f2ecbc"></i><i class="h-4 w-4" style="background:#4d699b"></i><i class="h-4 w-4" style="background:#b35b79"></i><i class="h-4 w-4" style="background:#6f894e"></i></span>Kanagawa Lotus</span>
-                            <span class="material-symbols-outlined text-base text-primary opacity-0 [[aria-current=true]>&]:opacity-100">check</span>
-                        </button>
-                        <button type="button" data-theme-option="gruvbox-light" class="flex w-full items-center justify-between gap-3 rounded px-2 py-2 text-left text-sm text-on-surface hover:bg-surface-container-high aria-[current=true]:bg-surface-container-high">
-                            <span class="flex items-center gap-2"><span class="flex overflow-hidden rounded-full border border-outline-variant/50"><i class="h-4 w-4" style="background:#fbf1c7"></i><i class="h-4 w-4" style="background:#b57614"></i><i class="h-4 w-4" style="background:#8f3f71"></i><i class="h-4 w-4" style="background:#79740e"></i></span>Gruvbox Light</span>
-                            <span class="material-symbols-outlined text-base text-primary opacity-0 [[aria-current=true]>&]:opacity-100">check</span>
-                        </button>
-                    </div>
-                </details>
+                <x-theme-picker />
                 <x-theme-toggle />
                 <details x-data="adminNotifications" data-notifications-url="{{ route('admin.notifications.index') }}" class="relative" @toggle="if ($el.open) refresh()">
                     <summary class="relative cursor-pointer list-none rounded p-2 text-on-surface-variant hover:bg-surface-container hover:text-on-surface" aria-label="Thông báo AI Weekly">
@@ -267,15 +219,6 @@
             try { localStorage.setItem('apollo.sidebarCollapsed', collapsed ? '1' : '0'); } catch (e) {}
         };
         document.body.classList.toggle('sidebar-collapsed', document.documentElement.classList.contains('sidebar-collapsed'));
-        (() => {
-            const picker = document.querySelector('[data-theme-picker]');
-            const mark = () => document.querySelectorAll('[data-theme-option]').forEach((b) => b.setAttribute('aria-current', String(b.dataset.themeOption === document.documentElement.dataset.theme)));
-            mark();
-            // The header toggle can also change the theme, so keep the check mark in sync.
-            new MutationObserver(mark).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-            document.querySelectorAll('[data-theme-option]').forEach((b) => b.addEventListener('click', () => { window.apolloTheme.apply(b.dataset.themeOption, true); picker.open = false; }));
-            document.addEventListener('click', (e) => { if (picker.open && !picker.contains(e.target)) picker.open = false; });
-        })();
         document.querySelector('[data-admin-sidebar-toggle]')?.addEventListener('click', window.toggleAdminSidebar);
     </script>
 </body>
