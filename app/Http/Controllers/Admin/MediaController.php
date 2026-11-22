@@ -12,29 +12,52 @@ use App\Models\Post;
 use App\Services\MediaOperationLockService;
 use App\Services\MediaStorageCleanupService;
 use App\Services\MediaUsageService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class MediaController extends Controller
 {
-    public function index(Request $request): JsonResponse|View
+    private const int PER_PAGE = 24;
+
+    public function index(Request $request): JsonResponse|View|RedirectResponse
     {
+        $filters = $request->validate([
+            'q' => ['nullable', 'string', 'max:255'],
+            'type' => ['nullable', Rule::in(['image', 'pdf'])],
+        ]);
+
         $media = Media::query()
             ->with('uploader:id,name,email')
+            ->when($filters['q'] ?? null, function (Builder $query, string $search): void {
+                $query->where('file_name', 'like', '%'.addcslashes($search, '%_\\').'%');
+            })
+            ->when(($filters['type'] ?? null) === 'image', fn (Builder $query) => $query->where('mime_type', 'like', 'image/%'))
+            ->when(($filters['type'] ?? null) === 'pdf', fn (Builder $query) => $query->where('mime_type', 'application/pdf'))
             ->latest()
-            ->get();
+            ->orderByDesc('id')
+            ->paginate(self::PER_PAGE)
+            ->withQueryString();
 
         if ($request->expectsJson()) {
-            return response()->json([
-                'data' => $media,
-            ]);
+            return response()->json($media);
+        }
+
+        // Deleting the last item of the last page would leave an empty page behind.
+        if ($media->isEmpty() && $media->currentPage() > 1) {
+            return redirect()->route('admin.media.index', [...$request->query(), 'page' => $media->lastPage()]);
         }
 
         return view('admin.media.index', [
             'media' => $media,
+            'filters' => $filters,
+            'totalAssets' => Media::query()->count(),
+            'totalBytes' => (int) Media::query()->sum('size_bytes'),
         ]);
     }
 

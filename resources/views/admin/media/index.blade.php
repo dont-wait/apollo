@@ -4,10 +4,12 @@
 
 @section('content')
     @php
-        $totalAssets = $media->count();
-        $totalBytes = $media->sum('size_bytes');
-
         $storageLabel = strtoupper((string) config('filesystems.media_disk', 'local'));
+
+        $activeType = $filters['type'] ?? null;
+        $searchTerm = $filters['q'] ?? '';
+        $isFiltered = $activeType !== null || $searchTerm !== '';
+        $filterUrl = fn (?string $type) => route('admin.media.index', array_filter(['q' => $searchTerm ?: null, 'type' => $type]));
 
         $formatBytes = function ($bytes) {
             return match (true) {
@@ -322,13 +324,20 @@
                        items-center justify-between gap-3
                        shadow-sm"
             >
-                <div
+                <form
+                    method="GET"
+                    action="{{ route('admin.media.index') }}"
+                    role="search"
                     class="flex items-center gap-2
                            bg-surface-container-highest
                            px-3 py-2 rounded
                            w-full xl:w-96
                            text-on-surface-variant"
                 >
+                    @if ($activeType)
+                        <input type="hidden" name="type" value="{{ $activeType }}">
+                    @endif
+
                     <span
                         class="material-symbols-outlined
                                text-[18px] text-outline"
@@ -338,6 +347,8 @@
 
                     <input
                         id="mediaSearch"
+                        name="q"
+                        value="{{ $searchTerm }}"
                         class="bg-transparent
                                font-body-sm text-body-sm
                                text-on-surface
@@ -346,7 +357,7 @@
                         placeholder="Search files by name..."
                         type="text"
                     >
-                </div>
+                </form>
 
                 <div
                     class="flex items-center gap-2
@@ -359,39 +370,50 @@
                                p-1 rounded
                                font-label-sm text-label-sm"
                     >
-                        <button
-                            type="button"
-                            data-media-filter="all"
+                        <a
+                            href="{{ $filterUrl(null) }}"
+                            aria-current="{{ $activeType === null ? 'page' : 'false' }}"
                             class="media-filter
                                    px-2.5 py-1 rounded
-                                   bg-surface-container
-                                   text-primary font-semibold
-                                   shadow-sm"
+                                   text-on-surface-variant
+                                   hover:text-on-surface
+                                   aria-[current=page]:bg-surface-container
+                                   aria-[current=page]:text-primary
+                                   aria-[current=page]:font-semibold
+                                   aria-[current=page]:shadow-sm"
                         >
                             All
-                        </button>
+                        </a>
 
-                        <button
-                            type="button"
-                            data-media-filter="image"
+                        <a
+                            href="{{ $filterUrl('image') }}"
+                            aria-current="{{ $activeType === 'image' ? 'page' : 'false' }}"
                             class="media-filter
                                    px-2.5 py-1 rounded
                                    text-on-surface-variant
-                                   hover:text-on-surface"
+                                   hover:text-on-surface
+                                   aria-[current=page]:bg-surface-container
+                                   aria-[current=page]:text-primary
+                                   aria-[current=page]:font-semibold
+                                   aria-[current=page]:shadow-sm"
                         >
                             Images
-                        </button>
+                        </a>
 
-                        <button
-                            type="button"
-                            data-media-filter="pdf"
+                        <a
+                            href="{{ $filterUrl('pdf') }}"
+                            aria-current="{{ $activeType === 'pdf' ? 'page' : 'false' }}"
                             class="media-filter
                                    px-2.5 py-1 rounded
                                    text-on-surface-variant
-                                   hover:text-on-surface"
+                                   hover:text-on-surface
+                                   aria-[current=page]:bg-surface-container
+                                   aria-[current=page]:text-primary
+                                   aria-[current=page]:font-semibold
+                                   aria-[current=page]:shadow-sm"
                         >
                             PDFs
-                        </button>
+                        </a>
                     </div>
 
                     <div
@@ -458,7 +480,16 @@
                            font-label-sm text-label-sm"
                 >
                     <span>
-                        Showing <span id="visibleMediaCount">{{ $totalAssets }}</span> of {{ $totalAssets }} assets
+                        @if ($media->total() > 0)
+                            Showing
+                            <span id="visibleMediaCount">{{ $media->firstItem() }}–{{ $media->lastItem() }}</span>
+                            of {{ number_format($media->total()) }} {{ \Illuminate\Support\Str::plural('asset', $media->total()) }}
+                            @if ($isFiltered)
+                                <span class="text-outline">({{ number_format($totalAssets) }} total)</span>
+                            @endif
+                        @else
+                            No assets
+                        @endif
                     </span>
 
                     <span class="text-outline hidden md:block">
@@ -488,14 +519,19 @@
                                    text-headline-sm
                                    text-on-surface"
                         >
-                            No media yet
+                            {{ $isFiltered ? 'No media found' : 'No media yet' }}
                         </h3>
 
                         <p
                             class="font-body-sm text-body-sm
                                    text-on-surface-variant mt-1"
                         >
-                            Upload your first image or document to get started.
+                            @if ($isFiltered)
+                                Try a different search or filter.
+                                <a href="{{ route('admin.media.index') }}" class="text-primary hover:underline">Clear filters</a>
+                            @else
+                                Upload your first image or document to get started.
+                            @endif
                         </p>
                     </div>
                 @else
@@ -785,6 +821,12 @@
                             </div>
                         @endforeach
                     </div>
+
+                    @if ($media->hasPages())
+                        <div class="pt-2">
+                            {{ $media->links() }}
+                        </div>
+                    @endif
                 @endif
             </div>
 
@@ -1144,15 +1186,6 @@
             const cards = [
                 ...document.querySelectorAll('.media-card'),
             ];
-
-            const filterButtons = [
-                ...document.querySelectorAll('.media-filter'),
-            ];
-
-            const visibleCount =
-                document.getElementById('visibleMediaCount');
-
-            let activeFilter = 'all';
 
             const mediaGrid = document.getElementById('mediaGrid');
             const viewButtons = [...document.querySelectorAll('[data-media-view]')];
@@ -1542,90 +1575,23 @@
                 }
             }
 
-            function applyFilters() {
-                const keyword =
-                    searchInput?.value
-                        .toLocaleLowerCase('vi-VN')
-                        .trim() ?? '';
+            // Search and type filters run on the server so they cover every page.
+            let searchTimer;
 
-                let count = 0;
-
-                cards.forEach((card) => {
-                    const name =
-                        card.dataset.name
-                            ?.toLocaleLowerCase('vi-VN')
-                        ?? '';
-
-                    const type =
-                        card.dataset.type ?? '';
-
-                    const matchesSearch =
-                        name.includes(keyword);
-
-                    const matchesType =
-                        activeFilter === 'all'
-                        || activeFilter === type;
-
-                    const visible =
-                        matchesSearch && matchesType;
-
-                    card.classList.toggle(
-                        'hidden',
-                        !visible
-                    );
-
-                    if (visible) {
-                        count++;
-                    }
-                });
-
-                if (visibleCount) {
-                    visibleCount.textContent = count;
-                }
-            }
-
-            searchInput?.addEventListener(
-                'input',
-                applyFilters
-            );
-
-            filterButtons.forEach((button) => {
-                button.addEventListener(
-                    'click',
-                    () => {
-                        activeFilter =
-                            button.dataset.mediaFilter;
-
-                        filterButtons.forEach(
-                            (item) => {
-                                item.classList.remove(
-                                    'bg-surface-container',
-                                    'text-primary',
-                                    'font-semibold',
-                                    'shadow-sm'
-                                );
-
-                                item.classList.add(
-                                    'text-on-surface-variant'
-                                );
-                            }
-                        );
-
-                        button.classList.remove(
-                            'text-on-surface-variant'
-                        );
-
-                        button.classList.add(
-                            'bg-surface-container',
-                            'text-primary',
-                            'font-semibold',
-                            'shadow-sm'
-                        );
-
-                        applyFilters();
-                    }
-                );
+            searchInput?.addEventListener('input', () => {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(() => {
+                    searchInput.form?.requestSubmit();
+                }, 450);
             });
+
+            if (searchInput && new URLSearchParams(window.location.search).has('q')) {
+                searchInput.focus();
+                searchInput.setSelectionRange(
+                    searchInput.value.length,
+                    searchInput.value.length
+                );
+            }
 
             const inspectorEmpty =
                 document.getElementById(
