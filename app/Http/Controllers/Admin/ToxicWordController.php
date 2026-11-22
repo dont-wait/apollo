@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\ImportToxicWordsRequest;
 use App\Http\Requests\Admin\StoreToxicWordRequest;
 use App\Http\Requests\Admin\UpdateToxicWordRequest;
 use App\Http\Requests\Admin\UpdateToxicWordStatusRequest;
 use App\Models\ToxicWord;
+use App\Support\Moderation\ToxicWordImporter;
 use App\Support\Moderation\ToxicWordNormalizer;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
@@ -15,6 +17,10 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use OpenSpout\Common\Entity\Row;
+use OpenSpout\Writer\XLSX\Writer;
+use RuntimeException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ToxicWordController extends Controller
 {
@@ -63,6 +69,46 @@ class ToxicWordController extends Controller
         }
 
         return $this->respond($request, $word, 'Đã thêm từ vào từ điển.', 201);
+    }
+
+    public function import(ImportToxicWordsRequest $request, ToxicWordImporter $importer): RedirectResponse
+    {
+        try {
+            $result = $importer->import($request->file('file'), $request->user()->id);
+        } catch (RuntimeException $exception) {
+            throw ValidationException::withMessages(['file' => $exception->getMessage()]);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            throw ValidationException::withMessages(['file' => 'Không đọc được file. Hãy dùng file mẫu.']);
+        }
+
+        $message = "Đã import {$result['created']} từ mới, bỏ qua {$result['skipped']} từ đã có";
+
+        if ($result['errors'] !== []) {
+            $shown = array_slice($result['errors'], 0, 10);
+            $more = count($result['errors']) - count($shown);
+
+            return back()
+                ->with('status', $message.', '.count($result['errors']).' dòng lỗi.')
+                ->with('import_errors', [...$shown, ...($more > 0 ? ["... và {$more} lỗi khác."] : [])]);
+        }
+
+        return back()->with('status', $message.'.');
+    }
+
+    public function importTemplate(): StreamedResponse
+    {
+        return response()->streamDownload(function (): void {
+            $writer = new Writer;
+            $writer->openToFile('php://output');
+            $writer->addRow(Row::fromValues(ToxicWordImporter::COLUMNS));
+            $writer->addRow(Row::fromValues(['từ ví dụ', 'post,comment', 'WORD', 0, 1, 'Ghi chú tuỳ chọn']));
+            $writer->addRow(Row::fromValues(['cụm từ ví dụ', '', 'LOOSE', 1, 1, 'Để trống scopes = áp dụng tất cả']));
+            $writer->close();
+        }, 'toxic-words-template.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
     }
 
     public function update(

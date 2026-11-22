@@ -36,6 +36,40 @@
 
     <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <section class="min-w-0 space-y-4">
+            <details class="rounded border border-[#252930] bg-[#191c21]" @if (session('import_errors') || $errors->has('file')) open @endif>
+                <summary class="flex cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium text-[#e1e2ea]">
+                    <span class="material-symbols-outlined text-base text-[#80d4ff]">upload_file</span>
+                    Import từ Excel / CSV
+                </summary>
+                <div class="space-y-3 border-t border-[#32353b] px-4 py-4">
+                    <p class="text-xs leading-5 text-[#87929a]">
+                        File <code>.xlsx</code> hoặc <code>.csv</code> (tối đa 2MB, 2000 dòng). Dòng đầu là tiêu đề, bắt buộc có cột <code>term</code>.
+                        Cột tuỳ chọn: <code>scopes</code> (cách nhau bằng dấu phẩy; trống = tất cả), <code>match_mode</code> (WORD/LOOSE),
+                        <code>fold_diacritics</code>, <code>is_active</code>, <code>note</code>. Từ đã có trong từ điển sẽ được bỏ qua.
+                    </p>
+                    <form method="POST" action="{{ route('admin.toxic-words.import') }}" enctype="multipart/form-data" class="flex flex-wrap items-center gap-3">
+                        @csrf
+                        <label class="sr-only" for="toxic-word-import-file">File import</label>
+                        <input id="toxic-word-import-file" type="file" name="file" accept=".xlsx,.csv" required class="min-w-0 flex-1 rounded border border-[#32353b] bg-[#0e1116] px-3 py-2 text-sm text-[#bdc8d1] file:mr-3 file:rounded file:border-0 file:bg-[#272a30] file:px-3 file:py-1 file:text-[#e1e2ea]">
+                        <button type="submit" class="inline-flex min-h-10 items-center gap-2 rounded bg-[#38bdf8] px-4 text-sm font-semibold text-[#071017] transition hover:bg-[#8ed5ff]">
+                            <span class="material-symbols-outlined text-base">upload</span>
+                            Import
+                        </button>
+                        <a href="{{ route('admin.toxic-words.import-template') }}" class="inline-flex min-h-10 items-center gap-2 rounded border border-[#3e484f] px-4 text-sm text-[#bdc8d1] transition hover:bg-[#272a30]">
+                            <span class="material-symbols-outlined text-base">download</span>
+                            Tải file mẫu
+                        </a>
+                    </form>
+                    @if (session('import_errors'))
+                        <ul class="list-inside list-disc space-y-1 rounded border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
+                            @foreach (session('import_errors') as $importError)
+                                <li>{{ $importError }}</li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </div>
+            </details>
+
             <form method="GET" action="{{ route('admin.toxic-words.index') }}" class="grid gap-3 rounded border border-[#252930] bg-[#191c21] p-4 sm:grid-cols-[minmax(0,1fr)_160px_140px_auto]">
                 <label class="sr-only" for="toxic-word-search">Tìm từ</label>
                 <input id="toxic-word-search" name="q" value="{{ $filters['q'] ?? '' }}" type="search" placeholder="Tìm theo từ hoặc cụm từ..." class="min-h-10 rounded border border-[#32353b] bg-[#0e1116] px-3 text-sm text-[#e1e2ea] outline-none placeholder:text-[#626a72] focus:border-[#80d4ff]">
