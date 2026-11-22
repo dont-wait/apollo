@@ -95,7 +95,6 @@ class Post extends Model
     public function toSearchableArray(): array
     {
         $this->load(['category', 'tags']);
-        preg_match_all('/[\p{L}\p{N}]+/u', strip_tags($this->markdown_content), $words);
 
         return [
             'id' => (int) $this->id,
@@ -110,8 +109,15 @@ class Post extends Model
             'published_at' => $this->published_at?->timestamp ?? 0,
             'is_published' => $this->shouldBeSearchable(),
             'bookmarks_count' => $this->bookmarks()->count(),
-            'reading_minutes' => max(1, (int) ceil(count($words[0]) / 200)),
+            'reading_minutes' => $this->readingMinutes(),
         ];
+    }
+
+    public function readingMinutes(): int
+    {
+        preg_match_all('/[\p{L}\p{N}]+/u', strip_tags((string) $this->markdown_content), $words);
+
+        return max(1, (int) ceil(count($words[0]) / 200));
     }
 
     public function author(): BelongsTo

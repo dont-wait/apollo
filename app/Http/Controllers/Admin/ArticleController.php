@@ -8,9 +8,11 @@ use App\Http\Requests\Admin\StoreArticleRequest;
 use App\Http\Requests\Admin\UpdateArticleRequest;
 use App\MediaStorage;
 use App\Models\Category;
+use App\Models\Comment;
 use App\Models\Media;
 use App\Models\Post;
 use App\Models\Tag;
+use App\Models\User;
 use App\Services\MediaOperationLockService;
 use App\Services\MediaStorageCleanupService;
 use App\Services\MediaUsageService;
@@ -36,18 +38,36 @@ class ArticleController extends Controller
         private MediaUsageService $mediaUsageService
     ) {}
 
+    private const array SORT_OPTIONS = [
+        'updated' => 'Last updated',
+        'newest' => 'Newest created',
+        'oldest' => 'Oldest created',
+        'views' => 'Most viewed',
+        'title' => 'Title (A–Z)',
+    ];
+
     public function index(Request $request): View
     {
         $filters = $request->validate([
             'category_id' => ['nullable', 'integer', 'exists:categories,id'],
+            'author_id' => ['nullable', 'integer', 'exists:users,id'],
             'status' => ['nullable', Rule::in(array_keys(PostStatus::filterOptions()))],
             'q' => ['nullable', 'string', 'max:255'],
+            'sort' => ['nullable', Rule::in(array_keys(self::SORT_OPTIONS))],
         ]);
+        $sort = $filters['sort'] ?? 'updated';
 
         $articles = Post::query()
-            ->with(['category:id,name', 'thumbnail:id,url'])
+            ->with(['category:id,name', 'author:id,name', 'tags:id,name'])
+            ->withCount([
+                'bookmarks',
+                'comments' => fn (Builder $query): Builder => $query->where('status', Comment::STATUS_VISIBLE),
+            ])
             ->when($filters['category_id'] ?? null, function (Builder $query, int $categoryId): void {
                 $query->where('category_id', $categoryId);
+            })
+            ->when($filters['author_id'] ?? null, function (Builder $query, int $authorId): void {
+                $query->where('author_id', $authorId);
             })
             ->when($filters['status'] ?? null, function (Builder $query, string $status): void {
                 $query->where('status', $status);
@@ -55,19 +75,42 @@ class ArticleController extends Controller
             ->when($filters['q'] ?? null, function (Builder $query, string $search): void {
                 $query->where(function (Builder $query) use ($search): void {
                     $query->where('title', 'like', "%{$search}%")
-                        ->orWhere('slug', 'like', "%{$search}%");
+                        ->orWhere('slug', 'like', "%{$search}%")
+                        ->orWhere('excerpt', 'like', "%{$search}%")
+                        ->orWhereHas('author', fn (Builder $author): Builder => $author->where('name', 'like', "%{$search}%"));
                 });
             })
-            ->orderByDesc('created_at')
+            ->tap(fn (Builder $query) => match ($sort) {
+                'newest' => $query->orderByDesc('created_at'),
+                'oldest' => $query->orderBy('created_at'),
+                'views' => $query->orderByDesc('view_count'),
+                'title' => $query->orderBy('title'),
+                default => $query->orderByDesc('updated_at'),
+            })
             ->orderByDesc('id')
             ->paginate(10)
             ->withQueryString();
 
+        $statusCounts = Post::query()
+            ->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status')
+            ->map(fn ($total): int => (int) $total);
+
         return view('admin.articles.index', [
             'articles' => $articles,
             'categories' => Category::query()->orderBy('name')->get(['id', 'name']),
+            'authors' => User::query()
+                ->whereIn('id', Post::query()->select('author_id'))
+                ->orderBy('name')
+                ->get(['id', 'name']),
             'filters' => $filters,
+            'sort' => $sort,
+            'sortOptions' => self::SORT_OPTIONS,
             'statusFilterOptions' => PostStatus::filterOptions(),
+            'statusCounts' => $statusCounts,
+            'totalArticles' => (int) $statusCounts->sum(),
+            'maxViews' => max(1, (int) $articles->getCollection()->max('view_count')),
         ]);
     }
 
