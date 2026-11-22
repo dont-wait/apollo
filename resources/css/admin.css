@@ -194,3 +194,13 @@
 .md-src { position: relative; }
 .md-src:hover::after, .md-src--active::after { content: attr(data-lines); position: absolute; top: 0; right: 0; border-radius: 0.375rem; background: var(--color-surface-high); padding: 0.05rem 0.4rem; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.65rem; line-height: 1.4; color: var(--color-on-surface-variant); pointer-events: none; }
 .md-src--active::after { background: var(--color-primary); color: var(--color-on-primary); }
+
+/* Focus mode (fullscreen editor) */
+html.md-fullscreen { overflow: hidden; }
+[data-markdown-editor].is-fullscreen { position: fixed; inset: 0; z-index: 70; display: flex; flex-direction: column; background: var(--color-background); padding: 1rem 1.25rem; }
+.is-fullscreen [data-markdown-layout] { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+.is-fullscreen [data-markdown-panel] { display: flex; flex-direction: column; min-height: 0; height: 100%; }
+.is-fullscreen [data-markdown-panel='write'] .toxic-editor { flex: 1; min-height: 0; }
+.is-fullscreen .toxic-editor__textarea { height: 100% !important; resize: none; }
+.is-fullscreen [data-markdown-preview-content],
+.is-fullscreen [data-markdown-preview-empty] { flex: 1; height: auto !important; max-height: none !important; min-height: 0; overflow-y: auto; }

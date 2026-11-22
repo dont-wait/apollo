@@ -172,7 +172,7 @@
             </div>
         </section>
 
-        <div>
+        <div data-markdown-editor>
             <label for="markdown_content" class="mb-2 block text-sm font-medium">Markdown content <span class="text-red-300">*</span></label>
             <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div role="group" aria-label="Markdown view mode" class="inline-flex rounded-lg border border-surface-highest bg-surface-lowest p-0.5">
@@ -180,10 +180,15 @@
                     <button type="button" aria-pressed="true" data-markdown-view="split" class="rounded-md px-3 py-1.5 text-xs font-medium text-outline transition hover:text-on-surface aria-pressed:bg-surface-high aria-pressed:text-on-surface">Split</button>
                     <button type="button" aria-pressed="false" data-markdown-view="preview" class="rounded-md px-3 py-1.5 text-xs font-medium text-outline transition hover:text-on-surface aria-pressed:bg-surface-high aria-pressed:text-on-surface">Preview</button>
                 </div>
-                <button type="button" data-sidebar-toggle aria-pressed="false" class="inline-flex items-center gap-1.5 rounded-lg border border-surface-highest px-3 py-1.5 text-xs text-on-surface-variant transition hover:bg-surface-high">
-                    <span class="material-symbols-outlined text-base">left_panel_close</span>
-                    <span data-sidebar-toggle-label>Hide sidebar</span>
-                </button>
+                <div class="flex items-center gap-2">
+                    <button type="button" data-sidebar-toggle aria-pressed="false" class="inline-flex items-center gap-1.5 rounded-lg border border-surface-highest px-3 py-1.5 text-xs text-on-surface-variant transition hover:bg-surface-high">
+                        <span class="material-symbols-outlined text-base">left_panel_close</span>
+                        <span data-sidebar-toggle-label>Hide sidebar</span>
+                    </button>
+                    <button type="button" data-fullscreen-toggle aria-pressed="false" aria-label="Focus mode (fullscreen)" title="Focus mode (fullscreen). Esc to exit" class="inline-flex size-8 items-center justify-center rounded-lg border border-surface-highest text-on-surface-variant transition hover:bg-surface-high hover:text-on-surface">
+                        <span class="material-symbols-outlined text-lg" data-fullscreen-icon>fullscreen</span>
+                    </button>
+                </div>
             </div>
             <div data-markdown-layout data-view="split" class="grid gap-3 data-[view=split]:lg:grid-cols-2">
             <div id="markdown-write-panel" data-markdown-panel="write" class="min-w-0">
@@ -958,6 +963,34 @@
         if (window.ResizeObserver) {
             new ResizeObserver(scheduleGutter).observe(markdownInput);
         }
+
+        // ---- Focus mode: the whole Markdown editor fills the viewport ----
+        const editorRoot = document.querySelector('[data-markdown-editor]');
+        const fullscreenToggle = document.querySelector('[data-fullscreen-toggle]');
+        const setFullscreen = (on) => {
+            if (!editorRoot || !fullscreenToggle) {
+                return;
+            }
+
+            closeCommands();
+            editorRoot.classList.toggle('is-fullscreen', on);
+            document.documentElement.classList.toggle('md-fullscreen', on);
+            fullscreenToggle.setAttribute('aria-pressed', String(on));
+            fullscreenToggle.setAttribute('aria-label', on ? 'Exit focus mode' : 'Focus mode (fullscreen)');
+            fullscreenToggle.title = on ? 'Exit focus mode (Esc)' : 'Focus mode (fullscreen). Esc to exit';
+            fullscreenToggle.querySelector('[data-fullscreen-icon]').textContent = on ? 'fullscreen_exit' : 'fullscreen';
+            scheduleGutter();
+            markdownInput.focus({ preventScroll: true });
+            requestAnimationFrame(() => syncPreviewToCaret({ smooth: false }));
+        };
+
+        fullscreenToggle?.addEventListener('click', () => setFullscreen(!editorRoot.classList.contains('is-fullscreen')));
+        document.addEventListener('keydown', (event) => {
+            // Esc also closes the slash-command menu; that handler runs first and prevents default.
+            if (event.key === 'Escape' && !event.defaultPrevented && editorRoot?.classList.contains('is-fullscreen')) {
+                setFullscreen(false);
+            }
+        });
 
         const selectMarkdownView = (view) => {
             closeCommands();
