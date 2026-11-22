@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Relations\Pivot;
 
 class Bookmark extends Pivot
 {
+    protected $table = 'bookmarks';
+
     public $timestamps = false;
 
     public function getUpdatedAtColumn(): ?string
