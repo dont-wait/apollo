@@ -109,6 +109,8 @@
             'repliesUrlTemplate' => route('articles.comments.replies', ['article' => $article->slug, 'comment' => '__COMMENT__']),
             'updateUrlTemplate' => route('articles.comments.update', ['article' => $article->slug, 'comment' => '__COMMENT__']),
             'deleteUrlTemplate' => route('articles.comments.destroy', ['article' => $article->slug, 'comment' => '__COMMENT__']),
+            'reportUrlTemplate' => route('articles.comments.report', ['article' => $article->slug, 'comment' => '__COMMENT__']),
+            'reportReasons' => \App\Models\CommentReport::REASONS,
             'authenticated' => auth()->check(),
             'currentUserId' => auth()->id(),
             'loginUrl' => route('login', ['redirect' => url()->current().'#comments']),
@@ -224,6 +226,9 @@
 
                         <div class="mt-2 flex flex-wrap items-center gap-3" x-show="editing !== comment.id">
                             <button class="font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant transition-colors hover:text-primary" type="button" x-show="comment.status !== 'DELETED'" @click="startReply(comment)">Reply</button>
+                            <button class="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant transition-colors hover:text-error" type="button" x-cloak x-show="canReport(comment)" @click="startReport(comment)">
+                                <span class="material-symbols-outlined text-[14px]" aria-hidden="true">flag</span>Report
+                            </button>
                             <span class="text-outline-variant" x-show="comment.replies_count > 0">·</span>
                             <button class="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant transition-colors hover:text-primary" type="button" x-show="comment.replies_count > 0" @click="toggleReplies(comment)">
                                 <span class="material-symbols-outlined text-[16px]" aria-hidden="true" x-text="comment.expanded ? 'keyboard_arrow_up' : 'keyboard_arrow_down'"></span>
@@ -241,6 +246,25 @@
                         </div>
 
                         <p class="mt-2 text-xs text-emerald-300" x-cloak x-show="successMessages[comment.id]" x-text="successMessages[comment.id]"></p>
+                        <form class="mt-3 space-y-3 rounded-lg border border-outline-variant/40 bg-surface-low p-4" x-cloak x-show="reportingId === comment.id" @submit.prevent="submitReport(comment)">
+                            <p class="font-display text-sm font-semibold text-on-surface">Report this comment</p>
+                            <label class="sr-only" :for="`report-reason-${comment.id}`">Reason</label>
+                            <select :id="`report-reason-${comment.id}`" class="w-full rounded-lg border border-outline-variant/60 bg-background px-3 py-2 text-sm text-on-surface outline-none focus:border-primary" x-model="reportForm.reason" required>
+                                <option value="">Select a reason...</option>
+                                <template x-for="(label, value) in reportReasons" :key="value">
+                                    <option :value="value" x-text="label"></option>
+                                </template>
+                            </select>
+                            <label class="sr-only" :for="`report-details-${comment.id}`">Details</label>
+                            <textarea :id="`report-details-${comment.id}`" class="min-h-16 w-full resize-y rounded-lg border border-outline-variant/60 bg-background px-3 py-2 text-sm text-on-surface outline-none focus:border-primary" x-model="reportForm.details" maxlength="1000" placeholder="Additional details (optional)"></textarea>
+                            <div class="flex flex-wrap items-center justify-between gap-3">
+                                <p class="text-xs text-error" x-show="reportError" x-text="reportError"></p>
+                                <div class="ml-auto flex items-center gap-3">
+                                    <button class="font-mono text-[10px] uppercase tracking-[0.1em] text-on-surface-variant hover:text-primary" type="button" @click="cancelReport()">Cancel</button>
+                                    <button class="rounded-md bg-primary px-3 py-2 font-mono text-[10px] uppercase tracking-[0.1em] text-on-primary transition-colors hover:bg-surface-tint disabled:cursor-not-allowed disabled:opacity-60" type="submit" :disabled="reportSubmitting || !reportForm.reason" x-text="reportSubmitting ? 'Sending...' : 'Send report'"></button>
+                                </div>
+                            </div>
+                        </form>
                         <form class="mt-3" x-cloak x-show="replyingTo === comment.id && authenticated && comment.status !== 'DELETED'" @submit.prevent="submitReply(comment)">
                             <label class="sr-only" :for="`reply-${comment.id}`">Reply to this comment</label>
                             <textarea :id="`reply-${comment.id}`" class="min-h-20 w-full resize-y rounded-lg border border-outline-variant/60 bg-background px-3 py-3 text-sm leading-6 text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20" x-model="replyDrafts[comment.id]" maxlength="2000" placeholder="Write a reply..." :disabled="submitting === comment.id"></textarea>
