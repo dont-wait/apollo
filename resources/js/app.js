@@ -377,6 +377,12 @@ window.articleComments = (options = {}) => ({
     repliesUrlTemplate: options.repliesUrlTemplate,
     updateUrlTemplate: options.updateUrlTemplate,
     deleteUrlTemplate: options.deleteUrlTemplate,
+    reportUrlTemplate: options.reportUrlTemplate,
+    reportReasons: options.reportReasons ?? {},
+    reportingId: null,
+    reportForm: { reason: '', details: '' },
+    reportError: '',
+    reportSubmitting: false,
     authenticated: options.authenticated ?? false,
     currentUserId: options.currentUserId ?? null,
     loginUrl: options.loginUrl ?? '/login',
@@ -611,6 +617,51 @@ window.articleComments = (options = {}) => ({
 
     toggleMenu(commentId) {
         this.openMenu = this.openMenu === commentId ? null : commentId;
+    },
+
+    canReport(comment) {
+        return this.authenticated
+            && comment.status === 'VISIBLE'
+            && Number(comment.author?.id) !== Number(this.currentUserId);
+    },
+
+    startReport(comment) {
+        this.openMenu = null;
+        this.reportingId = comment.id;
+        this.reportForm = { reason: '', details: '' };
+        this.reportError = '';
+    },
+
+    cancelReport() {
+        this.reportingId = null;
+        this.reportError = '';
+    },
+
+    async submitReport(comment) {
+        if (!this.reportForm.reason || this.reportSubmitting) {
+            return;
+        }
+
+        this.reportSubmitting = true;
+        this.reportError = '';
+
+        try {
+            const payload = await this.request(this.commentUrl(this.reportUrlTemplate, comment.id), {
+                method: 'POST',
+                body: JSON.stringify(this.reportForm),
+            });
+
+            this.reportingId = null;
+            this.successMessages[comment.id] = payload.message ?? 'Report sent.';
+        } catch (error) {
+            this.reportError = error.status === 422
+                ? (Object.values(error.payload?.errors ?? {}).flat()[0] ?? error.message)
+                : error.status === 429
+                    ? 'Too many reports. Please try again later.'
+                    : 'Unable to send your report. Please try again.';
+        } finally {
+            this.reportSubmitting = false;
+        }
     },
 
     startEditing(comment) {

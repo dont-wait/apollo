@@ -98,6 +98,14 @@
                 </a>
                 <a @class([
                     'flex items-center gap-3 px-3 py-2 rounded transition-all font-body-sm text-body-sm',
+                    'bg-surface-container-high text-primary border-l-2 border-primary font-semibold' => request()->routeIs('admin.comment-reports.*'),
+                    'text-on-surface-variant hover:bg-surface-container hover:text-on-surface' => ! request()->routeIs('admin.comment-reports.*'),
+                ]) @if (request()->routeIs('admin.comment-reports.*')) aria-current="page" @endif href="{{ route('admin.comment-reports.index') }}">
+                    <span class="material-symbols-outlined text-[18px]">flag</span>
+                    <span>Comment Reports</span>
+                </a>
+                <a @class([
+                    'flex items-center gap-3 px-3 py-2 rounded transition-all font-body-sm text-body-sm',
                     'bg-surface-container-high text-primary border-l-2 border-primary font-semibold' => request()->routeIs('admin.toxic-words.*'),
                     'text-on-surface-variant hover:bg-surface-container hover:text-on-surface' => ! request()->routeIs('admin.toxic-words.*'),
                 ]) @if (request()->routeIs('admin.toxic-words.*')) aria-current="page" @endif data-path="toxic-words" href="{{ route('admin.toxic-words.index') }}">
