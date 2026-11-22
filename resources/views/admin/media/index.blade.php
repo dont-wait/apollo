@@ -198,7 +198,7 @@
         </div>
 
         {{-- DROPZONE --}}
-        <div class="p-space-lg w-full">
+        <div class="px-space-lg pt-space-md pb-1 w-full">
             <input
                 id="mediaFileInput"
                 type="file"
@@ -219,7 +219,9 @@
                        bg-surface-container-low
                        hover:bg-surface-container
                        transition-all duration-300
-                       rounded-xl p-6 shadow-sm overflow-hidden"
+                       border border-dashed border-outline-variant/50
+                       hover:border-primary/60
+                       rounded-lg px-4 py-2.5 overflow-hidden"
             >
                 <div
                     class="absolute -inset-1
@@ -234,59 +236,49 @@
                 ></div>
 
                 <div
-                    class="relative flex flex-col md:flex-row
+                    class="relative flex flex-col sm:flex-row
                            items-center justify-between
-                           gap-6 z-10"
+                           gap-3 z-10"
                 >
-                    <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-3">
                         <div
-                            class="w-14 h-14 rounded-lg
+                            class="w-8 h-8 rounded-md
                                    bg-surface-container-high
                                    flex items-center justify-center
                                    text-primary
-                                   group-hover:scale-105
-                                   transition-transform
-                                   shrink-0 shadow-inner"
+                                   shrink-0"
                         >
                             <span
                                 class="material-symbols-outlined
-                                       text-[32px]"
+                                       text-[20px]"
                             >
                                 file_upload
                             </span>
                         </div>
 
-                        <div>
-                            <div
-                                class="flex items-center
-                                       gap-2 flex-wrap"
+                        <div class="flex flex-wrap items-baseline gap-x-2">
+                            <span
+                                class="font-body-sm text-body-sm
+                                       font-medium text-on-surface"
                             >
-                                <span
-                                    class="font-headline-sm
-                                           text-headline-sm
-                                           text-on-surface"
-                                >
-                                    Drag and drop images or documents here
-                                </span>
+                                Drag and drop images or documents here
+                            </span>
 
-                                <span
-                                    class="font-label-sm text-label-sm
-                                           text-primary
-                                           bg-surface-container-high
-                                           px-2 py-0.5 rounded"
-                                >
-                                </span>
-                            </div>
+                            <span
+                                class="font-label-sm text-label-sm
+                                       text-outline"
+                            >
+                                or click to browse
+                            </span>
                         </div>
                     </div>
 
                     <div
                         id="uploadStatus"
-                        class="hidden w-full md:w-auto
+                        class="hidden w-full sm:w-auto
                                bg-surface-container-lowest
-                               px-4 py-2.5 rounded-lg
-                               items-center gap-3 shrink-0
-                               shadow-sm"
+                               px-3 py-1.5 rounded-md
+                               items-center gap-2.5 shrink-0"
                     >
                         <div
                             class="w-8 h-8 rounded
