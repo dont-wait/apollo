@@ -1,6 +1,8 @@
 @extends('layouts.app')
 
-@section('title', e($article->title).' · Apollo Blog')
+@section('title', $seoTitle.' · Apollo Blog')
+@section('meta_description', $seoDescription)
+@section('canonical', $canonicalUrl)
 
 @section('content')
     <article class="mx-auto max-w-4xl">
