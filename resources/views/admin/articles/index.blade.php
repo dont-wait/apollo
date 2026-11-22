@@ -16,7 +16,7 @@
         $keep = request()->only(['q', 'category_id', 'author_id', 'sort']);
         $statusUrl = fn (?string $status): string => route('admin.articles.index', array_filter([...$keep, 'status' => $status]));
         $activeStatus = $filters['status'] ?? null;
-        $hasFilters = collect(['q', 'category_id', 'author_id', 'status'])->contains(fn ($key) => filled($filters[$key] ?? null)) || $sort !== 'updated';
+        $hasFilters = collect(['q', 'category_id', 'author_id', 'status'])->contains(fn ($key) => filled($filters[$key] ?? null)) || $sort !== ($trashed ? 'deleted' : 'updated');
         $selectClass = 'rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2 text-sm text-on-surface focus:border-sky-400 focus:outline-none';
     @endphp
 
@@ -25,15 +25,31 @@
             <div>
                 <p class="text-[11px] uppercase tracking-[0.16em] text-outline">Content // Workspace</p>
                 <h1 class="mt-2 flex flex-wrap items-baseline gap-3 text-3xl font-semibold tracking-tight">
-                    Articles
-                    <span class="font-mono text-sm font-normal text-outline">Article management</span>
+                    {{ $trashed ? 'Trash' : 'Articles' }}
+                    <span class="font-mono text-sm font-normal text-outline">{{ $trashed ? 'Deleted articles' : 'Article management' }}</span>
                 </h1>
-                <p class="mt-2 max-w-2xl text-sm text-on-surface-variant">Manage, filter and review every published, scheduled, draft and archived article in one place.</p>
+                <p class="mt-2 max-w-2xl text-sm text-on-surface-variant">{{ $trashed ? 'Restore an article to bring it back with its previous status, category and tags.' : 'Manage, filter and review every published, scheduled, draft and archived article in one place.' }}</p>
             </div>
-            <a href="{{ route('admin.articles.create') }}" class="inline-flex items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-sky-400">
-                <span class="material-symbols-outlined text-lg">add_circle</span>
-                Write new article
-            </a>
+            <div class="flex flex-wrap items-center gap-2">
+                @if ($trashed)
+                    <a href="{{ route('admin.articles.index') }}" class="inline-flex items-center gap-2 rounded-lg bg-surface-high px-4 py-2 text-sm font-medium text-on-surface transition hover:bg-surface-highest">
+                        <span class="material-symbols-outlined text-lg">arrow_back</span>
+                        Back to articles
+                    </a>
+                @else
+                    <a href="{{ route('admin.articles.index', ['trashed' => 1]) }}" class="inline-flex items-center gap-2 rounded-lg border border-surface-highest px-3.5 py-2 text-sm font-medium text-on-surface-variant transition hover:bg-surface-high hover:text-on-surface" title="Deleted articles that can be restored">
+                        <span class="material-symbols-outlined text-lg">delete_sweep</span>
+                        Trash
+                        @if ($trashedCount > 0)
+                            <span class="rounded-full bg-red-500/15 px-1.5 font-mono text-[10px] tabular-nums text-red-300">{{ $trashedCount }}</span>
+                        @endif
+                    </a>
+                    <a href="{{ route('admin.articles.create') }}" class="inline-flex items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-sky-400">
+                        <span class="material-symbols-outlined text-lg">add_circle</span>
+                        Write new article
+                    </a>
+                @endif
+            </div>
         </header>
 
         @if (session('status'))
@@ -42,7 +58,14 @@
             </div>
         @endif
 
+        @if (session('error'))
+            <div role="alert" class="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                {{ session('error') }}
+            </div>
+        @endif
+
         {{-- Status overview --}}
+        @unless ($trashed)
         <section aria-label="Article status overview" class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
             <a href="{{ $statusUrl(null) }}" @class(['group rounded-xl border bg-surface-low p-4 transition hover:bg-surface', 'border-sky-500/50' => $activeStatus === null, 'border-surface-highest' => $activeStatus !== null])>
                 <div class="flex items-center justify-between text-[11px] uppercase tracking-wider text-on-surface-variant">
@@ -73,9 +96,11 @@
                 </a>
             @endforeach
         </section>
+        @endunless
 
         {{-- Filters --}}
         <section class="space-y-3 rounded-xl bg-surface-low p-4 shadow-sm">
+            @unless ($trashed)
             <nav aria-label="Filter by status" class="flex flex-wrap items-center gap-1 rounded-lg border border-surface-highest bg-surface-lowest p-1 text-xs font-medium sm:w-fit">
                 @php
                     $tabs = ['' => ['All', $totalArticles]] + collect($statusFilterOptions)
@@ -89,10 +114,14 @@
                     </a>
                 @endforeach
             </nav>
+            @endunless
 
             <form method="GET" action="{{ route('admin.articles.index') }}" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(14rem,1fr)_repeat(3,minmax(9rem,0.45fr))_auto]">
                 @if ($activeStatus)
                     <input type="hidden" name="status" value="{{ $activeStatus }}">
+                @endif
+                @if ($trashed)
+                    <input type="hidden" name="trashed" value="1">
                 @endif
                 <label class="sr-only" for="article-search">Search articles</label>
                 <div class="relative sm:col-span-2 lg:col-span-1">
@@ -122,7 +151,7 @@
                 <div class="flex items-center gap-2">
                     <button type="submit" class="rounded-lg bg-surface-high px-4 py-2 text-sm font-medium text-on-surface transition hover:bg-surface-highest">Filter</button>
                     @if ($hasFilters)
-                        <a href="{{ route('admin.articles.index') }}" class="whitespace-nowrap rounded-lg px-3 py-2 text-center text-sm text-on-surface-variant transition hover:bg-surface-high">Clear filters</a>
+                        <a href="{{ route('admin.articles.index', $trashed ? ['trashed' => 1] : []) }}" class="whitespace-nowrap rounded-lg px-3 py-2 text-center text-sm text-on-surface-variant transition hover:bg-surface-high">Clear filters</a>
                     @endif
                 </div>
             </form>
@@ -132,9 +161,9 @@
         <section class="overflow-hidden rounded-xl bg-surface-low shadow-sm">
             @if ($articles->isEmpty())
                 <div class="px-6 py-14 text-center">
-                    <span class="material-symbols-outlined text-4xl text-sky-300">article</span>
-                    <h2 class="mt-3 font-semibold">No matching articles</h2>
-                    <p class="mt-1 text-sm text-on-surface-variant">Create a new article or change the filters.</p>
+                    <span class="material-symbols-outlined text-4xl text-sky-300">{{ $trashed ? 'delete_sweep' : 'article' }}</span>
+                    <h2 class="mt-3 font-semibold">{{ $trashed ? 'Trash is empty' : 'No matching articles' }}</h2>
+                    <p class="mt-1 text-sm text-on-surface-variant">{{ $trashed ? 'Deleted articles will show up here so you can restore them.' : 'Create a new article or change the filters.' }}</p>
                 </div>
             @else
                 <div class="overflow-x-auto">
@@ -157,7 +186,11 @@
                                 @endphp
                                 <tr @class(['align-top transition-colors hover:bg-surface', 'opacity-70' => $article->status === 'ARCHIVED'])>
                                     <td class="max-w-md px-5 py-4">
-                                        <a href="{{ route('admin.articles.edit', $article) }}" class="line-clamp-2 font-semibold text-on-surface hover:text-sky-300">{{ $article->title }}</a>
+                                        @if ($trashed)
+                                            <p class="line-clamp-2 font-semibold text-on-surface">{{ $article->title }}</p>
+                                        @else
+                                            <a href="{{ route('admin.articles.edit', $article) }}" class="line-clamp-2 font-semibold text-on-surface hover:text-sky-300">{{ $article->title }}</a>
+                                        @endif
                                         <p class="mt-1 truncate font-mono text-xs text-sky-300/90">/articles/{{ $article->slug }}</p>
                                         <p class="mt-1.5 flex flex-wrap items-center gap-x-2 text-xs text-outline">
                                             <span class="inline-flex items-center gap-1"><span class="material-symbols-outlined text-sm">person</span>{{ $article->author?->name ?? 'Unknown author' }}</span>
@@ -169,7 +202,10 @@
                                         <span class="inline-flex items-center gap-1.5 rounded border px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider {{ $meta['badge'] }}">
                                             <span class="size-1.5 rounded-full {{ $meta['dot'] }}"></span>{{ $meta['label'] }}
                                         </span>
-                                        @if ($article->status === 'PUBLISHED' && $article->published_at)
+                                        @if ($trashed)
+                                            <p class="mt-1.5 text-xs text-red-300">Deleted {{ $article->deleted_at->diffForHumans() }}</p>
+                                            <p class="text-[11px] text-outline">{{ $article->deleted_at->format('M j, Y · H:i') }}</p>
+                                        @elseif ($article->status === 'PUBLISHED' && $article->published_at)
                                             <p class="mt-1.5 text-xs text-on-surface-variant">{{ $article->published_at->format('M j, Y · H:i') }}</p>
                                             <p class="text-[11px] text-outline">{{ config('app.timezone') }}</p>
                                         @elseif ($article->status === 'SCHEDULED' && $article->scheduled_at)
@@ -206,21 +242,32 @@
                                     </td>
                                     <td class="px-5 py-4">
                                         <div class="flex justify-end gap-1">
-                                            @if ($article->status === 'PUBLISHED')
-                                                <a href="{{ route('articles.show', $article->slug) }}" target="_blank" rel="noopener" class="rounded-md p-2 text-on-surface-variant transition hover:bg-surface-high hover:text-sky-300" aria-label="View {{ $article->title }} on the site" title="View on site">
-                                                    <span class="material-symbols-outlined text-lg">open_in_new</span>
+                                            @if ($trashed)
+                                                <form method="POST" action="{{ route('admin.articles.restore', $article) }}">
+                                                    @csrf
+                                                    @method('PATCH')
+                                                    <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 transition hover:bg-emerald-500/20" aria-label="Restore {{ $article->title }}" title="Restore this article">
+                                                        <span class="material-symbols-outlined text-base">restore_from_trash</span>
+                                                        Restore
+                                                    </button>
+                                                </form>
+                                            @else
+                                                @if ($article->status === 'PUBLISHED')
+                                                    <a href="{{ route('articles.show', $article->slug) }}" target="_blank" rel="noopener" class="rounded-md p-2 text-on-surface-variant transition hover:bg-surface-high hover:text-sky-300" aria-label="View {{ $article->title }} on the site" title="View on site">
+                                                        <span class="material-symbols-outlined text-lg">open_in_new</span>
+                                                    </a>
+                                                @endif
+                                                <a href="{{ route('admin.articles.edit', $article) }}" class="rounded-md p-2 text-on-surface-variant transition hover:bg-surface-high hover:text-sky-300" aria-label="Edit {{ $article->title }}" title="Edit">
+                                                    <span class="material-symbols-outlined text-lg">edit</span>
                                                 </a>
+                                                <form method="POST" action="{{ route('admin.articles.destroy', $article) }}" onsubmit="return confirm('Are you sure you want to delete this article?')">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="rounded-md p-2 text-on-surface-variant transition hover:bg-red-500/10 hover:text-red-300" aria-label="Delete {{ $article->title }}" title="Delete">
+                                                        <span class="material-symbols-outlined text-lg">delete</span>
+                                                    </button>
+                                                </form>
                                             @endif
-                                            <a href="{{ route('admin.articles.edit', $article) }}" class="rounded-md p-2 text-on-surface-variant transition hover:bg-surface-high hover:text-sky-300" aria-label="Edit {{ $article->title }}" title="Edit">
-                                                <span class="material-symbols-outlined text-lg">edit</span>
-                                            </a>
-                                            <form method="POST" action="{{ route('admin.articles.destroy', $article) }}" onsubmit="return confirm('Are you sure you want to delete this article?')">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="rounded-md p-2 text-on-surface-variant transition hover:bg-red-500/10 hover:text-red-300" aria-label="Delete {{ $article->title }}" title="Delete">
-                                                    <span class="material-symbols-outlined text-lg">delete</span>
-                                                </button>
-                                            </form>
                                         </div>
                                     </td>
                                 </tr>

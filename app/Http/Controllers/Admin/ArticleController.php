@@ -46,6 +46,8 @@ class ArticleController extends Controller
         'title' => 'Title (A–Z)',
     ];
 
+    private const string TRASH_SORT = 'deleted';
+
     public function index(Request $request): View
     {
         $filters = $request->validate([
@@ -53,11 +55,14 @@ class ArticleController extends Controller
             'author_id' => ['nullable', 'integer', 'exists:users,id'],
             'status' => ['nullable', Rule::in(array_keys(PostStatus::filterOptions()))],
             'q' => ['nullable', 'string', 'max:255'],
-            'sort' => ['nullable', Rule::in(array_keys(self::SORT_OPTIONS))],
+            'sort' => ['nullable', Rule::in([...array_keys(self::SORT_OPTIONS), self::TRASH_SORT])],
+            'trashed' => ['nullable', 'boolean'],
         ]);
-        $sort = $filters['sort'] ?? 'updated';
+        $trashed = $request->boolean('trashed');
+        $sort = $filters['sort'] ?? ($trashed ? self::TRASH_SORT : 'updated');
 
         $articles = Post::query()
+            ->when($trashed, fn (Builder $query) => $query->onlyTrashed())
             ->with(['category:id,name', 'author:id,name', 'tags:id,name'])
             ->withCount([
                 'bookmarks',
@@ -85,6 +90,7 @@ class ArticleController extends Controller
                 'oldest' => $query->orderBy('created_at'),
                 'views' => $query->orderByDesc('view_count'),
                 'title' => $query->orderBy('title'),
+                self::TRASH_SORT => $query->orderByDesc('deleted_at'),
                 default => $query->orderByDesc('updated_at'),
             })
             ->orderByDesc('id')
@@ -106,7 +112,9 @@ class ArticleController extends Controller
                 ->get(['id', 'name']),
             'filters' => $filters,
             'sort' => $sort,
-            'sortOptions' => self::SORT_OPTIONS,
+            'sortOptions' => $trashed ? [self::TRASH_SORT => 'Recently deleted', ...self::SORT_OPTIONS] : self::SORT_OPTIONS,
+            'trashed' => $trashed,
+            'trashedCount' => Post::onlyTrashed()->count(),
             'statusFilterOptions' => PostStatus::filterOptions(),
             'statusCounts' => $statusCounts,
             'totalArticles' => (int) $statusCounts->sum(),
@@ -258,6 +266,25 @@ class ArticleController extends Controller
         return redirect()
             ->route('admin.articles.index')
             ->with('status', 'Article moved to trash.');
+    }
+
+    public function restore(Post $article): RedirectResponse
+    {
+        if (! $article->trashed()) {
+            return redirect()->route('admin.articles.index');
+        }
+
+        if (Post::query()->where('slug', $article->slug)->exists()) {
+            return redirect()
+                ->route('admin.articles.index', ['trashed' => 1])
+                ->with('error', "Cannot restore \"{$article->title}\": another article already uses the slug \"{$article->slug}\".");
+        }
+
+        $article->restore();
+
+        return redirect()
+            ->route('admin.articles.index')
+            ->with('status', "Article \"{$article->title}\" restored.");
     }
 
     /**

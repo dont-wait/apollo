@@ -135,6 +135,63 @@ class AdminArticleTest extends TestCase
             ->assertSessionHasErrors('sort');
     }
 
+    public function test_deleted_articles_appear_in_trash_and_can_be_restored(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $article = Post::factory()->published()->create(['title' => 'Accidentally deleted']);
+        Post::factory()->create(['title' => 'Still here']);
+
+        $this->actingAs($admin)
+            ->delete(route('admin.articles.destroy', $article))
+            ->assertRedirect(route('admin.articles.index'));
+        $this->assertSoftDeleted($article);
+
+        $this->get(route('admin.articles.index'))
+            ->assertOk()
+            ->assertDontSeeText('Accidentally deleted')
+            ->assertSeeText('Still here')
+            ->assertViewHas('trashedCount', 1);
+
+        $this->get(route('admin.articles.index', ['trashed' => 1]))
+            ->assertOk()
+            ->assertSeeText('Accidentally deleted')
+            ->assertSeeText('Restore')
+            ->assertSeeText('Deleted')
+            ->assertDontSeeText('Still here');
+
+        $this->patch(route('admin.articles.restore', $article))
+            ->assertRedirect(route('admin.articles.index'))
+            ->assertSessionHas('status', 'Article "Accidentally deleted" restored.');
+
+        $this->assertNotSoftDeleted($article);
+        $this->assertSame('PUBLISHED', $article->fresh()->status);
+        $this->get(route('admin.articles.index'))->assertSeeText('Accidentally deleted');
+    }
+
+    public function test_restoring_an_article_that_is_not_deleted_is_a_noop(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $article = Post::factory()->create();
+
+        $this->actingAs($admin)
+            ->patch(route('admin.articles.restore', $article))
+            ->assertRedirect(route('admin.articles.index'));
+
+        $this->assertNotSoftDeleted($article);
+    }
+
+    public function test_non_admin_cannot_restore_articles(): void
+    {
+        $article = Post::factory()->create();
+        $article->delete();
+
+        $this->actingAs(User::factory()->create())
+            ->patch(route('admin.articles.restore', $article))
+            ->assertForbidden();
+
+        $this->assertSoftDeleted($article);
+    }
+
     public function test_admin_can_open_create_and_edit_forms(): void
     {
         $admin = User::factory()->admin()->create();
