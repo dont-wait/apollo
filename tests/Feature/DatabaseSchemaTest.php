@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AiSource;
 use App\Models\Category;
 use App\Models\Post;
+use App\Models\SocialAccount;
 use App\Models\Tag;
 use App\Models\User;
 use Illuminate\Database\QueryException;
@@ -18,12 +19,39 @@ class DatabaseSchemaTest extends TestCase
 
     public function test_blog_schema_contains_the_core_tables_and_columns(): void
     {
-        foreach (['categories', 'tags', 'media', 'posts', 'post_tags', 'comments', 'post_likes', 'bookmarks', 'ai_sources', 'ai_articles', 'ai_article_analysis', 'ai_topics', 'ai_article_topics', 'weekly_reviews', 'weekly_review_sources', 'automation_runs'] as $table) {
+        foreach (['categories', 'tags', 'media', 'posts', 'post_tags', 'comments', 'post_likes', 'bookmarks', 'social_accounts', 'ai_sources', 'ai_articles', 'ai_article_analysis', 'ai_topics', 'ai_article_topics', 'weekly_reviews', 'weekly_review_sources', 'automation_runs'] as $table) {
             $this->assertTrue(Schema::hasTable($table), "Expected {$table} table to exist.");
         }
 
         $this->assertTrue(Schema::hasColumns('users', ['role', 'status', 'avatar_url', 'last_login_at', 'deleted_at']));
         $this->assertTrue(Schema::hasColumns('posts', ['author_id', 'category_id', 'weekly_review_id', 'status', 'published_at', 'deleted_at']));
+    }
+
+    public function test_user_social_accounts_relationship_persists_provider_identity(): void
+    {
+        $user = User::factory()->create();
+        $socialAccount = SocialAccount::factory()
+            ->for($user)
+            ->google()
+            ->create(['provider_id' => 'google-user-123']);
+
+        $this->assertTrue($user->socialAccounts->contains($socialAccount));
+        $this->assertSame($user->id, $socialAccount->user->id);
+    }
+
+    public function test_database_rejects_duplicate_provider_identity(): void
+    {
+        $user = User::factory()->create();
+        $attributes = [
+            'provider' => 'github',
+            'provider_id' => 'github-user-123',
+        ];
+
+        SocialAccount::factory()->for($user)->create($attributes);
+
+        $this->expectException(QueryException::class);
+
+        SocialAccount::factory()->for($user)->create($attributes);
     }
 
     public function test_post_relationships_persist_tags_and_author(): void

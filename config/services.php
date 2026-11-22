@@ -35,4 +35,24 @@ return [
         ],
     ],
 
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI', rtrim((string) env('APP_URL', 'http://localhost:8000'), '/').'/oauth/google/callback'),
+        'guzzle' => [
+            'connect_timeout' => (float) env('SOCIALITE_CONNECT_TIMEOUT', 5),
+            'timeout' => (float) env('SOCIALITE_TIMEOUT', 10),
+        ],
+    ],
+
+    'github' => [
+        'client_id' => env('GITHUB_CLIENT_ID'),
+        'client_secret' => env('GITHUB_CLIENT_SECRET'),
+        'redirect' => env('GITHUB_REDIRECT_URI', rtrim((string) env('APP_URL', 'http://localhost:8000'), '/').'/oauth/github/callback'),
+        'guzzle' => [
+            'connect_timeout' => (float) env('SOCIALITE_CONNECT_TIMEOUT', 5),
+            'timeout' => (float) env('SOCIALITE_TIMEOUT', 10),
+        ],
+    ],
+
 ];

@@ -22,6 +22,10 @@ class AuthTest extends TestCase
             ->assertSeeText('Welcome back to Apollo Blog')
             ->assertSeeText('Continue with GitHub')
             ->assertSeeText('Continue with Google')
+            ->assertSee('href="'.route('oauth.redirect', ['provider' => 'github']).'"', false)
+            ->assertSee('href="'.route('oauth.redirect', ['provider' => 'google']).'"', false)
+            ->assertDontSee('coming soon')
+            ->assertDontSee('disabled')
             ->assertSeeText('Sign In to Account')
             ->assertDontSee('checked');
     }
@@ -50,6 +54,10 @@ class AuthTest extends TestCase
         $response->assertOk()
             ->assertViewIs('auth.register')
             ->assertSeeText('Join Apollo Blog')
+            ->assertSee('href="'.route('oauth.redirect', ['provider' => 'github']).'"', false)
+            ->assertSee('href="'.route('oauth.redirect', ['provider' => 'google']).'"', false)
+            ->assertDontSee('coming soon')
+            ->assertDontSee('disabled')
             ->assertSeeText('Initialize Account');
     }
 

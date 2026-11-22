@@ -15,13 +15,13 @@
         </nav>
 
         <div class="flex flex-col gap-2">
-            <button class="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-surface-high px-4 text-sm font-medium text-on-surface transition-colors hover:bg-surface-highest" type="button" disabled title="GitHub sign-in coming soon">
+            <a class="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-surface-high px-4 text-sm font-medium text-on-surface transition-colors hover:bg-surface-highest" href="{{ route('oauth.redirect', ['provider' => 'github']) }}">
                 <svg class="size-4 text-primary" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M12 2C6.48 2 2 6.48 2 12c0 4.42 2.87 8.18 6.84 9.5.5.09.68-.22.68-.48 0-.24-.01-.87-.01-1.7-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.89 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.95 0-1.09.39-1.99 1.03-2.69-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.03A9.56 9.56 0 0 1 12 6.84a9.6 9.6 0 0 1 2.5.34c1.91-1.3 2.75-1.03 2.75-1.03.55 1.38.2 2.4.1 2.65.64.7 1.03 1.6 1.03 2.69 0 3.85-2.34 4.7-4.57 4.94.36.31.68.92.68 1.86 0 1.34-.01 2.42-.01 2.75 0 .27.18.58.69.48A10.02 10.02 0 0 0 22 12C22 6.48 17.52 2 12 2Z"></path>
                 </svg>
                 <span>Continue with GitHub</span>
-            </button>
-            <button class="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-surface-high px-4 text-sm font-medium text-on-surface transition-colors hover:bg-surface-highest" type="button" disabled title="Google sign-in coming soon">
+            </a>
+            <a class="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-surface-high px-4 text-sm font-medium text-on-surface transition-colors hover:bg-surface-highest" href="{{ route('oauth.redirect', ['provider' => 'google']) }}">
                 <svg class="size-4" viewBox="0 0 24 24" aria-hidden="true">
                     <path fill="#4285F4" d="M23.75 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6a5.64 5.64 0 0 1-2.4 3.68v3.05h3.88c2.27-2.09 3.67-5.17 3.67-9.17Z"></path>
                     <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24Z"></path>
@@ -29,7 +29,7 @@
                     <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98Z"></path>
                 </svg>
                 <span>Continue with Google</span>
-            </button>
+            </a>
         </div>
 
         <div class="relative flex items-center justify-center">

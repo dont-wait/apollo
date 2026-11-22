@@ -24,6 +24,7 @@ use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ResetPasswordController;
 use App\Http\Controllers\SeoController;
+use App\Http\Controllers\SocialAuthController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Support\Facades\Route;
 
@@ -72,6 +73,13 @@ Route::middleware('guest')->group(function (): void {
     Route::post('/register', [AuthController::class, 'register'])
         ->middleware('throttle:10,1')
         ->name('register.store');
+
+    Route::get('/oauth/{provider}/redirect', [SocialAuthController::class, 'redirect'])
+        ->where('provider', 'google|github')
+        ->name('oauth.redirect');
+    Route::get('/oauth/{provider}/callback', [SocialAuthController::class, 'callback'])
+        ->where('provider', 'google|github')
+        ->name('oauth.callback');
 
     Route::get('/forgot-password', [ForgotPasswordController::class, 'show'])->name('password.request');
     Route::post('/forgot-password', [ForgotPasswordController::class, 'send'])
