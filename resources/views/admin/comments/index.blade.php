@@ -119,7 +119,7 @@
                             <tr>
                                 <th class="w-12 px-5 py-3 font-medium">
                                     <label class="sr-only" for="select-all-comments">Select all comments on this page</label>
-                                    <input id="select-all-comments" class="size-4 rounded border-outline-variant bg-surface-lowest text-sky-500 focus:ring-sky-400" type="checkbox" @change="toggleAll($event)">
+                                    <input id="select-all-comments" class="size-4 rounded border-c-59616a bg-surface-lowest text-sky-500 focus:ring-sky-400" type="checkbox" @change="toggleAll($event)">
                                 </th>
                                 <th class="px-5 py-3 font-medium">Comment</th>
                                 <th class="px-4 py-3 font-medium">Article</th>
@@ -131,7 +131,7 @@
                             @foreach ($comments as $comment)
                                 <tr class="transition-colors hover:bg-surface">
                                     <td class="px-5 py-4 align-top">
-                                        <input form="bulk-comments-form" name="comment_ids[]" value="{{ $comment->id }}" data-comment-select class="size-4 rounded border-outline-variant bg-surface-lowest text-sky-500 focus:ring-sky-400" type="checkbox" aria-label="Select comment by {{ $comment->user?->name ?? 'Deleted user' }}">
+                                        <input form="bulk-comments-form" name="comment_ids[]" value="{{ $comment->id }}" data-comment-select class="size-4 rounded border-c-59616a bg-surface-lowest text-sky-500 focus:ring-sky-400" type="checkbox" aria-label="Select comment by {{ $comment->user?->name ?? 'Deleted user' }}">
                                         <input form="bulk-comments-form" type="hidden" name="comment_versions[{{ $comment->id }}]" value="{{ $comment->version }}">
                                     </td>
                                     <td class="max-w-[34rem] px-5 py-4 align-top">

@@ -10,7 +10,7 @@
     <section class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
         {{-- TOTAL --}}
-        <article class="rounded-xl border border-surface-high bg-surface-low p-5">
+        <article class="rounded-xl border border-c-252930 bg-surface-low p-5">
             <div class="flex items-start justify-between">
 
                 <div>
@@ -23,7 +23,7 @@
                     </p>
                 </div>
 
-                <span class="material-symbols-outlined text-primary">
+                <span class="material-symbols-outlined text-c-80d4ff">
                     category
                 </span>
 
@@ -32,7 +32,7 @@
 
 
         {{-- ACTIVE --}}
-        <article class="rounded-xl border border-surface-high bg-surface-low p-5">
+        <article class="rounded-xl border border-c-252930 bg-surface-low p-5">
             <div class="flex items-start justify-between">
 
                 <div>
@@ -54,7 +54,7 @@
 
 
         {{-- ROOT --}}
-        <article class="rounded-xl border border-surface-high bg-surface-low p-5">
+        <article class="rounded-xl border border-c-252930 bg-surface-low p-5">
             <div class="flex items-start justify-between">
 
                 <div>
@@ -67,7 +67,7 @@
                     </p>
                 </div>
 
-                <span class="material-symbols-outlined text-secondary">
+                <span class="material-symbols-outlined text-c-c5a7ff">
                     account_tree
                 </span>
 
@@ -76,7 +76,7 @@
 
 
         {{-- CHILD --}}
-        <article class="rounded-xl border border-surface-high bg-surface-low p-5">
+        <article class="rounded-xl border border-c-252930 bg-surface-low p-5">
             <div class="flex items-start justify-between">
 
                 <div>
@@ -89,7 +89,7 @@
                     </p>
                 </div>
 
-                <span class="material-symbols-outlined text-amber-300">
+                <span class="material-symbols-outlined text-c-ffcf70">
                     schema
                 </span>
 
@@ -108,7 +108,7 @@
         <section class="min-w-0 space-y-4">
 
             {{-- SEARCH + FILTER --}}
-            <div class="flex flex-col gap-3 rounded-xl border border-surface-high bg-surface-low p-4 lg:flex-row">
+            <div class="flex flex-col gap-3 rounded-xl border border-c-252930 bg-surface-low p-4 lg:flex-row">
 
                 <div class="relative flex-1">
 
@@ -122,7 +122,7 @@
                         type="text"
                         id="categorySearch"
                         placeholder="Tìm category theo tên hoặc slug..."
-                        class="w-full rounded-lg border border-surface-highest bg-background py-2.5 pl-10 pr-4 text-sm text-on-surface outline-none placeholder:text-outline focus:border-primary"
+                        class="w-full rounded-lg border border-surface-highest bg-background py-2.5 pl-10 pr-4 text-sm text-on-surface outline-none placeholder:text-c-626a72 focus:border-c-80d4ff"
                     >
 
                 </div>
@@ -130,7 +130,7 @@
 
                 <select
                     id="statusFilter"
-                    class="rounded-lg border border-surface-highest bg-background px-4 py-2.5 text-sm text-on-surface-variant outline-none focus:border-primary"
+                    class="rounded-lg border border-surface-highest bg-background px-4 py-2.5 text-sm text-on-surface-variant outline-none focus:border-c-80d4ff"
                 >
                     <option value="ALL">
                         All Status
@@ -149,14 +149,14 @@
 
 
             {{-- CATEGORY LIST --}}
-            <div class="overflow-hidden rounded-xl border border-surface-high bg-surface-low">
+            <div class="overflow-hidden rounded-xl border border-c-252930 bg-surface-low">
 
                 @if ($categories->isEmpty())
 
                     {{-- EMPTY STATE --}}
                     <div class="p-12 text-center">
 
-                        <span class="material-symbols-outlined text-4xl text-primary">
+                        <span class="material-symbols-outlined text-4xl text-c-80d4ff">
                             label
                         </span>
 
@@ -228,7 +228,7 @@
 
                                             <div class="flex items-center gap-3">
 
-                                                <span class="material-symbols-outlined text-[19px] text-primary">
+                                                <span class="material-symbols-outlined text-[19px] text-c-80d4ff">
                                                     label
                                                 </span>
 
@@ -238,7 +238,7 @@
                                                         {{ $category->name }}
                                                     </p>
 
-                                                    <p class="mt-0.5 text-xs text-outline">
+                                                    <p class="mt-0.5 text-xs text-c-626a72">
                                                         #{{ $category->id }}
                                                     </p>
 
@@ -272,7 +272,7 @@
 
                                             <span @class([
                                                 'inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-[10px] font-medium',
-                                                'bg-tertiary/15 text-tertiary' => $category->status === 'ACTIVE',
+                                                'bg-c-163a30 text-tertiary' => $category->status === 'ACTIVE',
                                                 'bg-surface-highest text-on-surface-variant' => $category->status !== 'ACTIVE',
                                             ])>
 
@@ -297,7 +297,7 @@
                                                 {{-- EDIT --}}
                                                 <button
                                                     type="button"
-                                                    class="edit-category rounded-md p-2 text-primary transition hover:bg-surface-high"
+                                                    class="edit-category rounded-md p-2 text-c-80d4ff transition hover:bg-c-252930"
                                                     title="Edit category"
 
                                                     data-id="{{ $category->id }}"
@@ -319,7 +319,7 @@
                                                 {{-- ACTIVE / INACTIVE --}}
                                                 <button
                                                     type="button"
-                                                    class="toggle-category-status rounded-md p-2 text-outline transition hover:bg-surface-high"
+                                                    class="toggle-category-status rounded-md p-2 text-outline transition hover:bg-c-252930"
                                                     title="{{ $category->status === 'ACTIVE'
                                                         ? 'Deactivate category'
                                                         : 'Activate category' }}"
@@ -358,12 +358,12 @@
         ================================================== --}}
         <aside>
 
-            <div class="sticky top-6 rounded-xl border border-surface-high bg-surface-low">
+            <div class="sticky top-6 rounded-xl border border-c-252930 bg-surface-low">
 
                 {{-- HEADER --}}
                 <div class="border-b border-surface-highest px-5 py-4">
 
-                    <p class="text-[10px] uppercase tracking-widest text-primary">
+                    <p class="text-[10px] uppercase tracking-widest text-c-80d4ff">
                         Category Editor
                     </p>
 
@@ -403,7 +403,7 @@
                             maxlength="100"
                             required
                             placeholder="VD: AI Engineering"
-                            class="w-full rounded-lg border border-surface-highest bg-background px-3 py-2.5 text-sm outline-none placeholder:text-outline focus:border-primary"
+                            class="w-full rounded-lg border border-surface-highest bg-background px-3 py-2.5 text-sm outline-none placeholder:text-c-626a72 focus:border-c-80d4ff"
                         >
 
                     </div>
@@ -426,7 +426,7 @@
                             maxlength="120"
                             required
                             placeholder="ai-engineering"
-                            class="w-full rounded-lg border border-surface-highest bg-background px-3 py-2.5 font-mono text-sm outline-none placeholder:text-outline focus:border-primary"
+                            class="w-full rounded-lg border border-surface-highest bg-background px-3 py-2.5 font-mono text-sm outline-none placeholder:text-c-626a72 focus:border-c-80d4ff"
                         >
 
                     </div>
@@ -445,7 +445,7 @@
                         <select
                             id="categoryParent"
                             name="parent_id"
-                            class="w-full rounded-lg border border-surface-highest bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+                            class="w-full rounded-lg border border-surface-highest bg-background px-3 py-2.5 text-sm outline-none focus:border-c-80d4ff"
                         >
 
                             <option value="">
@@ -482,7 +482,7 @@
                             rows="4"
                             maxlength="500"
                             placeholder="Mô tả ngắn cho category..."
-                            class="w-full resize-none rounded-lg border border-surface-highest bg-background px-3 py-2.5 text-sm outline-none placeholder:text-outline focus:border-primary"
+                            class="w-full resize-none rounded-lg border border-surface-highest bg-background px-3 py-2.5 text-sm outline-none placeholder:text-c-626a72 focus:border-c-80d4ff"
                         ></textarea>
 
                     </div>
@@ -491,7 +491,7 @@
                         <div>
                             <label
                                 for="categoryColor"
-                                class="mb-2 block text-xs font-medium text-on-surface-variant"
+                                class="mb-2 block text-xs font-medium text-c-aeb4bd"
                             >
                                 Color Accent
                             </label>
@@ -501,14 +501,14 @@
                                 name="color"
                                 type="color"
                                 value="#38bdf8"
-                                class="h-10 w-full cursor-pointer rounded-lg border border-outline-variant bg-background p-1"
+                                class="h-10 w-full cursor-pointer rounded-lg border border-c-30343b bg-background p-1"
                             >
                         </div>
 
                         <div>
                             <label
                                 for="categoryIcon"
-                                class="mb-2 block text-xs font-medium text-on-surface-variant"
+                                class="mb-2 block text-xs font-medium text-c-aeb4bd"
                             >
                                 Icon Symbol
                             </label>
@@ -519,7 +519,7 @@
                                 type="text"
                                 maxlength="50"
                                 placeholder="psychology"
-                                class="w-full rounded-lg border border-outline-variant bg-background px-3 py-2 text-sm text-on-surface outline-none transition focus:border-primary"
+                                class="w-full rounded-lg border border-c-30343b bg-background px-3 py-2 text-sm text-on-surface outline-none transition focus:border-c-80d4ff"
                             >
                         </div>
                     </div>
@@ -537,7 +537,7 @@
                     {{-- ERROR --}}
                     <div
                         id="categoryFormError"
-                        class="hidden rounded-lg border border-error/40 bg-error/15 px-3 py-2 text-xs text-error"
+                        class="hidden rounded-lg border border-c-6f3030 bg-c-351b1b px-3 py-2 text-xs text-c-ff9a9a"
                     ></div>
 
 
@@ -545,7 +545,7 @@
                     <button
                         type="submit"
                         id="saveCategoryButton"
-                        class="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-surface-lowest transition hover:bg-primary-fixed"
+                        class="flex w-full items-center justify-center gap-2 rounded-lg bg-c-80d4ff px-4 py-2.5 text-sm font-semibold text-c-071017 transition hover:bg-c-a2e0ff"
                     >
 
                         <span class="material-symbols-outlined text-[18px]">
@@ -563,7 +563,7 @@
                     <button
                         type="button"
                         id="cancelCategoryEdit"
-                        class="hidden w-full rounded-lg border border-surface-highest px-4 py-2.5 text-sm text-on-surface-variant transition hover:bg-surface-high"
+                        class="hidden w-full rounded-lg border border-surface-highest px-4 py-2.5 text-sm text-on-surface-variant transition hover:bg-c-252930"
                     >
                         Cancel Edit
                     </button>
@@ -612,14 +612,14 @@
     @endphp
 
     <section class="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <article class="border border-surface-high bg-surface-low p-4">
+        <article class="border border-c-252930 bg-surface-low p-4">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="font-mono text-[9px] uppercase tracking-[0.14em] text-outline">
                         Total Categories
                     </p>
                     <div class="mt-2 flex items-end gap-2">
-                        <span class="text-3xl font-semibold leading-none text-on-surface">
+                        <span class="text-3xl font-semibold leading-none text-c-e8edf2">
                             {{ $totalCategories }}
                         </span>
                         <span class="pb-0.5 font-mono text-[9px] text-outline">
@@ -627,13 +627,13 @@
                         </span>
                     </div>
                 </div>
-                <div class="flex h-9 w-9 items-center justify-center border border-outline-variant bg-surface-low text-primary">
+                <div class="flex h-9 w-9 items-center justify-center border border-c-30343b bg-c-20242b text-c-80d4ff">
                     <span class="material-symbols-outlined text-[20px]">folder_copy</span>
                 </div>
             </div>
         </article>
 
-        <article class="border border-surface-high bg-surface-low p-4">
+        <article class="border border-c-252930 bg-surface-low p-4">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="font-mono text-[9px] uppercase tracking-[0.14em] text-outline">
@@ -648,20 +648,20 @@
                         </span>
                     </div>
                 </div>
-                <div class="flex h-9 w-9 items-center justify-center border border-surface-high bg-surface-low text-tertiary">
+                <div class="flex h-9 w-9 items-center justify-center border border-c-194b3d bg-c-112d26 text-tertiary">
                     <span class="material-symbols-outlined text-[20px]">verified</span>
                 </div>
             </div>
         </article>
 
-        <article class="border border-surface-high bg-surface-low p-4">
+        <article class="border border-c-252930 bg-surface-low p-4">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="font-mono text-[9px] uppercase tracking-[0.14em] text-outline">
                         Total Tags Schema
                     </p>
                     <div class="mt-2 flex items-end gap-2">
-                        <span class="text-3xl font-semibold leading-none text-secondary">
+                        <span class="text-3xl font-semibold leading-none text-c-c5a7ff">
                             {{ $totalTags }}
                         </span>
                         <span class="pb-0.5 font-mono text-[9px] text-outline">
@@ -669,20 +669,20 @@
                         </span>
                     </div>
                 </div>
-                <div class="flex h-9 w-9 items-center justify-center border border-surface-high bg-secondary/15 text-secondary">
+                <div class="flex h-9 w-9 items-center justify-center border border-c-473c62 bg-c-272238 text-c-c5a7ff">
                     <span class="material-symbols-outlined text-[20px]">sell</span>
                 </div>
             </div>
         </article>
 
-        <article class="border border-surface-high bg-surface-low p-4">
+        <article class="border border-c-252930 bg-surface-low p-4">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="font-mono text-[9px] uppercase tracking-[0.14em] text-outline">
                         Hierarchy Depth
                     </p>
                     <div class="mt-2 flex items-end gap-2">
-                        <span class="text-3xl font-semibold leading-none text-primary">
+                        <span class="text-3xl font-semibold leading-none text-c-80d4ff">
                             {{ $totalCategories > 0 ? $maxDepth + 1 : 0 }}
                         </span>
                         <span class="pb-0.5 font-mono text-[9px] text-tertiary">
@@ -690,7 +690,7 @@
                         </span>
                     </div>
                 </div>
-                <div class="flex h-9 w-9 items-center justify-center border border-primary/30 bg-primary/10 text-primary">
+                <div class="flex h-9 w-9 items-center justify-center border border-c-294759 bg-c-162632 text-c-80d4ff">
                     <span class="material-symbols-outlined text-[20px]">account_tree</span>
                 </div>
             </div>
@@ -699,21 +699,21 @@
 
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">
         <section class="min-w-0">
-            <div class="mb-3 flex flex-col gap-2 border border-surface-high bg-surface-lowest p-3 lg:flex-row lg:items-center">
+            <div class="mb-3 flex flex-col gap-2 border border-c-252930 bg-c-15181d p-3 lg:flex-row lg:items-center">
                 <div class="relative min-w-0 flex-1">
-                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[17px] text-outline">
+                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[17px] text-c-69717a">
                         search
                     </span>
                     <input
                         id="categorySearch"
                         type="text"
                         placeholder="Tìm danh mục theo tên hoặc slug..."
-                        class="w-full border border-surface-high bg-surface-lowest py-2 pl-9 pr-3 font-mono text-[11px] text-on-surface outline-none placeholder:text-outline focus:border-primary">
+                        class="w-full border border-c-2d3138 bg-c-0e1116 py-2 pl-9 pr-3 font-mono text-[11px] text-c-dbe3ea outline-none placeholder:text-c-626a72 focus:border-c-80d4ff">
                 </div>
 
                 <select
                     id="statusFilter"
-                    class="border border-surface-high bg-surface-lowest px-3 py-2 font-mono text-[10px] text-on-surface outline-none focus:border-primary">
+                    class="border border-c-2d3138 bg-c-0e1116 px-3 py-2 font-mono text-[10px] text-c-dbe3ea outline-none focus:border-c-80d4ff">
                     <option value="ALL">Status: ALL ({{ $totalCategories }})</option>
                     <option value="ACTIVE">Status: ACTIVE</option>
                     <option value="INACTIVE">Status: INACTIVE</option>
@@ -721,7 +721,7 @@
 
                 <select
                     id="hierarchyFilter"
-                    class="border border-surface-high bg-surface-lowest px-3 py-2 font-mono text-[10px] text-on-surface outline-none focus:border-primary">
+                    class="border border-c-2d3138 bg-c-0e1116 px-3 py-2 font-mono text-[10px] text-c-dbe3ea outline-none focus:border-c-80d4ff">
                     <option value="ALL">Hierarchy: ALL Levels</option>
                     <option value="ROOT">Root Only</option>
                     <option value="NESTED">Nested Only</option>
@@ -730,16 +730,16 @@
                 <button
                     id="refreshCategoryView"
                     type="button"
-                    class="flex h-9 w-9 shrink-0 items-center justify-center border border-surface-high bg-surface-lowest text-primary transition hover:bg-surface"
+                    class="flex h-9 w-9 shrink-0 items-center justify-center border border-c-2d3138 bg-c-0e1116 text-c-80d4ff transition hover:bg-surface"
                     title="Refresh category view">
                     <span class="material-symbols-outlined text-[18px]">refresh</span>
                 </button>
             </div>
 
-            <div class="overflow-hidden border border-surface-high bg-surface-lowest">
+            <div class="overflow-hidden border border-c-252930 bg-c-111419">
                 @if ($categories->isEmpty())
                 <div class="px-6 py-16 text-center">
-                    <span class="material-symbols-outlined text-4xl text-primary">account_tree</span>
+                    <span class="material-symbols-outlined text-4xl text-c-80d4ff">account_tree</span>
                     <p class="mt-3 font-semibold text-on-surface">Chưa có category nào</p>
                     <p class="mt-1 text-sm text-outline">
                         Tạo category đầu tiên bằng Schema Inspector bên phải.
@@ -748,8 +748,8 @@
                 @else
                 <div class="overflow-x-auto">
                     <table class="w-full min-w-[760px] table-fixed text-left">
-                        <thead class="border-b border-surface-high bg-surface-lowest">
-                            <tr class="font-mono text-[9px] uppercase tracking-[0.12em] text-outline">
+                        <thead class="border-b border-c-252930 bg-c-0a0d11">
+                            <tr class="font-mono text-[9px] uppercase tracking-[0.12em] text-c-7f8a94">
                                 <th class="w-[36%] px-4 py-3 font-medium">Category / Hierarchy</th>
                                 <th class="w-[27%] px-3 py-3 font-medium">Slug (Route)</th>
                                 <th class="w-[15%] px-3 py-3 text-center font-medium">Posts Count</th>
@@ -757,7 +757,7 @@
                             </tr>
                         </thead>
 
-                        <tbody id="categoryTable" class="divide-y divide-surface-low">
+                        <tbody id="categoryTable" class="divide-y divide-c-22262d">
                             @foreach ($orderedCategories as $node)
                             @php
                             $category = $node['category'];
@@ -767,7 +767,7 @@
                             @endphp
 
                             <tr
-                                class="category-row group transition-colors hover:bg-surface-lowest {{ $category->status !== 'ACTIVE' ? 'opacity-55' : '' }}"
+                                class="category-row group transition-colors hover:bg-c-161c22 {{ $category->status !== 'ACTIVE' ? 'opacity-55' : '' }}"
                                 data-name="{{ $category->name }}"
                                 data-slug="{{ $category->slug }}"
                                 data-status="{{ $category->status }}"
@@ -790,7 +790,7 @@
                                             @style([ 'padding-left: ' . (min($depth, 5) * 18) . 'px' ,
                                             ])>
                                             @if ($depth > 0)
-                                            <span class="mt-[8px] font-mono text-[11px] text-outline">
+                                            <span class="mt-[8px] font-mono text-[11px] text-c-69717a">
                                                 └─
                                             </span>
                                             @endif
@@ -808,11 +808,11 @@
                                             </span>
 
                                             <span class="min-w-0">
-                                                <span class="block truncate text-[12px] font-semibold text-on-surface">
+                                                <span class="block truncate text-[12px] font-semibold text-c-edf2f6">
                                                     {{ $category->name }}
                                                 </span>
 
-                                                <span class="mt-0.5 block truncate font-mono text-[9px] text-outline">
+                                                <span class="mt-0.5 block truncate font-mono text-[9px] text-c-75808a">
                                                     {{ \Illuminate\Support\Str::limit(
                 $category->description ?: 'No description',
                 28
@@ -825,13 +825,13 @@
 
                                 <td class="px-3 py-3 align-middle">
                                     <div class="flex items-center gap-2">
-                                        <code class="min-w-0 flex-1 break-all border border-surface-high bg-surface-low px-2 py-1 font-mono text-[9px] leading-4 text-primary">
+                                        <code class="min-w-0 flex-1 break-all border border-c-2b3037 bg-c-1a1e24 px-2 py-1 font-mono text-[9px] leading-4 text-c-80d4ff">
                                             /category/{{ $category->slug }}
                                         </code>
 
                                         <button
                                             type="button"
-                                            class="copy-category-slug shrink-0 text-outline transition hover:text-primary"
+                                            class="copy-category-slug shrink-0 text-c-69717a transition hover:text-c-80d4ff"
                                             data-slug="/category/{{ $category->slug }}"
                                             title="Copy route">
                                             <span class="material-symbols-outlined text-[14px]">content_copy</span>
@@ -840,7 +840,7 @@
                                 </td>
 
                                 <td class="px-3 py-3 text-center align-middle">
-                                    <span class="inline-flex items-center gap-1 border border-surface-high bg-surface-low px-2 py-1 font-mono text-[9px] text-on-surface">
+                                    <span class="inline-flex items-center gap-1 border border-c-2b3037 bg-c-1a1e24 px-2 py-1 font-mono text-[9px] text-c-dbe3ea">
                                         <span class="material-symbols-outlined text-[12px]">description</span>
                                         {{ $category->posts_count }}
                                     </span>
@@ -849,18 +849,18 @@
                                 <td class="px-3 py-3 align-middle">
                                     <div class="flex items-center justify-between gap-2">
                                         @if ($category->parent)
-                                        <span class="truncate font-mono text-[9px] text-on-surface-variant">
+                                        <span class="truncate font-mono text-[9px] text-c-67d9ff">
                                             {{ $category->parent->name }}
                                         </span>
                                         @else
-                                        <span class="border border-surface-high bg-surface-low px-2 py-1 font-mono text-[9px] text-outline">
+                                        <span class="border border-c-2b3037 bg-c-1a1e24 px-2 py-1 font-mono text-[9px] text-outline">
                                             None (Root)
                                         </span>
                                         @endif
 
                                         <button
                                             type="button"
-                                            class="toggle-category-status invisible shrink-0 text-outline transition hover:text-primary group-hover:visible"
+                                            class="toggle-category-status invisible shrink-0 text-outline transition hover:text-c-80d4ff group-hover:visible"
                                             title="{{ $category->status === 'ACTIVE' ? 'Deactivate category' : 'Activate category' }}"
                                             data-status="{{ $category->status }}"
                                             data-status-url="{{ route('admin.categories.update-status', $category) }}">
@@ -874,20 +874,20 @@
                     </table>
                 </div>
 
-                <div class="flex flex-col gap-2 border-t border-surface-high bg-surface-lowest px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div class="font-mono text-[9px] text-outline">
+                <div class="flex flex-col gap-2 border-t border-c-252930 bg-c-0d1014 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="font-mono text-[9px] text-c-71808b">
                         Showing {{ $rootCategories }} top-level hierarchies
                         ({{ $totalCategories }} total items)
                     </div>
 
-                    <div class="flex items-center gap-4 font-mono text-[9px] text-outline">
+                    <div class="flex items-center gap-4 font-mono text-[9px] text-c-71808b">
                         <span>
                             Tree depth level:
-                            <strong class="text-on-surface">
+                            <strong class="text-c-c7d0d8">
                                 Max {{ $totalCategories > 0 ? $maxDepth + 1 : 0 }}
                             </strong>
                         </span>
-                        <span class="border border-primary/30 bg-surface-low px-2 py-1 text-primary">
+                        <span class="border border-c-294759 bg-c-13222c px-2 py-1 text-c-80d4ff">
                             Page 1 of 1
                         </span>
                     </div>
@@ -897,22 +897,22 @@
         </section>
 
         <aside class="min-w-0">
-            <div class="sticky top-6 border border-surface-high bg-surface-lowest">
-                <div class="border-b border-surface-high px-4 py-3">
+            <div class="sticky top-6 border border-c-252930 bg-c-171a1f">
+                <div class="border-b border-c-2b3037 px-4 py-3">
                     <div class="flex items-start justify-between gap-3">
                         <div>
-                            <h2 id="categoryEditorTitle" class="mt-1 text-sm font-semibold text-on-surface">
+                            <h2 id="categoryEditorTitle" class="mt-1 text-sm font-semibold text-c-eef2f6">
                                 New Category
                             </h2>
                         </div>
 
-                        <label class="flex items-center gap-2 font-mono text-[9px] text-on-surface">
+                        <label class="flex items-center gap-2 font-mono text-[9px] text-c-dbe3ea">
                             Active
                             <input
                                 id="categoryActiveCheckbox"
                                 type="checkbox"
                                 checked
-                                class="h-3.5 w-3.5 accent-primary">
+                                class="h-3.5 w-3.5 accent-c-80d4ff">
                         </label>
                     </div>
                 </div>
@@ -922,10 +922,10 @@
 
                     <div>
                         <div class="mb-1.5 flex items-center justify-between gap-3">
-                            <label for="categoryName" class="font-mono text-[10px] font-semibold text-on-surface">
+                            <label for="categoryName" class="font-mono text-[10px] font-semibold text-c-d9e0e6">
                                 Tên Danh mục (Category Name) *
                             </label>
-                            <span class="font-mono text-[8px] text-outline">Max 100 ký tự</span>
+                            <span class="font-mono text-[8px] text-c-69717a">Max 100 ký tự</span>
                         </div>
 
                         <input
@@ -935,19 +935,19 @@
                             maxlength="100"
                             required
                             placeholder="LLM & Generative Systems"
-                            class="w-full border border-surface-high bg-surface-lowest px-3 py-2.5 text-xs text-on-surface outline-none placeholder:text-outline focus:border-primary">
+                            class="w-full border border-c-2d3138 bg-c-101318 px-3 py-2.5 text-xs text-c-e9eef2 outline-none placeholder:text-c-626a72 focus:border-c-80d4ff">
                     </div>
 
                     <div>
                         <div class="mb-1.5 flex items-center justify-between gap-3">
-                            <label for="categorySlug" class="font-mono text-[10px] font-semibold text-on-surface">
+                            <label for="categorySlug" class="font-mono text-[10px] font-semibold text-c-d9e0e6">
                                 Slug URL duy nhất *
                             </label>
-                            <span class="font-mono text-[8px] text-primary">Generate from Name</span>
+                            <span class="font-mono text-[8px] text-c-80d4ff">Generate from Name</span>
                         </div>
 
-                        <div class="flex items-center border border-surface-high bg-surface-lowest focus-within:border-primary">
-                            <span class="pl-3 font-mono text-[10px] text-outline">/category/</span>
+                        <div class="flex items-center border border-c-2d3138 bg-c-101318 focus-within:border-c-80d4ff">
+                            <span class="pl-3 font-mono text-[10px] text-c-5f6973">/category/</span>
                             <input
                                 id="categorySlug"
                                 name="slug"
@@ -955,7 +955,7 @@
                                 maxlength="120"
                                 required
                                 placeholder="llm-generative-systems"
-                                class="min-w-0 flex-1 bg-transparent px-1 py-2.5 font-mono text-[10px] text-primary outline-none">
+                                class="min-w-0 flex-1 bg-transparent px-1 py-2.5 font-mono text-[10px] text-c-80d4ff outline-none">
                             <span class="material-symbols-outlined mr-2 text-[15px] text-tertiary">check_circle</span>
                         </div>
 
@@ -965,14 +965,14 @@
                     </div>
 
                     <div>
-                        <label for="categoryParent" class="mb-1.5 block font-mono text-[10px] font-semibold text-on-surface">
+                        <label for="categoryParent" class="mb-1.5 block font-mono text-[10px] font-semibold text-c-d9e0e6">
                             Danh mục cha (Parent Category)
                         </label>
 
                         <select
                             id="categoryParent"
                             name="parent_id"
-                            class="w-full border border-surface-high bg-surface-lowest px-3 py-2.5 text-[11px] text-on-surface outline-none focus:border-primary">
+                            class="w-full border border-c-2d3138 bg-c-101318 px-3 py-2.5 text-[11px] text-c-e1e7ec outline-none focus:border-c-80d4ff">
                             <option value="">None — Là danh mục gốc (Root Level)</option>
 
                             @foreach ($categories as $category)
@@ -986,7 +986,7 @@
                     </div>
 
                     <div>
-                        <label for="categoryDescription" class="mb-1.5 block font-mono text-[10px] font-semibold text-on-surface">
+                        <label for="categoryDescription" class="mb-1.5 block font-mono text-[10px] font-semibold text-c-d9e0e6">
                             Mô tả chủ đề (Description / SEO Snippet)
                         </label>
 
@@ -996,42 +996,42 @@
                             rows="4"
                             maxlength="500"
                             placeholder="Nghiên cứu kiến trúc, mô hình, chủ đề kỹ thuật..."
-                            class="w-full resize-none border border-surface-high bg-surface-lowest px-3 py-2.5 text-[10px] leading-5 text-on-surface outline-none placeholder:text-outline focus:border-primary"></textarea>
+                            class="w-full resize-none border border-c-2d3138 bg-c-101318 px-3 py-2.5 text-[10px] leading-5 text-c-dbe3ea outline-none placeholder:text-c-626a72 focus:border-c-80d4ff"></textarea>
                     </div>
 
                     <div class="grid grid-cols-2 gap-2">
                         <div>
-                            <label for="categoryColor" class="mb-1.5 block font-mono text-[10px] font-semibold text-on-surface">
+                            <label for="categoryColor" class="mb-1.5 block font-mono text-[10px] font-semibold text-c-d9e0e6">
                                 Color Accent
                             </label>
 
-                            <div class="flex h-9 items-center gap-2 border border-surface-high bg-surface-lowest px-2">
+                            <div class="flex h-9 items-center gap-2 border border-c-2d3138 bg-c-101318 px-2">
                                 <input
                                     id="categoryColor"
                                     name="color"
                                     type="color"
                                     value="#38bdf8"
                                     class="h-5 w-6 cursor-pointer border-0 bg-transparent p-0">
-                                <span id="categoryColorValue" class="font-mono text-[9px] text-on-surface-variant">
+                                <span id="categoryColorValue" class="font-mono text-[9px] text-c-aeb7c0">
                                     #38bdf8
                                 </span>
                             </div>
                         </div>
 
                         <div>
-                            <label for="categoryIcon" class="mb-1.5 block font-mono text-[10px] font-semibold text-on-surface">
+                            <label for="categoryIcon" class="mb-1.5 block font-mono text-[10px] font-semibold text-c-d9e0e6">
                                 Icon Symbol
                             </label>
 
-                            <div class="flex h-9 items-center gap-2 border border-surface-high bg-surface-lowest px-2">
-                                <span class="material-symbols-outlined text-[16px] text-primary">psychology</span>
+                            <div class="flex h-9 items-center gap-2 border border-c-2d3138 bg-c-101318 px-2">
+                                <span class="material-symbols-outlined text-[16px] text-c-80d4ff">psychology</span>
                                 <input
                                     id="categoryIcon"
                                     name="icon"
                                     type="text"
                                     maxlength="50"
                                     placeholder="psychology"
-                                    class="min-w-0 flex-1 bg-transparent font-mono text-[9px] text-on-surface-variant outline-none">
+                                    class="min-w-0 flex-1 bg-transparent font-mono text-[9px] text-c-aeb7c0 outline-none">
                             </div>
                         </div>
                     </div>
@@ -1040,13 +1040,13 @@
 
                     <div
                         id="categoryFormError"
-                        class="hidden border border-error/40 bg-error/15 px-3 py-2 text-[10px] text-error"></div>
+                        class="hidden border border-c-6f3030 bg-c-351b1b px-3 py-2 text-[10px] text-c-ff9a9a"></div>
 
                     <div class="grid grid-cols-[1fr_auto] gap-2">
                         <button
                             id="saveCategoryButton"
                             type="submit"
-                            class="flex items-center justify-center gap-2 bg-primary-fixed-dim px-4 py-2.5 text-[11px] font-semibold text-surface-lowest transition hover:bg-primary">
+                            class="flex items-center justify-center gap-2 bg-c-36bdf6 px-4 py-2.5 text-[11px] font-semibold text-c-071017 transition hover:bg-c-80d4ff">
                             <span class="material-symbols-outlined text-[16px]">save</span>
                             <span id="saveCategoryButtonText">Create Category</span>
                         </button>
@@ -1054,7 +1054,7 @@
                         <button
                             id="cancelCategoryEdit"
                             type="button"
-                            class="hidden border border-surface-highest bg-surface-low px-4 py-2.5 text-[10px] text-on-surface transition hover:bg-surface-high">
+                            class="hidden border border-surface-highest bg-c-20242a px-4 py-2.5 text-[10px] text-c-c4ccd3 transition hover:bg-c-292e35">
                             Hủy bỏ
                         </button>
                     </div>
@@ -1062,7 +1062,7 @@
                     <button
                         id="inspectorToggleCategoryStatus"
                         type="button"
-                        class="hidden w-full items-center justify-center gap-2 border border-surface-high bg-surface-lowest px-4 py-2.5 text-[10px] font-semibold text-error transition hover:bg-surface-lowest">
+                        class="hidden w-full items-center justify-center gap-2 border border-c-572f32 bg-c-1b1214 px-4 py-2.5 text-[10px] font-semibold text-c-ff9299 transition hover:bg-c-281719">
                         <span class="material-symbols-outlined text-[15px]">block</span>
                         <span id="inspectorToggleCategoryStatusText">
                             Vô hiệu hóa (Deactivate Category)
@@ -1073,25 +1073,25 @@
         </aside>
     </div>
 
-    <section class="mt-6 border border-surface-high bg-surface-lowest p-5">
+    <section class="mt-6 border border-c-252930 bg-c-181b20 p-5">
         <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-center">
             <div>
-                <p class="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.12em] text-primary">
+                <p class="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.12em] text-c-80d4ff">
                     <span class="material-symbols-outlined text-[17px]">account_tree</span>
                     Taxonomy Graph Visualization
                 </p>
 
-                <h3 class="mt-2 text-base font-semibold text-on-surface">
+                <h3 class="mt-2 text-base font-semibold text-c-e9eef2">
                     Ontology Linker & Search Weighting
                 </h3>
 
-                <p class="mt-1 max-w-3xl text-[11px] leading-5 text-on-surface-variant">
+                <p class="mt-1 max-w-3xl text-[11px] leading-5 text-c-a0aab3">
                     Category cha/con tạo thành cây taxonomy để hỗ trợ điều hướng,
                     tổ chức nội dung và mở rộng Semantic Search trong hệ thống.
                 </p>
             </div>
 
-            <div class="border border-surface-high bg-surface-lowest p-4">
+            <div class="border border-c-252930 bg-c-0d1116 p-4">
                 <svg viewBox="0 0 220 90" class="h-24 w-full" role="img" aria-label="Taxonomy graph visualization">
                     <line x1="35" y1="45" x2="90" y2="45" stroke="#38bdf8" stroke-width="1.5" />
                     <line x1="90" y1="45" x2="145" y2="20" stroke="#38bdf8" stroke-width="1.5" />

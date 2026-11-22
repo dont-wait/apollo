@@ -12,7 +12,7 @@
                     Thống kê bài viết, tương tác và thành viên. Số liệu mới tính từ {{ $periodStart->format('d/m/Y') }} (30 ngày gần đây).
                 </p>
             </div>
-            <a href="{{ route('admin.articles.create') }}" class="inline-flex w-fit items-center gap-2 rounded-lg bg-primary-container px-4 py-2 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-fixed-dim">
+            <a href="{{ route('admin.articles.create') }}" class="inline-flex w-fit items-center gap-2 rounded-lg bg-primary-container px-4 py-2 text-sm font-semibold text-on-primary transition-colors hover:bg-c-7bd0ff">
                 <i class="fa-solid fa-circle-plus" aria-hidden="true"></i>
                 <span>Tạo bài viết</span>
             </a>

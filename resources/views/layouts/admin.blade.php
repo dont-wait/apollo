@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <script>try{if(localStorage.getItem("apollo.sidebarCollapsed")==="1")document.documentElement.classList.add("sidebar-collapsed");var t=localStorage.getItem("apollo.theme");if(t&&t!=="apollo")document.documentElement.dataset.theme=t}catch(e){}</script>
+    <script>try{if(localStorage.getItem("apollo.sidebarCollapsed")==="1")document.documentElement.classList.add("sidebar-collapsed")}catch(e){}</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <x-theme-init />
     <title>@yield('title', 'Apollo Admin')</title>
     @vite(['resources/css/admin.css', 'resources/js/app.js'])
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -161,8 +162,8 @@
                     </summary>
                     <div class="absolute right-0 top-full z-50 mt-2 grid w-60 gap-1 rounded border border-outline-variant bg-surface-container-lowest p-2 shadow-xl">
                         <p class="px-2 pt-1 text-[10px] uppercase tracking-wider text-outline">Dark</p>
-                        <button type="button" data-theme-option="apollo" class="flex w-full items-center justify-between gap-3 rounded px-2 py-2 text-left text-sm text-on-surface hover:bg-surface-container-high aria-[current=true]:bg-surface-container-high">
-                            <span class="flex items-center gap-2"><span class="flex overflow-hidden rounded-full border border-outline-variant/50"><i class="h-4 w-4" style="background:#111319"></i><i class="h-4 w-4" style="background:#38bdf8"></i><i class="h-4 w-4" style="background:#c0c1ff"></i><i class="h-4 w-4" style="background:#56e5a9"></i></span>Apollo</span>
+                        <button type="button" data-theme-option="dark" class="flex w-full items-center justify-between gap-3 rounded px-2 py-2 text-left text-sm text-on-surface hover:bg-surface-container-high aria-[current=true]:bg-surface-container-high">
+                            <span class="flex items-center gap-2"><span class="flex overflow-hidden rounded-full border border-outline-variant/50"><i class="h-4 w-4" style="background:#111319"></i><i class="h-4 w-4" style="background:#38bdf8"></i><i class="h-4 w-4" style="background:#c0c1ff"></i><i class="h-4 w-4" style="background:#56e5a9"></i></span>Apollo Dark</span>
                             <span class="material-symbols-outlined text-base text-primary opacity-0 [[aria-current=true]>&]:opacity-100">check</span>
                         </button>
                         <button type="button" data-theme-option="catppuccin" class="flex w-full items-center justify-between gap-3 rounded px-2 py-2 text-left text-sm text-on-surface hover:bg-surface-container-high aria-[current=true]:bg-surface-container-high">
@@ -182,6 +183,10 @@
                             <span class="material-symbols-outlined text-base text-primary opacity-0 [[aria-current=true]>&]:opacity-100">check</span>
                         </button>
                         <p class="px-2 pt-2 text-[10px] uppercase tracking-wider text-outline">Light</p>
+                        <button type="button" data-theme-option="light" class="flex w-full items-center justify-between gap-3 rounded px-2 py-2 text-left text-sm text-on-surface hover:bg-surface-container-high aria-[current=true]:bg-surface-container-high">
+                            <span class="flex items-center gap-2"><span class="flex overflow-hidden rounded-full border border-outline-variant/50"><i class="h-4 w-4" style="background:#f4f6fa"></i><i class="h-4 w-4" style="background:#0284c7"></i><i class="h-4 w-4" style="background:#6366f1"></i><i class="h-4 w-4" style="background:#059669"></i></span>Apollo Light</span>
+                            <span class="material-symbols-outlined text-base text-primary opacity-0 [[aria-current=true]>&]:opacity-100">check</span>
+                        </button>
                         <button type="button" data-theme-option="catppuccin-latte" class="flex w-full items-center justify-between gap-3 rounded px-2 py-2 text-left text-sm text-on-surface hover:bg-surface-container-high aria-[current=true]:bg-surface-container-high">
                             <span class="flex items-center gap-2"><span class="flex overflow-hidden rounded-full border border-outline-variant/50"><i class="h-4 w-4" style="background:#eff1f5"></i><i class="h-4 w-4" style="background:#8839ef"></i><i class="h-4 w-4" style="background:#1e66f5"></i><i class="h-4 w-4" style="background:#40a02b"></i></span>Catppuccin Latte</span>
                             <span class="material-symbols-outlined text-base text-primary opacity-0 [[aria-current=true]>&]:opacity-100">check</span>
@@ -200,6 +205,7 @@
                         </button>
                     </div>
                 </details>
+                <x-theme-toggle />
                 <details x-data="adminNotifications" data-notifications-url="{{ route('admin.notifications.index') }}" class="relative" @toggle="if ($el.open) refresh()">
                     <summary class="relative cursor-pointer list-none rounded p-2 text-on-surface-variant hover:bg-surface-container hover:text-on-surface" aria-label="Thông báo AI Weekly">
                         <span class="material-symbols-outlined text-[20px]">notifications</span>
@@ -221,13 +227,30 @@
                     </div>
                 </details>
                 <div class="h-4 w-px bg-outline-variant/40"></div>
-                <div class="flex items-center gap-space-sm">
-                    <div class="flex flex-col items-end">
-                        <span class="font-label-md text-label-md text-on-surface leading-tight">{{ auth()->user()->name ?? 'Administrator' }}</span>
-                        <span class="font-label-sm text-label-sm text-primary">Admin</span>
+                <details class="relative" x-data @click.outside="$el.open = false" @keydown.escape.window="$el.open = false">
+                    <summary class="flex cursor-pointer list-none items-center gap-space-sm rounded-full p-1 pl-3 transition-colors hover:bg-surface-container" aria-haspopup="menu">
+                        <span class="flex flex-col items-end">
+                            <span class="font-label-md text-label-md text-on-surface leading-tight">{{ auth()->user()->name ?? 'Administrator' }}</span>
+                            <span class="font-label-sm text-label-sm text-primary">Admin</span>
+                        </span>
+                        <span class="flex size-8 items-center justify-center rounded-full border border-primary/50 bg-primary/10 font-headline-sm text-sm font-bold text-primary">
+                            {{ strtoupper(mb_substr(auth()->user()->name ?? 'Administrator', 0, 1)) }}
+                        </span>
+                        <span class="material-symbols-outlined text-[18px] text-on-surface-variant" aria-hidden="true">expand_more</span>
+                    </summary>
+
+                    <div class="absolute right-0 top-full z-50 mt-2 w-56 rounded-lg border border-outline-variant/60 bg-surface-container-lowest p-2 shadow-xl" role="menu">
+                        <div class="border-b border-outline-variant/40 px-3 py-2">
+                            <p class="truncate font-label-sm text-label-sm uppercase tracking-[0.12em] text-tertiary">{{ auth()->user()->name ?? 'Administrator' }}</p>
+                            <p class="mt-1 font-label-sm text-label-sm uppercase tracking-[0.12em] text-on-surface-variant">Admin</p>
+                        </div>
+                        <a class="block rounded-md px-3 py-2.5 font-label-sm text-label-sm uppercase tracking-[0.12em] text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary" href="{{ route('password.change') }}" role="menuitem">Change Password</a>
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button class="block w-full rounded-md px-3 py-2.5 text-left font-label-sm text-label-sm uppercase tracking-[0.12em] text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary" type="submit" role="menuitem">Sign Out</button>
+                        </form>
                     </div>
-                    <img alt="Profile" class="w-8 h-8 rounded-full object-cover border border-outline-variant/50" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCBu4P927XxYrhvvv5Gv8CkWhpgTddrGIQLConhYpFn11Y0kPtBApvJQmGs8QGLKtVbVJY5lf9HoAlVBP2XV85jqqallJlpASGSlc7qVO7V0MB9EafSsc6MpsdenJydBUHEsqeDApW_z7evjUkL3WcmZ9SX-GSiCn8NgW1McOuPmWpIuzGYLW4PYfjglzp8brgbpaA7iK2VEgGzhWtZPINaH3qj1GR-ZNhLbQvrMNlcFWZsf62pbqrP">
-                </div>
+                </details>
             </div>
         </header>
 
@@ -244,17 +267,13 @@
             try { localStorage.setItem('apollo.sidebarCollapsed', collapsed ? '1' : '0'); } catch (e) {}
         };
         document.body.classList.toggle('sidebar-collapsed', document.documentElement.classList.contains('sidebar-collapsed'));
-        window.setAdminTheme = (theme) => {
-            if (theme === 'apollo') { delete document.documentElement.dataset.theme; } else { document.documentElement.dataset.theme = theme; }
-            try { localStorage.setItem('apollo.theme', theme); } catch (e) {}
-            document.querySelectorAll('[data-theme-option]').forEach((b) => b.setAttribute('aria-current', String(b.dataset.themeOption === theme)));
-        };
         (() => {
-            let current = 'apollo';
-            try { current = localStorage.getItem('apollo.theme') || 'apollo'; } catch (e) {}
-            window.setAdminTheme(current);
             const picker = document.querySelector('[data-theme-picker]');
-            document.querySelectorAll('[data-theme-option]').forEach((b) => b.addEventListener('click', () => { window.setAdminTheme(b.dataset.themeOption); picker.open = false; }));
+            const mark = () => document.querySelectorAll('[data-theme-option]').forEach((b) => b.setAttribute('aria-current', String(b.dataset.themeOption === document.documentElement.dataset.theme)));
+            mark();
+            // The header toggle can also change the theme, so keep the check mark in sync.
+            new MutationObserver(mark).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+            document.querySelectorAll('[data-theme-option]').forEach((b) => b.addEventListener('click', () => { window.apolloTheme.apply(b.dataset.themeOption, true); picker.open = false; }));
             document.addEventListener('click', (e) => { if (picker.open && !picker.contains(e.target)) picker.open = false; });
         })();
         document.querySelector('[data-admin-sidebar-toggle]')?.addEventListener('click', window.toggleAdminSidebar);

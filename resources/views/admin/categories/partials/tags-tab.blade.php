@@ -10,7 +10,7 @@
     <section class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
         {{-- TOTAL --}}
-        <article class="rounded-xl border border-surface-high bg-surface-low p-5">
+        <article class="rounded-xl border border-c-252930 bg-surface-low p-5">
             <div class="flex items-start justify-between">
 
                 <div>
@@ -23,7 +23,7 @@
                     </p>
                 </div>
 
-                <span class="material-symbols-outlined text-secondary">
+                <span class="material-symbols-outlined text-c-c5a7ff">
                     sell
                 </span>
 
@@ -32,7 +32,7 @@
 
 
         {{-- IN USE --}}
-        <article class="rounded-xl border border-surface-high bg-surface-low p-5">
+        <article class="rounded-xl border border-c-252930 bg-surface-low p-5">
             <div class="flex items-start justify-between">
 
                 <div>
@@ -54,7 +54,7 @@
 
 
         {{-- UNUSED --}}
-        <article class="rounded-xl border border-surface-high bg-surface-low p-5">
+        <article class="rounded-xl border border-c-252930 bg-surface-low p-5">
             <div class="flex items-start justify-between">
 
                 <div>
@@ -62,12 +62,12 @@
                         Unused Tags
                     </p>
 
-                    <p class="mt-3 text-3xl font-semibold text-amber-300">
+                    <p class="mt-3 text-3xl font-semibold text-c-ffcf70">
                         {{ $tags->where('posts_count', 0)->count() }}
                     </p>
                 </div>
 
-                <span class="material-symbols-outlined text-amber-300">
+                <span class="material-symbols-outlined text-c-ffcf70">
                     link_off
                 </span>
 
@@ -76,7 +76,7 @@
 
 
         {{-- TOTAL REFERENCES --}}
-        <article class="rounded-xl border border-surface-high bg-surface-low p-5">
+        <article class="rounded-xl border border-c-252930 bg-surface-low p-5">
             <div class="flex items-start justify-between">
 
                 <div>
@@ -89,7 +89,7 @@
                     </p>
                 </div>
 
-                <span class="material-symbols-outlined text-primary">
+                <span class="material-symbols-outlined text-c-80d4ff">
                     article
                 </span>
 
@@ -108,7 +108,7 @@
         <section class="min-w-0 space-y-4">
 
             {{-- SEARCH --}}
-            <div class="rounded-xl border border-surface-high bg-surface-low p-4">
+            <div class="rounded-xl border border-c-252930 bg-surface-low p-4">
 
                 <div class="relative">
 
@@ -122,7 +122,7 @@
                         type="text"
                         id="tagSearch"
                         placeholder="Tìm tag theo tên hoặc slug..."
-                        class="w-full rounded-lg border border-surface-highest bg-background py-2.5 pl-10 pr-4 text-sm text-on-surface outline-none placeholder:text-outline focus:border-primary"
+                        class="w-full rounded-lg border border-surface-highest bg-background py-2.5 pl-10 pr-4 text-sm text-on-surface outline-none placeholder:text-c-626a72 focus:border-c-80d4ff"
                     >
 
                 </div>
@@ -131,14 +131,14 @@
 
 
             {{-- TAG TABLE --}}
-            <div class="overflow-hidden rounded-xl border border-surface-high bg-surface-low">
+            <div class="overflow-hidden rounded-xl border border-c-252930 bg-surface-low">
 
                 @if ($tags->isEmpty())
 
                     {{-- EMPTY --}}
                     <div class="p-12 text-center">
 
-                        <span class="material-symbols-outlined text-4xl text-secondary">
+                        <span class="material-symbols-outlined text-4xl text-c-c5a7ff">
                             sell
                         </span>
 
@@ -202,12 +202,12 @@
                                         <td class="px-5 py-4">
                                             <div class="flex flex-col items-start gap-1">
                                                 <span
-                                                    class="tag-color inline-flex items-center rounded-md border bg-surface-low px-2 py-1 text-xs font-medium"
+                                                    class="tag-color inline-flex items-center rounded-md border bg-c-1c1f26 px-2 py-1 text-xs font-medium"
                                                     data-color="{{ $tag->color ?? '#8b5cf6' }}"
                                                 >
                                                     {{ $tag->name }}
                                                 </span>
-                                                <span class="text-[11px] text-outline">
+                                                <span class="text-[11px] text-c-69717a">
                                                     ID #{{ $tag->id }}
                                                 </span>
                                             </div>
@@ -224,7 +224,7 @@
 
                                             @if ($tag->posts_count > 0)
 
-                                                <span class="inline-flex items-center gap-1.5 rounded bg-tertiary/15 px-2.5 py-1 text-[10px] font-medium text-tertiary">
+                                                <span class="inline-flex items-center gap-1.5 rounded bg-c-163a30 px-2.5 py-1 text-[10px] font-medium text-tertiary">
 
                                                     <span class="h-1.5 w-1.5 rounded-full bg-tertiary"></span>
 
@@ -252,7 +252,7 @@
                                                 {{-- EDIT --}}
                                                 <button
                                                     type="button"
-                                                    class="edit-tag rounded-md p-2 text-primary transition hover:bg-surface-high"
+                                                    class="edit-tag rounded-md p-2 text-c-80d4ff transition hover:bg-c-252930"
                                                     title="Edit tag"
 
                                                     data-name="{{ $tag->name }}"
@@ -269,10 +269,10 @@
                                                 {{-- DELETE --}}
                                                 <button
                                                     type="button"
-                                                    class="delete-tag rounded-md p-2 transition hover:bg-surface-high
+                                                    class="delete-tag rounded-md p-2 transition hover:bg-c-252930
                                                         {{ $tag->posts_count > 0
-                                                            ? 'text-outline'
-                                                            : 'text-error' }}"
+                                                            ? 'text-c-626a72'
+                                                            : 'text-c-ff7d7d' }}"
                                                     title="{{ $tag->posts_count > 0
                                                         ? 'Tag đang được sử dụng'
                                                         : 'Delete tag' }}"
@@ -312,12 +312,12 @@
         ================================================== --}}
         <aside>
 
-            <div class="sticky top-6 rounded-xl border border-surface-high bg-surface-low">
+            <div class="sticky top-6 rounded-xl border border-c-252930 bg-surface-low">
 
                 {{-- HEADER --}}
                 <div class="border-b border-surface-highest px-5 py-4">
 
-                    <p class="text-[10px] uppercase tracking-widest text-secondary">
+                    <p class="text-[10px] uppercase tracking-widest text-c-c5a7ff">
                         Tag Editor
                     </p>
 
@@ -357,7 +357,7 @@
                             maxlength="60"
                             required
                             placeholder="VD: Laravel"
-                            class="w-full rounded-lg border border-surface-highest bg-background px-3 py-2.5 text-sm outline-none placeholder:text-outline focus:border-primary"
+                            class="w-full rounded-lg border border-surface-highest bg-background px-3 py-2.5 text-sm outline-none placeholder:text-c-626a72 focus:border-c-80d4ff"
                         >
 
                     </div>
@@ -380,7 +380,7 @@
                             maxlength="80"
                             required
                             placeholder="laravel"
-                            class="w-full rounded-lg border border-surface-highest bg-background px-3 py-2.5 font-mono text-sm outline-none placeholder:text-outline focus:border-primary"
+                            class="w-full rounded-lg border border-surface-highest bg-background px-3 py-2.5 font-mono text-sm outline-none placeholder:text-c-626a72 focus:border-c-80d4ff"
                         >
 
                     </div>
@@ -388,7 +388,7 @@
                     <div>
                         <label
                             for="tagColor"
-                            class="mb-2 block text-xs font-medium text-on-surface-variant"
+                            class="mb-2 block text-xs font-medium text-c-aeb4bd"
                         >
                             Color Accent
                         </label>
@@ -398,15 +398,15 @@
                             name="color"
                             type="color"
                             value="#8b5cf6"
-                            class="h-10 w-full cursor-pointer rounded-lg border border-outline-variant bg-background p-1"
+                            class="h-10 w-full cursor-pointer rounded-lg border border-c-30343b bg-background p-1"
                         >
                     </div>
                     {{-- HELP --}}
-                    <div class="rounded-lg border border-surface-high bg-background p-3">
+                    <div class="rounded-lg border border-c-252930 bg-background p-3">
 
                         <div class="flex gap-2">
 
-                            <span class="material-symbols-outlined text-[17px] text-primary">
+                            <span class="material-symbols-outlined text-[17px] text-c-80d4ff">
                                 info
                             </span>
 
@@ -423,14 +423,14 @@
                     {{-- ERROR --}}
                     <div
                         id="tagFormError"
-                        class="hidden rounded-lg border border-error/40 bg-error/15 px-3 py-2 text-xs text-error"
+                        class="hidden rounded-lg border border-c-6f3030 bg-c-351b1b px-3 py-2 text-xs text-c-ff9a9a"
                     ></div>
 
 
                     {{-- INFO --}}
                     <div
                         id="tagFormInfo"
-                        class="hidden rounded-lg border border-tertiary/30 bg-tertiary/15 px-3 py-2 text-xs text-tertiary"
+                        class="hidden rounded-lg border border-c-245441 bg-c-153126 px-3 py-2 text-xs text-tertiary"
                     ></div>
 
 
@@ -438,7 +438,7 @@
                     <button
                         type="submit"
                         id="saveTagButton"
-                        class="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-surface-lowest transition hover:bg-primary-fixed"
+                        class="flex w-full items-center justify-center gap-2 rounded-lg bg-c-80d4ff px-4 py-2.5 text-sm font-semibold text-c-071017 transition hover:bg-c-a2e0ff"
                     >
 
                         <span class="material-symbols-outlined text-[18px]">
@@ -456,7 +456,7 @@
                     <button
                         type="button"
                         id="cancelTagEdit"
-                        class="hidden w-full rounded-lg border border-surface-highest px-4 py-2.5 text-sm text-on-surface-variant transition hover:bg-surface-high"
+                        class="hidden w-full rounded-lg border border-surface-highest px-4 py-2.5 text-sm text-on-surface-variant transition hover:bg-c-252930"
                     >
                         Cancel Edit
                     </button>

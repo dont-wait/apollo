@@ -52,25 +52,25 @@ document.addEventListener('DOMContentLoaded', () => {
     function setActiveTab(activeButton, inactiveButton) {
         activeButton.classList.add(
             'border-b-2',
-            'border-[#80d4ff]',
+            'border-c-80d4ff',
             'font-semibold',
-            'text-[#80d4ff]'
+            'text-c-80d4ff'
         );
 
         activeButton.classList.remove(
-            'text-[#87929a]'
+            'text-outline'
         );
 
 
         inactiveButton.classList.remove(
             'border-b-2',
-            'border-[#80d4ff]',
+            'border-c-80d4ff',
             'font-semibold',
-            'text-[#80d4ff]'
+            'text-c-80d4ff'
         );
 
         inactiveButton.classList.add(
-            'text-[#87929a]'
+            'text-outline'
         );
     }
 

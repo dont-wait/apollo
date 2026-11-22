@@ -32,7 +32,7 @@
             type="button"
             id="categoryTabButton"
             data-tab="categories"
-            class="border-b-2 border-primary px-4 py-3 text-sm font-semibold text-primary"
+            class="border-b-2 border-c-80d4ff px-4 py-3 text-sm font-semibold text-c-80d4ff"
         >
             Hierarchical Categories
         </button>

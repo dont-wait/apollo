@@ -9,7 +9,7 @@
             @class([
                 'inline-flex items-center gap-1.5 rounded px-3 py-2 transition-colors',
                 'bg-surface-high text-primary' => request()->routeIs($item['active']),
-                'text-on-surface-variant hover:bg-surface-high hover:text-white' => ! request()->routeIs($item['active']),
+                'text-on-surface-variant hover:bg-surface-high hover:text-on-surface' => ! request()->routeIs($item['active']),
             ])>
             <span class="material-symbols-outlined text-base">{{ $item['icon'] }}</span>{{ $item['label'] }}
         </a>

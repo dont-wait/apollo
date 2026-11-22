@@ -6,6 +6,16 @@ import './admin/toxic-highlight.js';
 import './admin/notifications.js';
 window.Alpine = Alpine;
 
+document.addEventListener('click', (event) => {
+    if (! event.target.closest('[data-theme-toggle]')) {
+        return;
+    }
+
+    const isLight = document.documentElement.getAttribute('data-mode') === 'light';
+
+    window.apolloTheme.apply(isLight ? 'dark' : 'light', true);
+});
+
 const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
 
 const bookmarkUrl = (template, postId) => template.replace('__POST__', String(postId));

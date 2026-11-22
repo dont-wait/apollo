@@ -20,7 +20,7 @@
             </div>
             <div class="flex flex-col justify-between gap-6 xl:flex-row xl:items-start">
                 <div class="space-y-3">
-                    <a href="{{ route('admin.weekly-reviews.index') }}" class="inline-flex items-center gap-1 font-label-sm text-label-sm text-primary hover:text-white"><span class="material-symbols-outlined text-base">arrow_back</span> Danh sách review</a>
+                    <a href="{{ route('admin.weekly-reviews.index') }}" class="inline-flex items-center gap-1 font-label-sm text-label-sm text-primary hover:text-on-surface"><span class="material-symbols-outlined text-base">arrow_back</span> Danh sách review</a>
                     <div>
                         <p class="font-label-sm text-label-sm uppercase tracking-widest text-outline">Biên tập bản tin AI</p>
                         <h1 class="font-headline-sm text-2xl font-semibold tracking-tight sm:text-3xl">Review tuần {{ $review->week_start->format('d/m/Y') }}</h1>

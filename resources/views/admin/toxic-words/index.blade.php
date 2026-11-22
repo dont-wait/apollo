@@ -36,9 +36,9 @@
 
     <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <section class="min-w-0 space-y-4">
-            <details class="rounded border border-surface-high bg-surface-low" @if (session('import_errors') || $errors->has('file')) open @endif>
+            <details class="rounded border border-c-252930 bg-surface-low" @if (session('import_errors') || $errors->has('file')) open @endif>
                 <summary class="flex cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium text-on-surface">
-                    <span class="material-symbols-outlined text-base text-primary">upload_file</span>
+                    <span class="material-symbols-outlined text-base text-c-80d4ff">upload_file</span>
                     Import từ Excel / CSV
                 </summary>
                 <div class="space-y-3 border-t border-surface-highest px-4 py-4">
@@ -50,8 +50,8 @@
                     <form method="POST" action="{{ route('admin.toxic-words.import') }}" enctype="multipart/form-data" class="flex flex-wrap items-center gap-3">
                         @csrf
                         <label class="sr-only" for="toxic-word-import-file">File import</label>
-                        <input id="toxic-word-import-file" type="file" name="file" accept=".xlsx,.csv" required class="min-w-0 flex-1 rounded border border-surface-highest bg-surface-lowest px-3 py-2 text-sm text-on-surface-variant file:mr-3 file:rounded file:border-0 file:bg-surface-high file:px-3 file:py-1 file:text-on-surface">
-                        <button type="submit" class="inline-flex min-h-10 items-center gap-2 rounded bg-primary-container px-4 text-sm font-semibold text-surface-lowest transition hover:bg-primary">
+                        <input id="toxic-word-import-file" type="file" name="file" accept=".xlsx,.csv" required class="min-w-0 flex-1 rounded border border-surface-highest bg-c-0e1116 px-3 py-2 text-sm text-on-surface-variant file:mr-3 file:rounded file:border-0 file:bg-surface-high file:px-3 file:py-1 file:text-on-surface">
+                        <button type="submit" class="inline-flex min-h-10 items-center gap-2 rounded bg-primary-container px-4 text-sm font-semibold text-c-071017 transition hover:bg-primary">
                             <span class="material-symbols-outlined text-base">upload</span>
                             Import
                         </button>
@@ -70,12 +70,12 @@
                 </div>
             </details>
 
-            <form method="GET" action="{{ route('admin.toxic-words.index') }}" class="grid gap-3 rounded border border-surface-high bg-surface-low p-4 sm:grid-cols-[minmax(0,1fr)_160px_140px_auto]">
+            <form method="GET" action="{{ route('admin.toxic-words.index') }}" class="grid gap-3 rounded border border-c-252930 bg-surface-low p-4 sm:grid-cols-[minmax(0,1fr)_160px_140px_auto]">
                 <label class="sr-only" for="toxic-word-search">Tìm từ</label>
-                <input id="toxic-word-search" name="q" value="{{ $filters['q'] ?? '' }}" type="search" placeholder="Tìm theo từ hoặc cụm từ..." class="min-h-10 rounded border border-surface-highest bg-surface-lowest px-3 text-sm text-on-surface outline-none placeholder:text-outline focus:border-primary">
+                <input id="toxic-word-search" name="q" value="{{ $filters['q'] ?? '' }}" type="search" placeholder="Tìm theo từ hoặc cụm từ..." class="min-h-10 rounded border border-surface-highest bg-c-0e1116 px-3 text-sm text-on-surface outline-none placeholder:text-c-626a72 focus:border-c-80d4ff">
 
                 <label class="sr-only" for="toxic-word-scope">Scope</label>
-                <select id="toxic-word-scope" name="scope" class="min-h-10 rounded border border-surface-highest bg-surface-lowest px-3 text-sm text-on-surface outline-none focus:border-primary">
+                <select id="toxic-word-scope" name="scope" class="min-h-10 rounded border border-surface-highest bg-c-0e1116 px-3 text-sm text-on-surface outline-none focus:border-c-80d4ff">
                     <option value="">Tất cả scope</option>
                     @foreach ($scopes as $scope)
                         <option value="{{ $scope }}" @selected(($filters['scope'] ?? '') === $scope)>{{ $scope }}</option>
@@ -83,22 +83,22 @@
                 </select>
 
                 <label class="sr-only" for="toxic-word-status">Trạng thái</label>
-                <select id="toxic-word-status" name="status" class="min-h-10 rounded border border-surface-highest bg-surface-lowest px-3 text-sm text-on-surface outline-none focus:border-primary">
+                <select id="toxic-word-status" name="status" class="min-h-10 rounded border border-surface-highest bg-c-0e1116 px-3 text-sm text-on-surface outline-none focus:border-c-80d4ff">
                     <option value="">Tất cả trạng thái</option>
                     <option value="active" @selected(($filters['status'] ?? '') === 'active')>Đang bật</option>
                     <option value="inactive" @selected(($filters['status'] ?? '') === 'inactive')>Đang tắt</option>
                 </select>
 
-                <button type="submit" class="inline-flex min-h-10 items-center justify-center gap-2 rounded bg-primary-container px-4 text-sm font-semibold text-surface-lowest transition hover:bg-primary">
+                <button type="submit" class="inline-flex min-h-10 items-center justify-center gap-2 rounded bg-primary-container px-4 text-sm font-semibold text-c-071017 transition hover:bg-primary">
                     <span class="material-symbols-outlined text-base">filter_alt</span>
                     Lọc
                 </button>
             </form>
 
-            <div class="overflow-hidden rounded border border-surface-high bg-surface-low">
+            <div class="overflow-hidden rounded border border-c-252930 bg-surface-low">
                 @if ($words->isEmpty())
                     <div class="px-6 py-16 text-center">
-                        <span class="material-symbols-outlined text-4xl text-primary">shield</span>
+                        <span class="material-symbols-outlined text-4xl text-c-80d4ff">shield</span>
                         <p class="mt-3 font-semibold">Chưa có từ nào trong từ điển</p>
                         <p class="mt-1 text-sm text-outline">Thêm từ đầu tiên bằng form bên phải.</p>
                     </div>
@@ -119,7 +119,7 @@
                                     <tr class="transition hover:bg-surface">
                                         <td class="px-5 py-4">
                                             <p class="font-semibold">{{ $word->term }}</p>
-                                            <p class="mt-0.5 font-mono text-[10px] text-outline">{{ $word->normalized_term }}</p>
+                                            <p class="mt-0.5 font-mono text-[10px] text-c-626a72">{{ $word->normalized_term }}</p>
                                             @if ($word->note)
                                                 <p class="mt-1 text-xs text-outline">{{ $word->note }}</p>
                                             @endif
@@ -127,20 +127,20 @@
                                         <td class="px-4 py-4">
                                             <div class="flex max-w-56 flex-wrap gap-1">
                                                 @foreach ($word->scopes as $scope)
-                                                    <span class="rounded border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[10px] text-primary">{{ $scope }}</span>
+                                                    <span class="rounded border border-c-294759 bg-c-162632 px-2 py-0.5 font-mono text-[10px] text-c-80d4ff">{{ $scope }}</span>
                                                 @endforeach
                                             </div>
                                         </td>
                                         <td class="px-4 py-4">
                                             <span class="font-mono text-xs text-on-surface-variant">{{ $word->match_mode }}</span>
                                             @if ($word->fold_diacritics)
-                                                <span class="ml-1 rounded bg-secondary/15 px-1.5 py-0.5 font-mono text-[10px] text-secondary">no-diacritics</span>
+                                                <span class="ml-1 rounded bg-c-272238 px-1.5 py-0.5 font-mono text-[10px] text-c-c5a7ff">no-diacritics</span>
                                             @endif
                                         </td>
                                         <td class="px-4 py-4">
                                             <span @class([
                                                 'inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-[10px] font-medium',
-                                                'bg-tertiary/15 text-tertiary' => $word->is_active,
+                                                'bg-c-163a30 text-tertiary' => $word->is_active,
                                                 'bg-surface-highest text-on-surface-variant' => ! $word->is_active,
                                             ])>
                                                 <span @class(['h-1.5 w-1.5 rounded-full', 'bg-tertiary' => $word->is_active, 'bg-outline' => ! $word->is_active])></span>
@@ -151,7 +151,7 @@
                                             <div class="flex justify-end gap-2">
                                                 <button
                                                     type="button"
-                                                    class="rounded p-2 text-primary transition hover:bg-surface-high"
+                                                    class="rounded p-2 text-c-80d4ff transition hover:bg-c-252930"
                                                     title="Sửa từ"
                                                     data-edit-word="{{ json_encode([
                                                         'id' => $word->id,
@@ -171,7 +171,7 @@
                                                     @csrf
                                                     @method('PATCH')
                                                     <input type="hidden" name="is_active" value="{{ $word->is_active ? 0 : 1 }}">
-                                                    <button type="submit" class="rounded p-2 text-outline transition hover:bg-surface-high hover:text-on-surface" title="{{ $word->is_active ? 'Tắt từ' : 'Bật từ' }}">
+                                                    <button type="submit" class="rounded p-2 text-outline transition hover:bg-c-252930 hover:text-on-surface" title="{{ $word->is_active ? 'Tắt từ' : 'Bật từ' }}">
                                                         <span class="material-symbols-outlined text-[18px]">power_settings_new</span>
                                                     </button>
                                                 </form>
@@ -179,7 +179,7 @@
                                                 <form method="POST" action="{{ route('admin.toxic-words.destroy', $word) }}" onsubmit="return confirm('Xóa từ này khỏi từ điển?')">
                                                     @csrf
                                                     @method('DELETE')
-                                                    <button type="submit" class="rounded p-2 text-error transition hover:bg-error/15" title="Xóa từ">
+                                                    <button type="submit" class="rounded p-2 text-c-ff9299 transition hover:bg-c-351b1b" title="Xóa từ">
                                                         <span class="material-symbols-outlined text-[18px]">delete</span>
                                                     </button>
                                                 </form>
@@ -195,9 +195,9 @@
         </section>
 
         <aside class="min-w-0">
-            <div class="sticky top-6 rounded border border-surface-high bg-surface-low">
+            <div class="sticky top-6 rounded border border-c-252930 bg-surface-low">
                 <div class="border-b border-surface-highest px-5 py-4">
-                    <p class="text-[10px] uppercase tracking-widest text-primary">Dictionary Editor</p>
+                    <p class="text-[10px] uppercase tracking-widest text-c-80d4ff">Dictionary Editor</p>
                     <h2 id="toxicWordEditorTitle" class="mt-1 text-lg font-semibold">Thêm từ mới</h2>
                 </div>
 
@@ -214,15 +214,15 @@
 
                     <div>
                         <label for="toxicWordTerm" class="mb-1.5 block text-xs font-medium text-on-surface-variant">Từ / Cụm từ *</label>
-                        <input id="toxicWordTerm" name="term" type="text" value="{{ old('term') }}" maxlength="100" required class="w-full rounded border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface outline-none focus:border-primary">
+                        <input id="toxicWordTerm" name="term" type="text" value="{{ old('term') }}" maxlength="100" required class="w-full rounded border border-surface-highest bg-c-0e1116 px-3 py-2.5 text-sm text-on-surface outline-none focus:border-c-80d4ff">
                     </div>
 
                     <fieldset>
                         <legend class="mb-1.5 block text-xs font-medium text-on-surface-variant">Áp dụng cho *</legend>
                         <div class="grid grid-cols-2 gap-2">
                             @foreach ($scopes as $scope)
-                                <label class="flex items-center gap-2 rounded border border-surface-highest bg-surface-lowest px-2.5 py-2 text-xs text-on-surface-variant">
-                                    <input type="checkbox" name="scopes[]" value="{{ $scope }}" @checked(in_array($scope, (array) old('scopes', config('toxic_words.scopes')), true)) class="rounded border-outline-variant bg-surface-lowest text-sky-400 focus:ring-sky-400">
+                                <label class="flex items-center gap-2 rounded border border-surface-highest bg-c-0e1116 px-2.5 py-2 text-xs text-on-surface-variant">
+                                    <input type="checkbox" name="scopes[]" value="{{ $scope }}" @checked(in_array($scope, (array) old('scopes', config('toxic_words.scopes')), true)) class="rounded border-c-4b5059 bg-surface-lowest text-sky-400 focus:ring-sky-400">
                                     {{ $scope }}
                                 </label>
                             @endforeach
@@ -232,7 +232,7 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label for="toxicWordMode" class="mb-1.5 block text-xs font-medium text-on-surface-variant">Match mode</label>
-                            <select id="toxicWordMode" name="match_mode" class="w-full rounded border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface outline-none focus:border-primary">
+                            <select id="toxicWordMode" name="match_mode" class="w-full rounded border border-surface-highest bg-c-0e1116 px-3 py-2.5 text-sm text-on-surface outline-none focus:border-c-80d4ff">
                                 @foreach ($matchModes as $mode)
                                     <option value="{{ $mode }}" @selected(old('match_mode', 'WORD') === $mode)>{{ $mode }}</option>
                                 @endforeach
@@ -241,12 +241,12 @@
                         <div class="flex flex-col justify-end gap-2 pb-1">
                             <label class="flex items-center gap-2 text-xs text-on-surface-variant">
                                 <input type="hidden" name="fold_diacritics" value="0">
-                                <input type="checkbox" name="fold_diacritics" value="1" @checked(old('fold_diacritics')) class="rounded border-outline-variant bg-surface-lowest text-sky-400 focus:ring-sky-400">
+                                <input type="checkbox" name="fold_diacritics" value="1" @checked(old('fold_diacritics')) class="rounded border-c-4b5059 bg-surface-lowest text-sky-400 focus:ring-sky-400">
                                 Bỏ dấu khi so khớp
                             </label>
                             <label class="flex items-center gap-2 text-xs text-on-surface-variant">
                                 <input type="hidden" name="is_active" value="0">
-                                <input type="checkbox" name="is_active" value="1" @checked(old('is_active', true)) class="rounded border-outline-variant bg-surface-lowest text-sky-400 focus:ring-sky-400">
+                                <input type="checkbox" name="is_active" value="1" @checked(old('is_active', true)) class="rounded border-c-4b5059 bg-surface-lowest text-sky-400 focus:ring-sky-400">
                                 Đang bật
                             </label>
                         </div>
@@ -254,19 +254,19 @@
 
                     <div>
                         <label for="toxicWordNote" class="mb-1.5 block text-xs font-medium text-on-surface-variant">Ghi chú nội bộ</label>
-                        <input id="toxicWordNote" name="note" type="text" value="{{ old('note') }}" maxlength="255" class="w-full rounded border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface outline-none focus:border-primary">
+                        <input id="toxicWordNote" name="note" type="text" value="{{ old('note') }}" maxlength="255" class="w-full rounded border border-surface-highest bg-c-0e1116 px-3 py-2.5 text-sm text-on-surface outline-none focus:border-c-80d4ff">
                     </div>
 
-                    <p class="rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-5 text-amber-300">
+                    <p class="rounded border border-c-3b3320 bg-c-231f14 px-3 py-2 text-[11px] leading-5 text-c-ffcf70">
                         LOOSE chỉ dùng cho từ từ 4 ký tự. Bật bỏ dấu có thể chặn nhầm từ tiếng Việt hợp lệ.
                     </p>
 
-                    <button type="submit" class="flex w-full items-center justify-center gap-2 rounded bg-primary-container px-4 py-2.5 text-sm font-semibold text-surface-lowest transition hover:bg-primary">
+                    <button type="submit" class="flex w-full items-center justify-center gap-2 rounded bg-primary-container px-4 py-2.5 text-sm font-semibold text-c-071017 transition hover:bg-primary">
                         <span class="material-symbols-outlined text-base">save</span>
                         <span data-toxic-word-submit-label>Thêm từ</span>
                     </button>
 
-                    <button type="button" data-toxic-word-cancel class="hidden w-full rounded border border-surface-highest px-4 py-2.5 text-sm text-on-surface-variant transition hover:bg-surface-high">
+                    <button type="button" data-toxic-word-cancel class="hidden w-full rounded border border-surface-highest px-4 py-2.5 text-sm text-on-surface-variant transition hover:bg-c-252930">
                         Hủy sửa
                     </button>
                 </form>
