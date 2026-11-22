@@ -55,7 +55,7 @@ class CollectSource implements ShouldQueue
             return;
         }
         try {
-            $items = $fetcher->fetch($source);
+            $items = $fetcher->fetch($source, isset($run->payload['max_items']) ? (int) $run->payload['max_items'] : null);
         } catch (SourceRequestException $exception) {
             $this->record([
                 'status' => 'FAILED', 'retryable' => $exception->retryable,

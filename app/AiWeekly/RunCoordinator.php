@@ -15,12 +15,18 @@ use Throwable;
 
 class RunCoordinator
 {
-    public function collect(string $trigger, ?int $userId = null): AutomationRun
+    /**
+     * @param  int|null  $maxItems  Most items fetched per source (default: ai_weekly.max_items_per_source).
+     * @param  list<int>  $sourceIds  Sources picked by hand; empty means every active source.
+     */
+    public function collect(string $trigger, ?int $userId = null, ?int $maxItems = null, array $sourceIds = []): AutomationRun
     {
-        $ids = AiSource::query()->where('status', 'ACTIVE')->whereIn('source_type', ['RSS', 'API'])->pluck('id');
+        $ids = AiSource::query()->where('status', 'ACTIVE')->whereIn('source_type', ['RSS', 'API'])
+            ->when($sourceIds !== [], fn ($query) => $query->whereIn('id', $sourceIds))
+            ->pluck('id');
         if ($ids->isEmpty()) {
-            $active = AutomationRun::query()->where('run_type', 'COLLECT')
-                ->whereIn('status', ['PENDING', 'RUNNING'])->orderBy('id')->first();
+            $active = $sourceIds === [] ? AutomationRun::query()->where('run_type', 'COLLECT')
+                ->whereIn('status', ['PENDING', 'RUNNING'])->orderBy('id')->first() : null;
             if ($active) {
                 $this->dispatch($active);
 
@@ -30,17 +36,23 @@ class RunCoordinator
             throw new RuntimeException('Không có nguồn đang hoạt động.');
         }
 
-        $run = $this->create('COLLECT', $trigger, $userId, [
-            'sources' => $ids->mapWithKeys(fn (int $id): array => [$id => ['status' => 'PENDING']])->all(),
-        ]);
+        $payload = ['sources' => $ids->mapWithKeys(fn (int $id): array => [$id => ['status' => 'PENDING']])->all()];
+        if ($maxItems !== null) {
+            $payload['max_items'] = $maxItems;
+        }
+        $run = $this->create('COLLECT', $trigger, $userId, $payload);
         $this->dispatch($run);
 
         return $run;
     }
 
-    public function analyze(string $trigger, ?int $userId = null, ?int $articleId = null): AutomationRun
+    /** @param  list<int>  $articleIds  Articles picked by hand; when given they replace the automatic selection. */
+    public function analyze(string $trigger, ?int $userId = null, ?int $articleId = null, array $articleIds = []): AutomationRun
     {
-        $run = $this->create('ANALYZE', $trigger, $userId, $articleId ? ['article_id' => $articleId] : []);
+        $articleIds = array_values(array_unique(array_map('intval', $articleIds)));
+        sort($articleIds);
+        $payload = $articleIds !== [] ? ['article_ids' => $articleIds] : ($articleId ? ['article_id' => $articleId] : []);
+        $run = $this->create('ANALYZE', $trigger, $userId, $payload);
         $this->dispatch($run);
 
         return $run;
@@ -67,6 +79,13 @@ class RunCoordinator
                 ? AutomationRun::create(['idempotency_key' => 'weekly:'.$weekStart.':'.Str::uuid()] + $values)
                 : AutomationRun::query()->createOrFirst(['idempotency_key' => 'weekly:'.$weekStart], $values);
         });
+
+        // Someone pressing "generate" for a week whose run failed (and still has attempts left) expects it to
+        // run again, not to be handed the same failed run back. Scheduled triggers keep waiting for reconcile().
+        if ($trigger === 'MANUAL' && in_array($run->status, ['FAILED', 'PARTIAL'], true) && $run->attempt < $run->max_attempts && $this->retry($run)) {
+            return $run->fresh();
+        }
+
         $this->dispatch($run);
 
         return $run;
@@ -85,6 +104,67 @@ class RunCoordinator
                 GenerateWeeklyReview::dispatch($fresh->id, $fresh->attempt);
             }
         });
+    }
+
+    /** Stop a run for good: in-flight work is discarded and it is never retried. */
+    public function cancel(AutomationRun $run): bool
+    {
+        return DB::transaction(function () use ($run): bool {
+            $locked = AutomationRun::query()->lockForUpdate()->findOrFail($run->id);
+            if (! in_array($locked->status, ['PENDING', 'RUNNING', 'PAUSED'], true)) {
+                return false;
+            }
+
+            $payload = $locked->payload ?? [];
+            if ($locked->run_type === 'COLLECT') {
+                foreach ($payload['sources'] ?? [] as $id => $result) {
+                    if (in_array($result['status'] ?? '', ['PENDING', 'RUNNING'], true)) {
+                        $payload['sources'][$id] = ['status' => 'FAILED', 'retryable' => false, 'error' => 'Đã hủy.'];
+                    }
+                }
+            }
+            unset($payload['current_item']);
+            $locked->update(['status' => 'CANCELLED', 'payload' => $payload, 'finished_at' => now(), 'error_message' => 'Đã hủy bởi quản trị viên.']);
+
+            return true;
+        });
+    }
+
+    /** Postpone an analysis run: the article being analyzed finishes, then the chain stops until resumed. */
+    public function pause(AutomationRun $run): bool
+    {
+        return DB::transaction(function () use ($run): bool {
+            $locked = AutomationRun::query()->lockForUpdate()->findOrFail($run->id);
+            if ($locked->run_type !== 'ANALYZE' || ! in_array($locked->status, ['PENDING', 'RUNNING'], true)) {
+                return false;
+            }
+
+            $locked->update(['status' => 'PAUSED']);
+
+            return true;
+        });
+    }
+
+    public function resume(AutomationRun $run): bool
+    {
+        $resumed = DB::transaction(function () use ($run): ?AutomationRun {
+            $locked = AutomationRun::query()->lockForUpdate()->findOrFail($run->id);
+            if ($locked->run_type !== 'ANALYZE' || $locked->status !== 'PAUSED') {
+                return null;
+            }
+
+            $locked->update(['status' => $locked->started_at ? 'RUNNING' : 'PENDING', 'locked_at' => now(), 'dispatched_at' => now()]);
+
+            return $locked;
+        });
+
+        if ($resumed === null) {
+            return false;
+        }
+
+        AnalyzeArticles::dispatch($resumed->id, $resumed->attempt);
+
+        return true;
     }
 
     public function retry(AutomationRun $run): bool
@@ -279,10 +359,12 @@ class RunCoordinator
     private function runCovers(string $type, array $activePayload, array $requestedPayload): bool
     {
         return match ($type) {
-            'COLLECT' => array_diff(
-                array_keys($requestedPayload['sources'] ?? []),
-                array_keys($activePayload['sources'] ?? []),
-            ) === [],
+            // A different item limit means a different job, so it is never folded into a running one.
+            'COLLECT' => ($activePayload['max_items'] ?? null) === ($requestedPayload['max_items'] ?? null)
+                && array_diff(
+                    array_keys($requestedPayload['sources'] ?? []),
+                    array_keys($activePayload['sources'] ?? []),
+                ) === [],
             'ANALYZE' => $this->analysisRunCovers($activePayload, $requestedPayload),
             'GENERATE_REVIEW' => ($activePayload['week_start'] ?? null) === ($requestedPayload['week_start'] ?? null)
                 && ($activePayload['mode'] ?? null) === ($requestedPayload['mode'] ?? null)
@@ -297,6 +379,20 @@ class RunCoordinator
      */
     private function analysisRunCovers(array $activePayload, array $requestedPayload): bool
     {
+        $activeIds = isset($activePayload['article_ids']) ? array_map('intval', $activePayload['article_ids']) : null;
+        $requestedIds = isset($requestedPayload['article_ids']) ? array_map('intval', $requestedPayload['article_ids']) : null;
+        if ($requestedIds !== null) {
+            // A hand-picked selection is only covered by a run that already has all of those articles.
+            return $activeIds !== null && array_diff($requestedIds, $activeIds) === [];
+        }
+        if ($activeIds !== null) {
+            $single = isset($requestedPayload['article_id']) ? (int) $requestedPayload['article_id'] : null;
+
+            return $single !== null
+                && in_array($single, $activeIds, true)
+                && ! array_key_exists($single, $activePayload['article_results'] ?? []);
+        }
+
         $activeArticleId = $activePayload['article_id'] ?? null;
         $requestedArticleId = $requestedPayload['article_id'] ?? null;
         if ($requestedArticleId === null) {

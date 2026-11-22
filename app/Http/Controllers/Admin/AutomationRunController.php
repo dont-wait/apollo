@@ -6,6 +6,7 @@ use App\AiWeekly\RunCoordinator;
 use App\AiWeekly\RunDispatchBusyException;
 use App\Http\Controllers\Controller;
 use App\Models\AiArticle;
+use App\Models\AiSource;
 use App\Models\AutomationRun;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -20,7 +21,7 @@ class AutomationRunController extends Controller
         $filter = $request->validate([
             'monitor' => ['sometimes', 'boolean'],
             'run_type' => ['nullable', 'in:COLLECT,ANALYZE,GENERATE_REVIEW'],
-            'status' => ['nullable', 'in:PENDING,RUNNING,SUCCESS,PARTIAL,FAILED'],
+            'status' => ['nullable', 'in:PENDING,RUNNING,PAUSED,SUCCESS,PARTIAL,FAILED,CANCELLED'],
             'created_from' => ['nullable', 'date_format:Y-m-d'],
             'created_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:created_from'],
         ]);
@@ -38,8 +39,8 @@ class AutomationRunController extends Controller
         }
         $runs->appends($request->except(['page', 'monitor']));
 
-        $monitorRuns = $this->runQuery()->whereIn('status', ['PENDING', 'RUNNING'])->orderByDesc('id')->get()
-            ->concat($this->runQuery()->whereNotIn('status', ['PENDING', 'RUNNING'])->orderByDesc('id')->limit(5)->get())
+        $monitorRuns = $this->runQuery()->whereIn('status', ['PENDING', 'RUNNING', 'PAUSED'])->orderByDesc('id')->get()
+            ->concat($this->runQuery()->whereNotIn('status', ['PENDING', 'RUNNING', 'PAUSED'])->orderByDesc('id')->limit(5)->get())
             ->unique('id')->map(fn (AutomationRun $run): array => $this->runState($run))->values()->all();
 
         $listing = [
@@ -56,7 +57,11 @@ class AutomationRunController extends Controller
 
         return $request->expectsJson()
             ? response()->json($runs->toArray() + ['current_runs' => $monitorRuns, 'listing' => $listing])
-            : view('admin.ai-weekly.runs', compact('runs', 'monitorRuns', 'listing', 'pollUrl'));
+            : view('admin.ai-weekly.runs', [
+                'runs' => $runs, 'monitorRuns' => $monitorRuns, 'listing' => $listing, 'pollUrl' => $pollUrl,
+                'collectSources' => AiSource::query()->where('status', 'ACTIVE')->whereIn('source_type', ['RSS', 'API'])->orderBy('name')->get(['id', 'name', 'source_type']),
+                'defaultMaxItems' => (int) config('ai_weekly.max_items_per_source'),
+            ]);
     }
 
     public function show(Request $request, AutomationRun $run): JsonResponse|View
@@ -70,8 +75,14 @@ class AutomationRunController extends Controller
 
     public function collect(Request $request, RunCoordinator $coordinator): JsonResponse
     {
+        $data = $request->validate([
+            'max_items' => ['nullable', 'integer', 'min:1', 'max:1000'],
+            'source_ids' => ['nullable', 'array', 'min:1'],
+            'source_ids.*' => ['integer', 'distinct', 'exists:ai_sources,id'],
+        ]);
+
         try {
-            $run = $coordinator->collect('MANUAL', $request->user()->id);
+            $run = $coordinator->collect('MANUAL', $request->user()->id, isset($data['max_items']) ? (int) $data['max_items'] : null, array_map('intval', $data['source_ids'] ?? []));
         } catch (RunDispatchBusyException $exception) {
             return response()->json(['message' => $exception->getMessage()], 409);
         } catch (RuntimeException $exception) {
@@ -83,17 +94,56 @@ class AutomationRunController extends Controller
 
     public function analyze(Request $request, RunCoordinator $coordinator): JsonResponse
     {
-        $data = $request->validate(['article_id' => ['nullable', 'integer', 'exists:ai_articles,id']]);
+        $limit = (int) config('ai_weekly.analyze_batch_size');
+        $data = $request->validate([
+            'article_id' => ['nullable', 'integer', 'exists:ai_articles,id', 'prohibits:article_ids'],
+            'article_ids' => ['nullable', 'array', 'min:1', ...($limit > 0 ? ['max:'.$limit] : [])],
+            'article_ids.*' => ['integer', 'distinct', 'exists:ai_articles,id'],
+        ]);
         if (isset($data['article_id']) && AiArticle::query()->whereKey($data['article_id'])->whereNotNull('duplicate_of')->exists()) {
             return response()->json(['message' => 'Không phân tích lại bài trùng.'], 422);
         }
+        $articleIds = array_map('intval', $data['article_ids'] ?? []);
+        if ($articleIds !== []) {
+            $usable = AiArticle::query()->whereIn('id', $articleIds)->whereNull('duplicate_of')
+                ->where(fn ($query) => $query->where(fn ($summary) => $summary->whereNotNull('raw_summary')->where('raw_summary', '!=', ''))
+                    ->orWhere(fn ($body) => $body->whereNotNull('raw_content')->where('raw_content', '!=', '')))
+                ->count();
+            if ($usable !== count($articleIds)) {
+                return response()->json(['message' => 'Duplicate articles and articles without content cannot be analyzed. Remove them from the selection.'], 422);
+            }
+        }
         try {
-            $run = $coordinator->analyze('MANUAL', $request->user()->id, $data['article_id'] ?? null);
+            $run = $coordinator->analyze('MANUAL', $request->user()->id, $data['article_id'] ?? null, $articleIds);
         } catch (RunDispatchBusyException $exception) {
             return response()->json(['message' => $exception->getMessage()], 409);
         }
 
         return response()->json(['run_id' => $run->id, 'reused' => ! $run->wasRecentlyCreated, 'state' => $this->runState($run)], 202);
+    }
+
+    public function cancel(AutomationRun $run, RunCoordinator $coordinator): JsonResponse
+    {
+        return $this->transition($run, $coordinator->cancel($run), 'Job này đã kết thúc nên không thể hủy.');
+    }
+
+    public function pause(AutomationRun $run, RunCoordinator $coordinator): JsonResponse
+    {
+        return $this->transition($run, $coordinator->pause($run), 'Chỉ có thể hoãn job phân tích đang chờ hoặc đang chạy.');
+    }
+
+    public function resume(AutomationRun $run, RunCoordinator $coordinator): JsonResponse
+    {
+        return $this->transition($run, $coordinator->resume($run), 'Chỉ có thể tiếp tục job phân tích đang bị hoãn.');
+    }
+
+    private function transition(AutomationRun $run, bool $changed, string $refusal): JsonResponse
+    {
+        if (! $changed) {
+            return response()->json(['message' => $refusal], 409);
+        }
+
+        return response()->json(['run_id' => $run->id, 'reused' => true, 'state' => $this->runState($run->fresh(), includePayload: true)]);
     }
 
     public function retry(AutomationRun $run, RunCoordinator $coordinator): JsonResponse

@@ -3,7 +3,7 @@
 @section('title', 'AI Run - Apollo Admin')
 
 @section('content')
-<div x-data="aiPipeline(@js($monitorRuns), @js(route('admin.automation-runs.show', $run)))" @ai-run-submitting.window="setSubmitting($event.detail)" @ai-run-started.window="track($event.detail)" class="-m-8 min-h-full bg-background p-4 text-on-surface sm:p-8">
+<div x-data="aiPipeline(@js($monitorRuns), @js(route('admin.automation-runs.show', $run)))" @ai-run-submitting.window="setSubmitting($event.detail)" @ai-run-started.window="track($event.detail)" data-csrf="{{ csrf_token() }}" class="-m-8 min-h-full bg-background p-4 text-on-surface sm:p-8">
     <div class="mx-auto max-w-[1440px] space-y-6">
         @include('admin.ai-weekly.nav')
         <a href="{{ route('admin.automation-runs.index') }}" class="inline-flex items-center gap-2 text-xs text-outline transition hover:text-primary"><span class="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>Danh sách tác vụ</a>
@@ -14,6 +14,12 @@
                 <button type="submit" :disabled="busy(@js($run->run_type))" class="inline-flex items-center gap-2 rounded bg-primary-container px-4 py-2.5 text-sm font-semibold text-on-primary transition hover:bg-primary disabled:cursor-not-allowed disabled:opacity-50"><span class="material-symbols-outlined text-base" aria-hidden="true">replay</span>Thử lại tác vụ</button>
                 <p data-ai-feedback role="status" class="text-xs text-on-surface-variant"></p>
             </form>
+            <div class="flex flex-wrap items-center gap-2">
+                <button type="button" x-cloak x-show="canPause(runs[0])" :disabled="isActing(runs[0])" @click="act(runs[0], 'pause')" class="inline-flex items-center gap-2 rounded border border-amber-400/30 px-4 py-2.5 text-sm font-semibold text-amber-300 transition hover:bg-amber-400/10 disabled:opacity-50"><span class="material-symbols-outlined text-base" aria-hidden="true">pause</span>Hoãn</button>
+                <button type="button" x-cloak x-show="canResume(runs[0])" :disabled="isActing(runs[0])" @click="act(runs[0], 'resume')" class="inline-flex items-center gap-2 rounded border border-primary/30 px-4 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary/10 disabled:opacity-50"><span class="material-symbols-outlined text-base" aria-hidden="true">play_arrow</span>Tiếp tục</button>
+                <button type="button" x-cloak x-show="canCancel(runs[0])" :disabled="isActing(runs[0])" @click="act(runs[0], 'cancel')" class="inline-flex items-center gap-2 rounded border border-error/30 px-4 py-2.5 text-sm font-semibold text-error transition hover:bg-error/10 disabled:opacity-50"><span class="material-symbols-outlined text-base" aria-hidden="true">cancel</span>Hủy job</button>
+                <p x-cloak x-show="actionError" x-text="actionError" role="alert" class="w-full text-xs text-error"></p>
+            </div>
         </header>
         <div class="grid gap-3 rounded-lg border border-outline-variant/50 bg-surface-container-low p-5 text-xs sm:grid-cols-2">
             <div><p class="font-mono text-[10px] uppercase tracking-wider text-outline">Bắt đầu</p><p class="mt-2 text-on-surface-variant" x-text="runs[0].started_at ?? 'Đang chờ worker'"></p></div>
@@ -26,4 +32,5 @@
         </details>
     </div>
 </div>
+<x-confirm-modal cancelText="Đóng" />
 @endsection

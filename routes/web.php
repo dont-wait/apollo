@@ -219,6 +219,9 @@ Route::prefix('admin')
         Route::get('/automation-runs', [AutomationRunController::class, 'index'])->name('automation-runs.index');
         Route::get('/automation-runs/{run}', [AutomationRunController::class, 'show'])->name('automation-runs.show');
         Route::post('/automation-runs/{run}/retry', [AutomationRunController::class, 'retry'])->name('automation-runs.retry');
+        Route::post('/automation-runs/{run}/cancel', [AutomationRunController::class, 'cancel'])->name('automation-runs.cancel');
+        Route::post('/automation-runs/{run}/pause', [AutomationRunController::class, 'pause'])->name('automation-runs.pause');
+        Route::post('/automation-runs/{run}/resume', [AutomationRunController::class, 'resume'])->name('automation-runs.resume');
         Route::get('/weekly-reviews', [WeeklyReviewController::class, 'index'])->name('weekly-reviews.index');
         Route::post('/weekly-reviews/generate', [WeeklyReviewController::class, 'generate'])->name('weekly-reviews.generate');
         Route::get('/weekly-reviews/{review}', [WeeklyReviewController::class, 'show'])->name('weekly-reviews.show');

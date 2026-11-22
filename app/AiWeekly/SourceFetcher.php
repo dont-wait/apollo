@@ -12,8 +12,11 @@ use RuntimeException;
 class SourceFetcher
 {
     /** @return array<int, array<string, mixed>> */
-    public function fetch(AiSource $source): array
+    /** @param  int|null  $maxItems  Most items to take from this source; defaults to ai_weekly.max_items_per_source. */
+    public function fetch(AiSource $source, ?int $maxItems = null): array
     {
+        $itemLimit = max(1, $maxItems ?? (int) config('ai_weekly.max_items_per_source'));
+
         if ($source->status !== 'ACTIVE' || $source->source_type === 'WEBSITE') {
             throw new RuntimeException('Source is inactive or has no automatic adapter.');
         }
@@ -65,7 +68,7 @@ class SourceFetcher
                 throw new RuntimeException('API response has no items array.');
             }
 
-            return array_slice($items, 0, config('ai_weekly.max_items_per_source'));
+            return array_slice($items, 0, $itemLimit);
         }
 
         $previous = libxml_use_internal_errors(true);
@@ -87,7 +90,7 @@ class SourceFetcher
                     'author' => trim((string) $entry->author) ?: null,
                     'published_at' => trim((string) ($entry->pubDate ?? $entry->published ?? $entry->updated)) ?: null,
                 ];
-                if (count($items) >= config('ai_weekly.max_items_per_source')) {
+                if (count($items) >= $itemLimit) {
                     break;
                 }
             }

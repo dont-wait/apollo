@@ -20,6 +20,9 @@ class AnalyzeArticles implements ShouldQueue
 {
     use Queueable;
 
+    /** Pausing lets the article already being analyzed finish and be saved; cancelling does not. */
+    private const array SAVE_STATUSES = ['PENDING', 'RUNNING', 'PAUSED'];
+
     public int $timeout;
 
     public function __construct(public int $runId, public int $attempt = 1)
@@ -43,9 +46,13 @@ class AnalyzeArticles implements ShouldQueue
         }
         $payload = $run->payload ?? [];
         $cursor = $payload['cursor'] ?? 0;
+        // A run is "explicit" when someone picked the articles (one or several) instead of letting it choose.
+        $selectedIds = isset($payload['article_ids']) ? array_map('intval', $payload['article_ids']) : null;
+        $explicit = isset($payload['article_id']) || $selectedIds !== null;
         $articlesQuery = AiArticle::query()->where('id', '>', $cursor)->whereNull('duplicate_of')
             ->when(isset($payload['article_id']), fn ($query) => $query->whereKey($payload['article_id']))
-            ->when(! isset($payload['article_id']), function ($query): void {
+            ->when($selectedIds !== null, fn ($query) => $query->whereIn('id', $selectedIds))
+            ->when(! $explicit, function ($query): void {
                 $query->where(function ($content): void {
                     $content->where(fn ($summary) => $summary->whereNotNull('raw_summary')->where('raw_summary', '!=', ''))
                         ->orWhere(fn ($body) => $body->whereNotNull('raw_content')->where('raw_content', '!=', ''));
@@ -53,8 +60,13 @@ class AnalyzeArticles implements ShouldQueue
                     $pending->whereNotIn('status', ['ANALYZED'])->orWhereDoesntHave('analyses', fn ($analysis) => $analysis->where('is_current', true));
                 });
             });
-        $payload['total'] ??= (clone $articlesQuery)->count();
-        $articles = $articlesQuery->orderBy('id')->limit(1)->get();
+        // A full backlog can overwhelm a small local model, so each run only takes a batch;
+        // the remaining articles are picked up by the next scheduled run.
+        $batchSize = $explicit ? 0 : (int) config('ai_weekly.analyze_batch_size');
+        $pendingTotal = (clone $articlesQuery)->count();
+        $payload['total'] ??= $batchSize > 0 ? min($batchSize, $pendingTotal) : $pendingTotal;
+        $batchReached = $batchSize > 0 && count($payload['article_results'] ?? []) >= $batchSize;
+        $articles = $batchReached ? collect() : $articlesQuery->orderBy('id')->limit(1)->get();
         if ($articles->isEmpty()) {
             $payload['total'] = count($payload['article_results'] ?? []);
             $failed = $payload['failed'] ?? 0;
@@ -79,7 +91,7 @@ class AnalyzeArticles implements ShouldQueue
 
         try {
             $article->refresh();
-            if (! isset($payload['article_id']) && $article->status === 'ANALYZED' && $article->analyses()->where('is_current', true)->where('status', 'SUCCESS')->exists()) {
+            if (! $explicit && $article->status === 'ANALYZED' && $article->analyses()->where('is_current', true)->where('status', 'SUCCESS')->exists()) {
                 $payload['article_results'][$article->id] = ['status' => 'SKIPPED'];
                 $payload['cursor'] = $article->id;
                 unset($payload['current_item']);
@@ -141,7 +153,7 @@ class AnalyzeArticles implements ShouldQueue
                     $active->update(['payload' => $payload, 'locked_at' => now()]);
 
                     return true;
-                });
+                }, self::SAVE_STATUSES);
                 if ($saved === null) {
                     return;
                 }
@@ -161,14 +173,19 @@ class AnalyzeArticles implements ShouldQueue
                     $active->update(['payload' => $payload, 'locked_at' => now()]);
 
                     return true;
-                });
+                }, self::SAVE_STATUSES);
                 if ($saved === null) {
                     return;
                 }
             }
             $payload['cursor'] = $article->id;
             unset($payload['current_item']);
-            if ($run->withinAttempt($this->attempt, fn (AutomationRun $locked): bool => $locked->update(['payload' => $payload, 'locked_at' => now()]))) {
+            // A paused run keeps its progress but does not queue the next article; Resume restarts the chain.
+            if ($run->withinAttempt($this->attempt, function (AutomationRun $locked) use ($payload): bool {
+                $locked->update(['payload' => $payload, 'locked_at' => now()]);
+
+                return $locked->status !== 'PAUSED';
+            }, self::SAVE_STATUSES)) {
                 self::dispatch($this->runId, $this->attempt);
             }
         } finally {

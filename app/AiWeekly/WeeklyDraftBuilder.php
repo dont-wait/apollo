@@ -110,10 +110,21 @@ class WeeklyDraftBuilder
         }
         $tokens = [];
         preg_match_all('/\[\[(\d+)\]\]/', $draft['markdown_content'], $tokens);
-        $citedInText = array_map('intval', $tokens[1]);
-        if ($citedInText === [] || array_diff($citedInText, $draft['citation_ids']) || array_diff($draft['citation_ids'], $citedInText)) {
-            throw new RuntimeException('Draft citations do not match the approved snapshot.');
+        $citedInText = array_values(array_unique(array_map('intval', $tokens[1])));
+        if ($citedInText === []) {
+            throw new RuntimeException('Draft has no [[ID]] citation tokens (model listed citation_ids ['.implode(', ', $draft['citation_ids']).']).');
         }
+        if ($outside = array_diff($citedInText, $validIds)) {
+            throw new RuntimeException('Draft cites articles outside the approved snapshot: ['.implode(', ', $outside).'].');
+        }
+        // Small local models often list citation_ids that differ from the [[ID]] tokens they actually wrote.
+        // The tokens in the text are the source of truth: every one is a snapshot article, so use them.
+        // Keep the model's own order for the ids that agree (reference numbers follow it) and append any
+        // id it cited in the text but forgot to list.
+        $draft['citation_ids'] = array_values(array_merge(
+            array_intersect($draft['citation_ids'], $citedInText),
+            array_diff($citedInText, $draft['citation_ids']),
+        ));
         $draft['markdown_content'] = preg_replace('/\[([^\]]+)\]\([^)]*\)/', '$1', strip_tags($draft['markdown_content']));
         $draft['markdown_content'] = preg_replace('/https?:\/\/\S+/i', '', $draft['markdown_content']);
         if (! $section) {
