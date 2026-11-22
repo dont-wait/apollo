@@ -155,12 +155,12 @@ const refreshSelection = (form) => {
     const checked = boxes.filter((box) => box.checked);
     const max = Number(form.dataset.max);
 
-    form.querySelector('[data-selection-count]').textContent = `${checked.length} / ${max} selected`;
+    form.querySelector('[data-selection-count]').textContent = max > 0 ? `${checked.length} / ${max} selected` : `${checked.length} selected`;
     form.querySelector('[data-selection-submit]').disabled = checked.length === 0 || form.dataset.submitting === 'true';
     form.querySelector('[data-selection-clear]').hidden = checked.length === 0;
-    // Once the limit is reached the other boxes lock until something is unticked.
+    // With a limit (max > 0), the other boxes lock once it is reached until something is unticked.
     boxes.forEach((box) => {
-        box.disabled = box.dataset.unavailable === 'true' || (! box.checked && checked.length >= max);
+        box.disabled = box.dataset.unavailable === 'true' || (max > 0 && ! box.checked && checked.length >= max);
     });
 };
 

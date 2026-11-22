@@ -15,9 +15,22 @@ class AiAnalysisSelectionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_default_batch_size_is_five(): void
+    public function test_analysis_is_not_limited_by_default(): void
     {
-        $this->assertSame(5, config('ai_weekly.analyze_batch_size'));
+        $this->assertSame(0, config('ai_weekly.analyze_batch_size'));
+    }
+
+    public function test_many_articles_can_be_selected_when_there_is_no_limit(): void
+    {
+        Queue::fake([AnalyzeArticles::class]);
+        $articles = AiArticle::factory()->count(8)->create();
+        $this->actingAs(User::factory()->admin()->create());
+
+        $id = $this->postJson('/admin/automation-runs/analyze', ['article_ids' => $articles->pluck('id')->all()])
+            ->assertAccepted()
+            ->json('run_id');
+
+        $this->assertCount(8, AutomationRun::findOrFail($id)->payload['article_ids']);
     }
 
     public function test_admin_can_analyze_only_the_selected_articles(): void
@@ -35,8 +48,9 @@ class AiAnalysisSelectionTest extends TestCase
         Queue::assertPushed(AnalyzeArticles::class, 1);
     }
 
-    public function test_selection_is_limited_to_the_batch_size(): void
+    public function test_selection_is_limited_to_the_batch_size_when_one_is_configured(): void
     {
+        config(['ai_weekly.analyze_batch_size' => 5]);
         $articles = AiArticle::factory()->count(6)->create();
         $this->actingAs(User::factory()->admin()->create());
 
@@ -109,6 +123,18 @@ class AiAnalysisSelectionTest extends TestCase
         $this->assertSame('COLLECTED', $other->fresh()->status);
     }
 
+    public function test_article_list_shows_the_limit_when_one_is_configured(): void
+    {
+        config(['ai_weekly.analyze_batch_size' => 5]);
+        AiArticle::factory()->create();
+        $this->actingAs(User::factory()->admin()->create());
+
+        $this->get('/admin/ai-articles')
+            ->assertOk()
+            ->assertSee('data-max="5"', false)
+            ->assertSeeText('0 / 5 selected');
+    }
+
     public function test_article_list_lets_admins_pick_analyzable_articles_only(): void
     {
         $usable = AiArticle::factory()->create(['title' => 'Usable article']);
@@ -119,9 +145,9 @@ class AiAnalysisSelectionTest extends TestCase
         $this->get('/admin/ai-articles')
             ->assertOk()
             ->assertSee('data-ai-select-form', false)
-            ->assertSee('data-max="5"', false)
+            ->assertSee('data-max="0"', false)
             ->assertSee('name="article_ids[]" value="'.$usable->id.'"', false)
-            ->assertSeeText('0 / 5 selected')
+            ->assertSeeText('0 selected')
             ->assertSee('title="Duplicate article"', false);
     }
 }

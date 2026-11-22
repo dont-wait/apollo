@@ -86,7 +86,7 @@ class AutomationRunController extends Controller
         $limit = (int) config('ai_weekly.analyze_batch_size');
         $data = $request->validate([
             'article_id' => ['nullable', 'integer', 'exists:ai_articles,id', 'prohibits:article_ids'],
-            'article_ids' => ['nullable', 'array', 'min:1', 'max:'.($limit > 0 ? $limit : 50)],
+            'article_ids' => ['nullable', 'array', 'min:1', ...($limit > 0 ? ['max:'.$limit] : [])],
             'article_ids.*' => ['integer', 'distinct', 'exists:ai_articles,id'],
         ]);
         if (isset($data['article_id']) && AiArticle::query()->whereKey($data['article_id'])->whereNotNull('duplicate_of')->exists()) {

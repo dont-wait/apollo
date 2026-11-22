@@ -7,17 +7,17 @@
     @include('admin.ai-weekly.nav')
     <div>
         <h1 class="text-3xl font-semibold">Collected articles</h1>
-        <p class="mt-2 max-w-2xl text-sm text-on-surface-variant">Tick up to {{ $maxSelection }} articles and analyze just those. Articles you do not pick are left alone.</p>
+        <p class="mt-2 max-w-2xl text-sm text-on-surface-variant">Tick the articles you want{{ $maxSelection ? " (up to {$maxSelection})" : '' }} and analyze just those. Articles you do not pick are left alone.</p>
     </div>
 
-    <form data-ai-select-form data-max="{{ $maxSelection }}" data-runs-url="{{ route('admin.automation-runs.index') }}" method="post" action="{{ route('admin.automation-runs.analyze') }}" class="space-y-3">
+    <form data-ai-select-form data-max="{{ $maxSelection ?? 0 }}" data-runs-url="{{ route('admin.automation-runs.index') }}" method="post" action="{{ route('admin.automation-runs.analyze') }}" class="space-y-3">
         @csrf
         <div class="sticky top-16 z-20 flex flex-wrap items-center gap-3 rounded-lg border border-surface-highest bg-surface-low/95 px-4 py-3 backdrop-blur">
             <button type="submit" data-selection-submit disabled class="inline-flex items-center gap-2 rounded border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/20 disabled:cursor-not-allowed disabled:border-outline-variant disabled:bg-surface-container disabled:text-outline">
                 <span class="material-symbols-outlined text-base" aria-hidden="true">auto_awesome</span>
                 Analyze selected
             </button>
-            <span data-selection-count class="font-mono text-xs text-on-surface-variant">0 / {{ $maxSelection }} selected</span>
+            <span data-selection-count class="font-mono text-xs text-on-surface-variant">0{{ $maxSelection ? " / {$maxSelection}" : '' }} selected</span>
             <button type="button" data-selection-clear hidden class="text-xs text-outline hover:text-on-surface">Clear</button>
             <p data-ai-feedback role="status" class="text-xs text-primary"></p>
         </div>

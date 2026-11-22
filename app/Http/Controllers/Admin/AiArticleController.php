@@ -15,7 +15,7 @@ class AiArticleController extends Controller
         $articles = AiArticle::query()->with('source:id,name')->orderByDesc('collected_at')->orderByDesc('id')->paginate(30);
 
         $limit = (int) config('ai_weekly.analyze_batch_size');
-        $maxSelection = $limit > 0 ? $limit : 50;
+        $maxSelection = $limit > 0 ? $limit : null;
 
         return $request->expectsJson() ? response()->json($articles) : view('admin.ai-weekly.articles', compact('articles', 'maxSelection'));
     }
