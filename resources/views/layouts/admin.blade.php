@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <x-theme-init />
     <title>@yield('title', 'Apollo Admin')</title>
     @vite(['resources/css/admin.css', 'resources/js/app.js'])
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -151,6 +152,7 @@
                 </div>
             </div>
             <div class="flex items-center gap-space-md">
+                <x-theme-toggle />
                 <details x-data="adminNotifications" data-notifications-url="{{ route('admin.notifications.index') }}" class="relative" @toggle="if ($el.open) refresh()">
                     <summary class="relative cursor-pointer list-none rounded p-2 text-on-surface-variant hover:bg-surface-container hover:text-on-surface" aria-label="Thông báo AI Weekly">
                         <span class="material-symbols-outlined text-[20px]">notifications</span>
@@ -172,13 +174,30 @@
                     </div>
                 </details>
                 <div class="h-4 w-px bg-outline-variant/40"></div>
-                <div class="flex items-center gap-space-sm">
-                    <div class="flex flex-col items-end">
-                        <span class="font-label-md text-label-md text-on-surface leading-tight">{{ auth()->user()->name ?? 'Administrator' }}</span>
-                        <span class="font-label-sm text-label-sm text-primary">Admin</span>
+                <details class="relative" x-data @click.outside="$el.open = false" @keydown.escape.window="$el.open = false">
+                    <summary class="flex cursor-pointer list-none items-center gap-space-sm rounded-full p-1 pl-3 transition-colors hover:bg-surface-container" aria-haspopup="menu">
+                        <span class="flex flex-col items-end">
+                            <span class="font-label-md text-label-md text-on-surface leading-tight">{{ auth()->user()->name ?? 'Administrator' }}</span>
+                            <span class="font-label-sm text-label-sm text-primary">Admin</span>
+                        </span>
+                        <span class="flex size-8 items-center justify-center rounded-full border border-primary/50 bg-primary/10 font-headline-sm text-sm font-bold text-primary">
+                            {{ strtoupper(mb_substr(auth()->user()->name ?? 'Administrator', 0, 1)) }}
+                        </span>
+                        <span class="material-symbols-outlined text-[18px] text-on-surface-variant" aria-hidden="true">expand_more</span>
+                    </summary>
+
+                    <div class="absolute right-0 top-full z-50 mt-2 w-56 rounded-lg border border-outline-variant/60 bg-surface-container-lowest p-2 shadow-xl" role="menu">
+                        <div class="border-b border-outline-variant/40 px-3 py-2">
+                            <p class="truncate font-label-sm text-label-sm uppercase tracking-[0.12em] text-tertiary">{{ auth()->user()->name ?? 'Administrator' }}</p>
+                            <p class="mt-1 font-label-sm text-label-sm uppercase tracking-[0.12em] text-on-surface-variant">Admin</p>
+                        </div>
+                        <a class="block rounded-md px-3 py-2.5 font-label-sm text-label-sm uppercase tracking-[0.12em] text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary" href="{{ route('password.change') }}" role="menuitem">Change Password</a>
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button class="block w-full rounded-md px-3 py-2.5 text-left font-label-sm text-label-sm uppercase tracking-[0.12em] text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary" type="submit" role="menuitem">Sign Out</button>
+                        </form>
                     </div>
-                    <img alt="Profile" class="w-8 h-8 rounded-full object-cover border border-outline-variant/50" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCBu4P927XxYrhvvv5Gv8CkWhpgTddrGIQLConhYpFn11Y0kPtBApvJQmGs8QGLKtVbVJY5lf9HoAlVBP2XV85jqqallJlpASGSlc7qVO7V0MB9EafSsc6MpsdenJydBUHEsqeDApW_z7evjUkL3WcmZ9SX-GSiCn8NgW1McOuPmWpIuzGYLW4PYfjglzp8brgbpaA7iK2VEgGzhWtZPINaH3qj1GR-ZNhLbQvrMNlcFWZsf62pbqrP">
-                </div>
+                </details>
             </div>
         </header>
 
