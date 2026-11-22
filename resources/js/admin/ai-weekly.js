@@ -396,3 +396,83 @@ window.analyzePicker = ({ listUrl, analyzeUrl, csrf }) => ({
         if (confirmed) this.send({});
     },
 });
+
+// "Collect sources" dialog: pick sources and cap how many documents each one may fetch.
+window.collectDialog = ({ sources, collectUrl, csrf, defaultMax }) => ({
+    open: false,
+    submitting: false,
+    error: '',
+    maxItems: '',
+    defaultMax,
+    sources,
+    selected: sources.map((source) => source.id),
+
+    get count() {
+        return this.selected.length;
+    },
+
+    openDialog() {
+        this.open = true;
+        this.error = '';
+    },
+
+    close() {
+        if (document.getElementById('confirmModal')?.classList.contains('flex')) return;
+        this.open = false;
+    },
+
+    isSelected(id) {
+        return this.selected.includes(id);
+    },
+
+    toggle(id) {
+        this.selected = this.isSelected(id) ? this.selected.filter((value) => value !== id) : [...this.selected, id];
+    },
+
+    selectAll() {
+        this.selected = this.sources.map((source) => source.id);
+    },
+
+    clearSelection() {
+        this.selected = [];
+    },
+
+    async submit() {
+        const raw = String(this.maxItems ?? '').trim();
+        const max = raw === '' ? null : Number(raw);
+
+        if (max !== null && (! Number.isInteger(max) || max < 1 || max > 1000)) {
+            this.error = 'Số tài liệu tối đa phải là số nguyên từ 1 đến 1000.';
+            return;
+        }
+        if (this.count === 0) {
+            this.error = 'Chọn ít nhất một nguồn.';
+            return;
+        }
+
+        this.submitting = true;
+        this.error = '';
+        const body = {};
+        if (max !== null) body.max_items = max;
+        // Leave source_ids out when everything is ticked, so "all active sources" keeps its meaning.
+        if (this.count !== this.sources.length) body.source_ids = this.selected;
+
+        try {
+            const response = await fetch(collectUrl, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
+                body: JSON.stringify(body),
+            });
+            const result = await response.json();
+            if (! response.ok) {
+                throw new Error(Object.values(result.errors || {}).flat().join(' ') || result.message || 'Thao tác thất bại.');
+            }
+            window.dispatchEvent(new CustomEvent('ai-run-started', { detail: result }));
+            this.open = false;
+        } catch (error) {
+            this.error = error.message;
+        } finally {
+            this.submitting = false;
+        }
+    },
+});

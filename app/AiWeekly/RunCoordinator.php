@@ -15,12 +15,18 @@ use Throwable;
 
 class RunCoordinator
 {
-    public function collect(string $trigger, ?int $userId = null): AutomationRun
+    /**
+     * @param  int|null  $maxItems  Most items fetched per source (default: ai_weekly.max_items_per_source).
+     * @param  list<int>  $sourceIds  Sources picked by hand; empty means every active source.
+     */
+    public function collect(string $trigger, ?int $userId = null, ?int $maxItems = null, array $sourceIds = []): AutomationRun
     {
-        $ids = AiSource::query()->where('status', 'ACTIVE')->whereIn('source_type', ['RSS', 'API'])->pluck('id');
+        $ids = AiSource::query()->where('status', 'ACTIVE')->whereIn('source_type', ['RSS', 'API'])
+            ->when($sourceIds !== [], fn ($query) => $query->whereIn('id', $sourceIds))
+            ->pluck('id');
         if ($ids->isEmpty()) {
-            $active = AutomationRun::query()->where('run_type', 'COLLECT')
-                ->whereIn('status', ['PENDING', 'RUNNING'])->orderBy('id')->first();
+            $active = $sourceIds === [] ? AutomationRun::query()->where('run_type', 'COLLECT')
+                ->whereIn('status', ['PENDING', 'RUNNING'])->orderBy('id')->first() : null;
             if ($active) {
                 $this->dispatch($active);
 
@@ -30,9 +36,11 @@ class RunCoordinator
             throw new RuntimeException('Không có nguồn đang hoạt động.');
         }
 
-        $run = $this->create('COLLECT', $trigger, $userId, [
-            'sources' => $ids->mapWithKeys(fn (int $id): array => [$id => ['status' => 'PENDING']])->all(),
-        ]);
+        $payload = ['sources' => $ids->mapWithKeys(fn (int $id): array => [$id => ['status' => 'PENDING']])->all()];
+        if ($maxItems !== null) {
+            $payload['max_items'] = $maxItems;
+        }
+        $run = $this->create('COLLECT', $trigger, $userId, $payload);
         $this->dispatch($run);
 
         return $run;
@@ -344,10 +352,12 @@ class RunCoordinator
     private function runCovers(string $type, array $activePayload, array $requestedPayload): bool
     {
         return match ($type) {
-            'COLLECT' => array_diff(
-                array_keys($requestedPayload['sources'] ?? []),
-                array_keys($activePayload['sources'] ?? []),
-            ) === [],
+            // A different item limit means a different job, so it is never folded into a running one.
+            'COLLECT' => ($activePayload['max_items'] ?? null) === ($requestedPayload['max_items'] ?? null)
+                && array_diff(
+                    array_keys($requestedPayload['sources'] ?? []),
+                    array_keys($activePayload['sources'] ?? []),
+                ) === [],
             'ANALYZE' => $this->analysisRunCovers($activePayload, $requestedPayload),
             'GENERATE_REVIEW' => ($activePayload['week_start'] ?? null) === ($requestedPayload['week_start'] ?? null)
                 && ($activePayload['mode'] ?? null) === ($requestedPayload['mode'] ?? null)

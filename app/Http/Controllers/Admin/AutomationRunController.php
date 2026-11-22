@@ -6,6 +6,7 @@ use App\AiWeekly\RunCoordinator;
 use App\AiWeekly\RunDispatchBusyException;
 use App\Http\Controllers\Controller;
 use App\Models\AiArticle;
+use App\Models\AiSource;
 use App\Models\AutomationRun;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -56,7 +57,11 @@ class AutomationRunController extends Controller
 
         return $request->expectsJson()
             ? response()->json($runs->toArray() + ['current_runs' => $monitorRuns, 'listing' => $listing])
-            : view('admin.ai-weekly.runs', compact('runs', 'monitorRuns', 'listing', 'pollUrl'));
+            : view('admin.ai-weekly.runs', [
+                'runs' => $runs, 'monitorRuns' => $monitorRuns, 'listing' => $listing, 'pollUrl' => $pollUrl,
+                'collectSources' => AiSource::query()->where('status', 'ACTIVE')->whereIn('source_type', ['RSS', 'API'])->orderBy('name')->get(['id', 'name', 'source_type']),
+                'defaultMaxItems' => (int) config('ai_weekly.max_items_per_source'),
+            ]);
     }
 
     public function show(Request $request, AutomationRun $run): JsonResponse|View
@@ -70,8 +75,14 @@ class AutomationRunController extends Controller
 
     public function collect(Request $request, RunCoordinator $coordinator): JsonResponse
     {
+        $data = $request->validate([
+            'max_items' => ['nullable', 'integer', 'min:1', 'max:1000'],
+            'source_ids' => ['nullable', 'array', 'min:1'],
+            'source_ids.*' => ['integer', 'distinct', 'exists:ai_sources,id'],
+        ]);
+
         try {
-            $run = $coordinator->collect('MANUAL', $request->user()->id);
+            $run = $coordinator->collect('MANUAL', $request->user()->id, isset($data['max_items']) ? (int) $data['max_items'] : null, array_map('intval', $data['source_ids'] ?? []));
         } catch (RunDispatchBusyException $exception) {
             return response()->json(['message' => $exception->getMessage()], 409);
         } catch (RuntimeException $exception) {

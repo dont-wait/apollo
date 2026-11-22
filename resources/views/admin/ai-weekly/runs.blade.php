@@ -19,12 +19,12 @@
         </header>
 
         <section aria-label="Khởi chạy tác vụ" class="grid gap-4 md:grid-cols-2">
-            @foreach ([['type' => 'COLLECT', 'route' => 'admin.automation-runs.collect', 'icon' => 'rss_feed', 'title' => 'Thu thập nguồn', 'description' => 'Lấy bài mới từ các nguồn RSS và API đang hoạt động.', 'button' => 'Thu thập ngay'], ['type' => 'ANALYZE', 'route' => 'admin.automation-runs.analyze', 'icon' => 'auto_awesome', 'title' => 'Phân tích bài viết', 'description' => 'Chọn các bài đã thu thập để tóm tắt và phân loại chủ đề.', 'button' => 'Chọn bài để phân tích']] as $action)
+            @foreach ([['type' => 'COLLECT', 'route' => 'admin.automation-runs.collect', 'icon' => 'rss_feed', 'title' => 'Thu thập nguồn', 'description' => 'Chọn nguồn RSS/API và số tài liệu tối đa sẽ lấy từ mỗi nguồn.', 'button' => 'Chọn nguồn để thu thập'], ['type' => 'ANALYZE', 'route' => 'admin.automation-runs.analyze', 'icon' => 'auto_awesome', 'title' => 'Phân tích bài viết', 'description' => 'Chọn các bài đã thu thập để tóm tắt và phân loại chủ đề.', 'button' => 'Chọn bài để phân tích']] as $action)
                 <form data-ai-form data-run-type="{{ $action['type'] }}" method="post" action="{{ route($action['route']) }}" class="flex flex-col gap-4 rounded-lg border border-outline-variant/50 bg-surface-container-low p-5 sm:flex-row sm:items-center">
                     @csrf
                     <span class="flex size-11 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary"><span class="material-symbols-outlined text-2xl" aria-hidden="true">{{ $action['icon'] }}</span></span>
                     <div class="min-w-0 flex-1"><h2 class="text-sm font-semibold">{{ $action['title'] }}</h2><p class="mt-1 text-xs leading-5 text-outline">{{ $action['description'] }}</p><p data-ai-feedback role="status" class="mt-1 text-xs text-primary"></p></div>
-                    <button type="{{ $action['type'] === 'ANALYZE' ? 'button' : 'submit' }}" @if ($action['type'] === 'ANALYZE') @click="$dispatch('open-analyze-picker')" @endif :disabled="busy(@js($action['type']))" class="inline-flex shrink-0 items-center justify-center gap-2 rounded border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/20 disabled:cursor-not-allowed disabled:border-outline-variant disabled:bg-surface-container disabled:text-outline">
+                    @php $dialogEvent = ['ANALYZE' => 'open-analyze-picker', 'COLLECT' => 'open-collect-dialog'][$action['type']] ?? null; @endphp<button type="{{ $dialogEvent ? 'button' : 'submit' }}" @if ($dialogEvent) @click="$dispatch('{{ $dialogEvent }}')" @endif :disabled="busy(@js($action['type']))" class="inline-flex shrink-0 items-center justify-center gap-2 rounded border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/20 disabled:cursor-not-allowed disabled:border-outline-variant disabled:bg-surface-container disabled:text-outline">
                         <span class="material-symbols-outlined text-base" aria-hidden="true" x-text="busy(@js($action['type'])) ? 'hourglass_top' : 'play_arrow'">play_arrow</span>
                         <span x-text="busy(@js($action['type'])) ? 'Đang có job' : @js($action['button'])">{{ $action['button'] }}</span>
                     </button>
@@ -97,6 +97,57 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+
+        <div x-data="collectDialog({ sources: @js($collectSources), collectUrl: @js(route('admin.automation-runs.collect')), csrf: @js(csrf_token()), defaultMax: @js($defaultMaxItems) })" @open-collect-dialog.window="openDialog()" @keydown.escape.window="close()">
+            <div x-cloak x-show="open" class="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4" @click.self="close()" role="dialog" aria-modal="true" aria-labelledby="collect-dialog-title">
+                <form @submit.prevent="submit()" class="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-outline-variant/50 bg-surface-container-low shadow-2xl">
+                    <div class="flex items-start justify-between gap-4 border-b border-outline-variant/50 px-5 py-4">
+                        <div>
+                            <h2 id="collect-dialog-title" class="text-base font-semibold">Thu thập nguồn</h2>
+                            <p class="mt-1 text-xs text-outline">Chọn nguồn cần lấy bài và giới hạn số tài liệu fetch từ mỗi nguồn.</p>
+                        </div>
+                        <button type="button" @click="close()" class="rounded p-1 text-outline transition hover:bg-surface-container-high hover:text-on-surface" aria-label="Đóng"><span class="material-symbols-outlined text-xl" aria-hidden="true">close</span></button>
+                    </div>
+
+                    <div class="space-y-4 overflow-y-auto px-5 py-4">
+                        <label class="grid gap-1.5 text-xs">
+                            <span class="font-medium text-on-surface">Số tài liệu tối đa mỗi nguồn</span>
+                            <input type="number" min="1" max="1000" step="1" x-model="maxItems" :placeholder="`Mặc định ${defaultMax}`" class="w-full rounded border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface outline-none placeholder:text-outline focus:border-primary">
+                            <span class="text-outline">Để trống để dùng mặc định (<span x-text="defaultMax"></span>). Tối đa 1000. Chỉ lấy các bài mới nhất theo thứ tự của nguồn.</span>
+                        </label>
+
+                        <div>
+                            <div class="mb-2 flex items-center justify-between text-xs">
+                                <span class="font-medium text-on-surface">Nguồn <span class="font-mono text-outline" x-text="`(${count}/${sources.length})`"></span></span>
+                                <span class="flex gap-3 text-outline"><button type="button" @click="selectAll()" class="text-primary hover:underline">Chọn tất cả</button><button type="button" @click="clearSelection()" class="hover:text-on-surface">Bỏ chọn</button></span>
+                            </div>
+                            <p x-show="sources.length === 0" class="rounded border border-dashed border-outline-variant px-3 py-4 text-center text-xs text-outline">Chưa có nguồn RSS/API nào đang hoạt động.</p>
+                            <ul class="divide-y divide-outline-variant/40 overflow-hidden rounded border border-outline-variant/50" x-show="sources.length > 0">
+                                <template x-for="source in sources" :key="source.id">
+                                    <li><label class="flex cursor-pointer items-center gap-3 px-3 py-2.5 text-sm transition hover:bg-surface-container">
+                                        <input type="checkbox" class="size-4 rounded border-outline-variant bg-surface-container-lowest text-sky-400 focus:ring-sky-400" :checked="isSelected(source.id)" @change="toggle(source.id)">
+                                        <span class="min-w-0 flex-1 truncate" x-text="source.name"></span>
+                                        <span class="font-mono text-[10px] uppercase text-outline" x-text="source.source_type"></span>
+                                    </label></li>
+                                </template>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3 border-t border-outline-variant/50 bg-surface-container-lowest/40 px-5 py-4">
+                        <p x-show="error" x-text="error" role="alert" class="text-xs text-red-300"></p>
+                        <div class="flex items-center justify-end gap-3">
+                            <button type="button" @click="close()" class="rounded px-3 py-2 text-xs text-outline transition hover:text-on-surface">Hủy</button>
+                            <button type="submit" :disabled="count === 0 || submitting" class="inline-flex items-center gap-2 rounded border border-primary/30 bg-primary/10 px-4 py-2 text-xs font-semibold text-primary transition hover:bg-primary/20 disabled:cursor-not-allowed disabled:border-outline-variant disabled:bg-surface-container disabled:text-outline">
+                                <span class="material-symbols-outlined text-base" aria-hidden="true" x-text="submitting ? 'hourglass_top' : 'rss_feed'">rss_feed</span>
+                                <span x-text="submitting ? 'Đang tạo job…' : 'Thu thập ' + count + ' nguồn'">Thu thập</span>
+                            </button>
+                        </div>
+                    </div>
+                </form>
             </div>
         </div>
 
