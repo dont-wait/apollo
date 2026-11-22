@@ -15,8 +15,8 @@ return [
     'review_schedule' => env('AI_WEEKLY_REVIEW_SCHEDULE', '0 8 * * 1'),
     // Max articles one ANALYZE job handles (also the most you can pick by hand). 0 = no limit (default).
     'analyze_batch_size' => (int) env('AI_WEEKLY_ANALYZE_BATCH_SIZE', 0),
-    'minimum_articles' => (int) env('AI_WEEKLY_MIN_ARTICLES', 5),
-    'minimum_sources' => (int) env('AI_WEEKLY_MIN_SOURCES', 2),
+    'minimum_articles' => (int) env('AI_WEEKLY_MIN_ARTICLES', 1),
+    'minimum_sources' => (int) env('AI_WEEKLY_MIN_SOURCES', 1),
     'max_stories' => (int) env('AI_WEEKLY_MAX_STORIES', 10),
     'representatives_per_topic' => (int) env('AI_WEEKLY_REPRESENTATIVES_PER_TOPIC', 3),
     'model' => env('AI_WEEKLY_MODEL'),

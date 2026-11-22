@@ -118,6 +118,8 @@ class AiWeeklyTest extends TestCase
 
     public function test_generation_uses_snapshot_citations_and_never_creates_a_published_post(): void
     {
+        // The warning is tied to these thresholds, so pin them instead of relying on the defaults.
+        config(['ai_weekly.minimum_articles' => 5, 'ai_weekly.minimum_sources' => 2]);
         $admin = User::factory()->create(['role' => 'ADMIN']);
         $source = AiSource::factory()->create();
         $article = AiArticle::factory()->create(['source_id' => $source->id, 'published_at' => '2026-10-13 00:00:00']);
@@ -412,5 +414,11 @@ class AiWeeklyTest extends TestCase
         $normalizer = new ArticleNormalizer;
         $this->assertSame('https://example.org/Story?a=1&a=2&b=3', $normalizer->canonicalUrl('HTTPS://EXAMPLE.ORG/Story?utm_source=x&b=3&a=2&a=1#top'));
         $this->assertSame($normalizer->titleFingerprint(' AI &amp; News '), $normalizer->titleFingerprint('ai & news'));
+    }
+
+    public function test_default_quality_thresholds_only_ask_for_one_article_and_one_source(): void
+    {
+        $this->assertSame(1, config('ai_weekly.minimum_articles'));
+        $this->assertSame(1, config('ai_weekly.minimum_sources'));
     }
 }
