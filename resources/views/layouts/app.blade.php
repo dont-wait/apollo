@@ -11,6 +11,7 @@
         <link rel="canonical" href="@yield('canonical')">
     @endif
     <link rel="alternate" type="application/rss+xml" title="{{ config('app.name', 'Apollo Blog') }} RSS Feed" href="{{ route('rss') }}">
+    <x-theme-init />
     <title>@yield('title', config('app.name', 'Laravel'))</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,7 +26,14 @@
     >
         <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
             <a class="flex shrink-0 items-center gap-2.5 text-sm font-semibold tracking-wide text-on-surface transition-colors hover:text-primary" href="{{ route('home') }}">
-                <span class="flex size-8 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 font-display text-sm font-bold text-primary">A</span>
+                <svg class="size-8 shrink-0" viewBox="0 0 40 40" fill="none" aria-label="Apollo Blog logo" role="img">
+                    <rect width="40" height="40" rx="10" fill="#0E131F" stroke="#232D42" stroke-width="1.5" />
+                    <path d="M12 28L20 12L28 28" stroke="#38BDF8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M15 23H25" stroke="#6366F1" stroke-width="2" stroke-linecap="round" />
+                    <circle cx="20" cy="12" r="2.5" fill="#38BDF8" />
+                    <circle cx="12" cy="28" r="2" fill="#6366F1" />
+                    <circle cx="28" cy="28" r="2" fill="#6366F1" />
+                </svg>
                 <span>{{ config('app.name', 'Apollo Blog') }}</span>
                 <span class="hidden font-mono text-[9px] uppercase tracking-[0.18em] text-primary/70 sm:inline">AI &amp; Systems</span>
             </a>
@@ -38,6 +46,8 @@
             </nav>
 
             <div class="hidden items-center gap-3 lg:flex">
+                <x-theme-toggle />
+                <x-theme-picker />
                 @auth
                     <details class="relative" @click.outside="$el.open = false" @keydown.escape.window="$el.open = false">
                         <summary class="flex cursor-pointer list-none items-center gap-1.5 rounded-full p-1 text-on-surface-variant transition-colors hover:bg-surface-high hover:text-primary" aria-haspopup="menu">
@@ -71,6 +81,11 @@
                     <a class="font-mono text-[11px] uppercase tracking-[0.12em] text-on-surface-variant transition-colors hover:text-primary" href="{{ route('login') }}">Sign In</a>
                     <a class="rounded-md bg-primary px-3 py-2 font-display text-xs font-semibold text-on-primary transition-colors hover:bg-surface-tint" href="{{ route('register') }}">Create Account</a>
                 @endauth
+            </div>
+
+            <div class="ml-auto flex items-center gap-1 lg:hidden">
+                <x-theme-toggle />
+                <x-theme-picker />
             </div>
 
             <button

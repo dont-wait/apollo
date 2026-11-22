@@ -25,42 +25,42 @@
     @endif
     @error('revision')
         <div role="alert" class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-            {{ $message }} <a class="underline" href="{{ route('admin.articles.edit', $article) }}">Tải lại bài viết</a>.
+            {{ $message }} <a class="underline" href="{{ route('admin.articles.edit', $article) }}">Reload article</a>.
         </div>
     @enderror
     @if ($errors->any())
         <div role="alert" class="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-            Vui lòng kiểm tra lại các trường được đánh dấu bên dưới.
+            Please review the fields highlighted below.
         </div>
     @endif
 
     <div class="flex items-start gap-3">
         <div id="toxic-summary" data-toxic-summary hidden role="status" class="flex-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200"></div>
-        <button type="button" data-toxic-jump="markdown_content" hidden class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-500/20">Nhảy đến lỗi</button>
+        <button type="button" data-toxic-jump="markdown_content" hidden class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-500/20">Jump to issue</button>
     </div>
 
     <script type="application/json" data-toxic-moderation>@json(session('moderation', []))</script>
 
-    <section class="space-y-5 rounded-xl bg-[#191c21] p-5 shadow-sm sm:p-6">
+    <section class="space-y-5 rounded-xl bg-surface-low p-5 shadow-sm sm:p-6">
         <div>
-            <label for="title" class="mb-2 block text-sm font-medium">Tiêu đề <span class="text-red-300">*</span></label>
-            <input id="title" name="title" type="text" value="{{ old('title', $article?->title) }}" required maxlength="255" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">
+            <label for="title" class="mb-2 block text-sm font-medium">Title <span class="text-red-300">*</span></label>
+            <input id="title" name="title" type="text" value="{{ old('title', $article?->title) }}" required maxlength="255" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">
             @error('title') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
             <div data-toxic-snippet="title" hidden class="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"></div>
         </div>
 
         <div>
             <label for="slug" class="mb-2 block text-sm font-medium">Slug</label>
-            <input id="slug" name="slug" type="text" value="{{ old('slug', $article?->slug) }}" maxlength="255" placeholder="Để trống để tự tạo từ tiêu đề" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 font-mono text-sm text-[#e1e2ea] placeholder:font-sans placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">
-            <p class="mt-1.5 text-xs text-[#87929a]">Slug sẽ được tự tạo từ tiêu đề nếu bạn để trống.</p>
+            <input id="slug" name="slug" type="text" value="{{ old('slug', $article?->slug) }}" maxlength="255" placeholder="Leave empty to generate from the title" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 font-mono text-sm text-on-surface placeholder:font-sans placeholder:text-outline focus:border-sky-400 focus:outline-none">
+            <p class="mt-1.5 text-xs text-outline">The slug is generated from the title if left empty.</p>
             @error('slug') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
         </div>
 
         <div class="grid gap-5 md:grid-cols-2">
             <div>
-                <label for="category_id" class="mb-2 block text-sm font-medium">Danh mục</label>
-                <select id="category_id" name="category_id" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] focus:border-sky-400 focus:outline-none">
-                    <option value="">Chưa phân loại</option>
+                <label for="category_id" class="mb-2 block text-sm font-medium">Category</label>
+                <select id="category_id" name="category_id" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface focus:border-sky-400 focus:outline-none">
+                    <option value="">Uncategorized</option>
                     @foreach ($categories as $category)
                         <option value="{{ $category->id }}" @selected((string) old('category_id', $article?->category_id) === (string) $category->id)>{{ $category->name }}</option>
                     @endforeach
@@ -69,53 +69,53 @@
             </div>
 
             <div>
-                <label for="status" class="mb-2 block text-sm font-medium">Trạng thái <span class="text-red-300">*</span></label>
-                <select id="status" name="status" required data-publication-status class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] focus:border-sky-400 focus:outline-none">
+                <label for="status" class="mb-2 block text-sm font-medium">Status <span class="text-red-300">*</span></label>
+                <select id="status" name="status" required data-publication-status class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface focus:border-sky-400 focus:outline-none">
                     @if (! array_key_exists($selectedStatus, $statusOptions))
-                        <option value="{{ $selectedStatus }}" selected>{{ ucfirst(strtolower($selectedStatus)) }} (hiện tại)</option>
+                        <option value="{{ $selectedStatus }}" selected>{{ ucfirst(strtolower($selectedStatus)) }} (current)</option>
                     @endif
                     @foreach ($statusOptions as $value => $label)
                         <option value="{{ $value }}" @selected($selectedStatus === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
-                <p class="mt-1.5 text-xs text-[#87929a]">Publish công khai ngay; Schedule sẽ tự publish khi đến thời điểm; Archive ngừng hiển thị public.</p>
+                <p class="mt-1.5 text-xs text-outline">Publish goes live immediately; Schedule publishes automatically at the set time; Archive hides it from the public.</p>
                 @error('status') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
             </div>
         </div>
 
         <div data-schedule-field @if ($selectedStatus !== 'SCHEDULED') hidden @endif>
-            <label for="scheduled_at" class="mb-2 block text-sm font-medium">Thời điểm xuất bản <span class="text-red-300">*</span></label>
-            <input id="scheduled_at" name="scheduled_at" type="datetime-local" value="{{ old('scheduled_at', $article?->scheduled_at?->format('Y-m-d\TH:i')) }}" class="w-full max-w-md rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] focus:border-sky-400 focus:outline-none">
-            <p class="mt-1.5 text-xs text-[#87929a]">Phải là thời điểm trong tương lai (timezone hệ thống: {{ config('app.timezone') }}).</p>
+            <label for="scheduled_at" class="mb-2 block text-sm font-medium">Publish time <span class="text-red-300">*</span></label>
+            <input id="scheduled_at" name="scheduled_at" type="datetime-local" value="{{ old('scheduled_at', $article?->scheduled_at?->format('Y-m-d\TH:i')) }}" class="w-full max-w-md rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface focus:border-sky-400 focus:outline-none">
+            <p class="mt-1.5 text-xs text-outline">Must be in the future (system timezone: {{ config('app.timezone') }}).</p>
             @error('scheduled_at') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
         </div>
 
         <fieldset>
-            <legend class="mb-2 block text-sm font-medium">Thẻ</legend>
+            <legend class="mb-2 block text-sm font-medium">Tags</legend>
             <input type="hidden" name="tags_submitted" value="1">
             @if ($tags->isEmpty())
-                <p class="mb-3 rounded-lg border border-dashed border-[#32353b] px-3 py-4 text-sm text-[#87929a]">Chưa có thẻ nào được tạo.</p>
+                <p class="mb-3 rounded-lg border border-dashed border-surface-highest px-3 py-4 text-sm text-outline">No tags have been created yet.</p>
             @else
-                <div class="grid gap-2 rounded-lg border border-[#32353b] bg-[#0b0e13] p-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div class="grid gap-2 rounded-lg border border-surface-highest bg-surface-lowest p-3 sm:grid-cols-2 lg:grid-cols-3">
                     @foreach ($tags as $tag)
-                        <label class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[#bdc8d1] hover:bg-[#191c21]">
-                            <input type="checkbox" name="tags[]" value="{{ $tag->id }}" @checked(in_array($tag->id, $selectedTags, true)) class="rounded border-[#4b5059] bg-[#0b0e13] text-sky-400 focus:ring-sky-400">
+                        <label class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-on-surface-variant hover:bg-surface-low">
+                            <input type="checkbox" name="tags[]" value="{{ $tag->id }}" @checked(in_array($tag->id, $selectedTags, true)) class="rounded border-outline-variant bg-surface-lowest text-sky-400 focus:ring-sky-400">
                             {{ $tag->name }}
                         </label>
                     @endforeach
                 </div>
             @endif
             <div class="mt-3 flex max-w-md gap-2">
-                <label class="sr-only" for="new-tag-name">Tên tag mới</label>
-                <input id="new-tag-name" type="text" maxlength="60" placeholder="Nhập tên tag mới" data-new-tag-input class="min-w-0 flex-1 rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">
-                <button type="button" data-add-new-tag class="shrink-0 whitespace-nowrap rounded-lg bg-[#272a30] px-4 py-2.5 text-sm font-medium text-[#e1e2ea] transition hover:bg-[#32353b]">+ Thêm tag</button>
+                <label class="sr-only" for="new-tag-name">New tag name</label>
+                <input id="new-tag-name" type="text" maxlength="60" placeholder="Enter a new tag name" data-new-tag-input class="min-w-0 flex-1 rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">
+                <button type="button" data-add-new-tag class="shrink-0 whitespace-nowrap rounded-lg bg-surface-high px-4 py-2.5 text-sm font-medium text-on-surface transition hover:bg-surface-highest">+ Add tag</button>
             </div>
             <ul data-new-tags-list class="mt-2 flex flex-wrap gap-2">
                 @foreach (old('new_tags', []) as $newTagName)
                     <li class="inline-flex items-center gap-2 rounded-full bg-sky-500/10 px-3 py-1.5 text-sm text-sky-200">
                         <input type="hidden" name="new_tags[]" value="{{ $newTagName }}">
                         <span>{{ $newTagName }}</span>
-                        <button type="button" data-remove-new-tag aria-label="Xóa tag {{ $newTagName }}" class="text-sky-200 hover:text-white">&times;</button>
+                        <button type="button" data-remove-new-tag aria-label="Delete tag {{ $newTagName }}" class="text-sky-200 hover:text-white">&times;</button>
                     </li>
                 @endforeach
             </ul>
@@ -130,78 +130,94 @@
             <label for="thumbnail" class="mb-2 block text-sm font-medium">Ảnh thumbnail / cover</label>
             @if ($article?->thumbnail)
                 <div class="mb-3 flex items-center gap-3">
-                    <img src="{{ $article->thumbnail->url }}" alt="Ảnh thumbnail hiện tại" class="h-16 w-24 rounded-md object-cover">
-                    <span class="text-xs text-[#87929a]">Chọn ảnh mới để thay thế ảnh hiện tại.</span>
+                    <img src="{{ $article->thumbnail->url }}" alt="Current thumbnail" class="h-16 w-24 rounded-md object-cover">
+                    <span class="text-xs text-outline">Choose a new image to replace the current one.</span>
                 </div>
             @endif
-            <input id="thumbnail" name="thumbnail" type="file" accept="{{ implode(',', array_map(fn ($mime) => '.'.$mime, $allowedImageMimes)) }}" class="block w-full rounded-lg border border-[#32353b] bg-[#0b0e13] text-sm text-[#bdc8d1] file:mr-4 file:border-0 file:bg-[#272a30] file:px-4 file:py-2.5 file:text-sm file:font-medium file:text-[#e1e2ea] hover:file:bg-[#32353b]">
-            <p class="mt-1.5 text-xs text-[#87929a]">{{ strtoupper(implode(', ', $allowedImageMimes)) }}; tối đa {{ $maxThumbnailKb / 1024 }} MB.</p>
+            <input id="thumbnail" name="thumbnail" type="file" accept="{{ implode(',', array_map(fn ($mime) => '.'.$mime, $allowedImageMimes)) }}" class="block w-full rounded-lg border border-surface-highest bg-surface-lowest text-sm text-on-surface-variant file:mr-4 file:border-0 file:bg-surface-high file:px-4 file:py-2.5 file:text-sm file:font-medium file:text-on-surface hover:file:bg-surface-highest">
+            <p class="mt-1.5 text-xs text-outline">{{ strtoupper(implode(', ', $allowedImageMimes)) }}; max {{ $maxThumbnailKb / 1024 }} MB.</p>
             @error('thumbnail') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
         </div>
 
         <div>
-            <label for="excerpt" class="mb-2 block text-sm font-medium">Tóm tắt</label>
-            <textarea id="excerpt" name="excerpt" rows="3" maxlength="{{ $maxExcerptLength }}" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">{{ old('excerpt', $article?->excerpt) }}</textarea>
+            <label for="excerpt" class="mb-2 block text-sm font-medium">Excerpt</label>
+            <textarea id="excerpt" name="excerpt" rows="3" maxlength="{{ $maxExcerptLength }}" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">{{ old('excerpt', $article?->excerpt) }}</textarea>
             @error('excerpt') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
             <div data-toxic-snippet="excerpt" hidden class="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"></div>
         </div>
 
-        <section class="space-y-4 border-t border-[#32353b] pt-5">
+        <section class="space-y-4 border-t border-surface-highest pt-5">
             <div>
                 <h3 class="text-sm font-semibold">SEO metadata</h3>
-                <p class="mt-1 text-xs text-[#87929a]">Để trống tiêu đề hoặc mô tả SEO để dùng dữ liệu bài viết. Canonical URL sẽ được tạo khi xuất bản nếu chưa nhập.</p>
+                <p class="mt-1 text-xs text-outline">Leave the SEO title or description empty to use the article data. A canonical URL is generated on publish if none is set.</p>
             </div>
 
             <div>
-                <label for="seo_title" class="mb-2 block text-sm font-medium">Tiêu đề SEO</label>
-                <input id="seo_title" name="seo_title" type="text" value="{{ old('seo_title', $article?->seo_title) }}" maxlength="255" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">
+                <label for="seo_title" class="mb-2 block text-sm font-medium">SEO title</label>
+                <input id="seo_title" name="seo_title" type="text" value="{{ old('seo_title', $article?->seo_title) }}" maxlength="255" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">
                 @error('seo_title') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
             </div>
 
             <div>
-                <label for="seo_description" class="mb-2 block text-sm font-medium">Mô tả SEO</label>
-                <textarea id="seo_description" name="seo_description" rows="3" maxlength="320" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">{{ old('seo_description', $article?->seo_description) }}</textarea>
+                <label for="seo_description" class="mb-2 block text-sm font-medium">SEO description</label>
+                <textarea id="seo_description" name="seo_description" rows="3" maxlength="320" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">{{ old('seo_description', $article?->seo_description) }}</textarea>
                 @error('seo_description') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
             </div>
 
             <div>
                 <label for="canonical_url" class="mb-2 block text-sm font-medium">Canonical URL</label>
-                <input id="canonical_url" name="canonical_url" type="url" value="{{ old('canonical_url') ?: $article?->canonical_url }}" maxlength="500" placeholder="https://example.com/articles/example" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">
-                <p class="mt-1.5 text-xs text-[#87929a]">Chỉ chấp nhận URL HTTP hoặc HTTPS. Canonical đã tạo sẽ được giữ ổn định khi lưu bài.</p>
+                <input id="canonical_url" name="canonical_url" type="url" value="{{ old('canonical_url') ?: $article?->canonical_url }}" maxlength="500" placeholder="https://example.com/articles/example" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">
+                <p class="mt-1.5 text-xs text-outline">Only HTTP or HTTPS URLs are accepted. A generated canonical stays stable when the article is saved.</p>
                 @error('canonical_url') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
             </div>
         </section>
 
-        <div>
-            <label for="markdown_content" class="mb-2 block text-sm font-medium">Nội dung Markdown <span class="text-red-300">*</span></label>
-            <div role="tablist" aria-label="Chế độ nội dung Markdown" class="flex border-b border-[#32353b]">
-                <button type="button" role="tab" id="markdown-write-tab" aria-controls="markdown-write-panel" aria-selected="true" data-markdown-tab="write" class="rounded-t-lg border-b-2 border-transparent px-4 py-2 text-sm font-medium text-[#87929a] transition hover:text-[#e1e2ea] aria-selected:border-sky-400 aria-selected:text-[#e1e2ea]">Write</button>
-                <button type="button" role="tab" id="markdown-preview-tab" aria-controls="markdown-preview-panel" aria-selected="false" data-markdown-tab="preview" class="rounded-t-lg border-b-2 border-transparent px-4 py-2 text-sm font-medium text-[#87929a] transition hover:text-[#e1e2ea] aria-selected:border-sky-400 aria-selected:text-[#e1e2ea]">Preview</button>
+        <div data-markdown-editor>
+            <label for="markdown_content" class="mb-2 block text-sm font-medium">Markdown content <span class="text-red-300">*</span></label>
+            <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <div role="group" aria-label="Markdown view mode" class="inline-flex rounded-lg border border-surface-highest bg-surface-lowest p-0.5">
+                    <button type="button" aria-pressed="false" data-markdown-view="write" class="rounded-md px-3 py-1.5 text-xs font-medium text-outline transition hover:text-on-surface aria-pressed:bg-surface-high aria-pressed:text-on-surface">Write</button>
+                    <button type="button" aria-pressed="true" data-markdown-view="split" class="rounded-md px-3 py-1.5 text-xs font-medium text-outline transition hover:text-on-surface aria-pressed:bg-surface-high aria-pressed:text-on-surface">Split</button>
+                    <button type="button" aria-pressed="false" data-markdown-view="preview" class="rounded-md px-3 py-1.5 text-xs font-medium text-outline transition hover:text-on-surface aria-pressed:bg-surface-high aria-pressed:text-on-surface">Preview</button>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" data-sidebar-toggle aria-pressed="false" class="inline-flex items-center gap-1.5 rounded-lg border border-surface-highest px-3 py-1.5 text-xs text-on-surface-variant transition hover:bg-surface-high">
+                        <span class="material-symbols-outlined text-base">left_panel_close</span>
+                        <span data-sidebar-toggle-label>Hide sidebar</span>
+                    </button>
+                    <button type="button" data-fullscreen-toggle aria-pressed="false" aria-label="Focus mode (fullscreen)" title="Focus mode (fullscreen). Esc to exit" class="inline-flex size-8 items-center justify-center rounded-lg border border-surface-highest text-on-surface-variant transition hover:bg-surface-high hover:text-on-surface">
+                        <span class="material-symbols-outlined text-lg" data-fullscreen-icon>fullscreen</span>
+                    </button>
+                </div>
             </div>
-            <div id="markdown-write-panel" role="tabpanel" aria-labelledby="markdown-write-tab" data-markdown-panel="write">
-                <section data-markdown-command-menu hidden aria-label="Lệnh Markdown" class="fixed z-50 w-80 max-w-[calc(100vw-1rem)] space-y-3 overflow-y-auto rounded-lg border border-[#32353b] bg-[#111319] p-3 shadow-xl">
+            <div data-markdown-layout data-view="split" class="grid gap-3 data-[view=split]:lg:grid-cols-2">
+            <div id="markdown-write-panel" data-markdown-panel="write" class="min-w-0">
+                <section data-markdown-command-menu hidden aria-label="Markdown commands" class="fixed z-50 w-80 max-w-[calc(100vw-1rem)] space-y-3 overflow-y-auto rounded-lg border border-surface-highest bg-background p-3 shadow-xl">
                     <div class="flex items-center justify-between gap-2">
-                        <h3 data-markdown-command-title class="text-sm font-medium text-[#e1e2ea]">Lệnh Markdown</h3>
+                        <h3 data-markdown-command-title class="text-sm font-medium text-on-surface">Markdown commands</h3>
                         <span data-markdown-command-filter class="font-mono text-xs text-sky-300"></span>
                     </div>
-                    <div id="markdown-suggestions" data-markdown-suggestions role="listbox" aria-label="Lệnh Markdown" class="grid max-h-56 gap-1 overflow-y-auto"></div>
-                    <p data-markdown-no-commands hidden class="text-sm text-[#87929a]">Không tìm thấy lệnh phù hợp.</p>
+                    <div id="markdown-suggestions" data-markdown-suggestions role="listbox" aria-label="Markdown commands" class="grid max-h-56 gap-1 overflow-y-auto"></div>
+                    <p data-markdown-no-commands hidden class="text-sm text-outline">No matching commands.</p>
                     <div data-markdown-command-config hidden class="space-y-3">
                         <div data-markdown-command-fields class="grid gap-3"></div>
                         <div class="flex justify-end gap-2">
-                            <button type="button" data-markdown-command-cancel class="rounded-lg px-3 py-2 text-sm text-[#bdc8d1] hover:bg-[#272a30]">Hủy</button>
-                            <button type="button" data-markdown-command-insert class="rounded-lg bg-sky-500 px-3 py-2 text-sm font-medium text-slate-950 hover:bg-sky-400">Chèn</button>
+                            <button type="button" data-markdown-command-cancel class="rounded-lg px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-high">Cancel</button>
+                            <button type="button" data-markdown-command-insert class="rounded-lg bg-sky-500 px-3 py-2 text-sm font-medium text-slate-950 hover:bg-sky-400">Insert</button>
                         </div>
                     </div>
                 </section>
-                <div class="toxic-editor" data-toxic-editor data-toxic-field="markdown_content">
+                <div class="toxic-editor toxic-editor--numbered" data-toxic-editor data-toxic-field="markdown_content">
+                    <div class="line-gutter" aria-hidden="true"><div data-line-gutter-inner></div></div>
                     <div class="toxic-editor__overlay rounded-b-lg px-3 py-3 font-mono text-sm leading-6" data-toxic-overlay aria-hidden="true"></div>
-                    <textarea id="markdown_content" name="markdown_content" rows="18" required aria-controls="markdown-suggestions" aria-expanded="false" aria-autocomplete="list" aria-describedby="toxic-summary" class="toxic-editor__textarea relative z-10 w-full rounded-b-lg border border-[#32353b] bg-[#0b0e13] px-3 py-3 font-mono text-sm leading-6 text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none" placeholder="# Tiêu đề bài viết">{{ old('markdown_content', $article?->markdown_content) }}</textarea>
+                    <textarea id="markdown_content" name="markdown_content" rows="18" required aria-controls="markdown-suggestions" aria-expanded="false" aria-autocomplete="list" aria-describedby="toxic-summary" class="toxic-editor__textarea relative z-10 w-full rounded-b-lg border border-surface-highest bg-surface-lowest px-3 py-3 font-mono text-sm leading-6 text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none" placeholder="# Article title">{{ old('markdown_content', $article?->markdown_content) }}</textarea>
                 </div>
+                <p data-editor-status class="mt-1.5 font-mono text-xs text-outline" aria-live="off">Ln 1, Col 1</p>
             </div>
-            <div id="markdown-preview-panel" role="tabpanel" aria-labelledby="markdown-preview-tab" data-markdown-panel="preview" hidden>
-                <p data-markdown-preview-empty data-toxic-preview-empty="markdown_content" class="min-h-[27rem] rounded-b-lg border border-[#32353b] bg-[#0b0e13] px-4 py-3 text-sm text-[#87929a]">Chưa có nội dung để xem trước</p>
-                <div data-markdown-preview-content data-toxic-preview="markdown_content" hidden class="markdown-preview min-h-[27rem] rounded-b-lg border border-[#32353b] bg-[#0b0e13] px-4 py-3 text-sm leading-7 text-[#bdc8d1] [&_a]:text-sky-300 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-[#4b5059] [&_blockquote]:pl-4 [&_h1]:mb-4 [&_h1]:text-3xl [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-xl [&_h3]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-4 [&_pre]:my-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-[#191c21] [&_pre]:p-4 [&_ul]:list-disc"></div>
+            <div id="markdown-preview-panel" data-markdown-panel="preview" class="min-w-0">
+                <p data-markdown-preview-empty data-toxic-preview-empty="markdown_content" class="min-h-[27rem] rounded-lg border border-surface-highest bg-surface-lowest px-4 py-3 text-sm text-outline">Nothing to preview yet</p>
+                <div data-markdown-preview-content data-toxic-preview="markdown_content" hidden class="markdown-preview max-h-[40rem] min-h-[27rem] overflow-y-auto rounded-lg border border-surface-highest bg-surface-lowest px-4 py-3 text-sm leading-7 text-on-surface-variant [&_a]:text-sky-300 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-outline-variant [&_blockquote]:pl-4 [&_h1]:mb-4 [&_h1]:text-3xl [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-xl [&_h3]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-4 [&_pre]:my-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-surface-low [&_pre]:p-4 [&_ul]:list-disc"></div>
+            </div>
             </div>
             @error('markdown_content') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
         </div>
@@ -209,16 +225,18 @@
     </section>
 
     <div class="flex flex-col-reverse justify-end gap-3 sm:flex-row">
-        <a href="{{ route('admin.articles.index') }}" class="rounded-lg px-5 py-2.5 text-center text-sm text-[#bdc8d1] transition hover:bg-[#272a30]">Hủy</a>
+        <a href="{{ route('admin.articles.index') }}" class="rounded-lg px-5 py-2.5 text-center text-sm text-on-surface-variant transition hover:bg-surface-high">Cancel</a>
         <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-lg bg-sky-500 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-sky-400">
             <span class="material-symbols-outlined text-lg">save</span>
-            {{ $article ? 'Lưu thay đổi' : 'Tạo bài viết' }}
+            {{ $article ? 'Save changes' : 'Create article' }}
         </button>
     </div>
 </form>
 
 <script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/lib/marked.umd.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js"></script>
+<script src="{{ asset('code-blocks.js') }}"></script>
 <script>
     (() => {
         const publicationStatus = document.querySelector('[data-publication-status]');
@@ -239,7 +257,8 @@
         syncScheduleField();
 
         const markdownInput = document.querySelector('#markdown_content');
-        const markdownTabs = document.querySelectorAll('[data-markdown-tab]');
+        const markdownViewButtons = document.querySelectorAll('[data-markdown-view]');
+        const markdownLayout = document.querySelector('[data-markdown-layout]');
         const markdownPanels = document.querySelectorAll('[data-markdown-panel]');
         const markdownPreviewEmpty = document.querySelector('[data-markdown-preview-empty]');
         const markdownPreviewContent = document.querySelector('[data-markdown-preview-content]');
@@ -248,19 +267,151 @@
             return;
         }
 
+        const alertTitles = { note: 'Note', tip: 'Tip', important: 'Important', warning: 'Warning', caution: 'Caution' };
+        const alertMarker = /^\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*/i;
+        const renderGithubAlerts = (html) => {
+            if (!html.includes('[!')) {
+                return html;
+            }
+
+            const template = document.createElement('template');
+            template.innerHTML = html;
+            template.content.querySelectorAll('blockquote').forEach((quote) => {
+                const paragraph = quote.querySelector(':scope > p');
+                const first = paragraph?.firstChild;
+                const match = first?.nodeType === Node.TEXT_NODE && first.nodeValue.match(alertMarker);
+
+                if (!match) {
+                    return;
+                }
+
+                const type = match[1].toLowerCase();
+                first.nodeValue = first.nodeValue.replace(alertMarker, '');
+                if (first.nodeValue === '') {
+                    first.remove();
+                    if (paragraph.firstChild?.nodeName === 'BR') {
+                        paragraph.firstChild.remove();
+                    }
+                }
+                if (!paragraph.hasChildNodes()) {
+                    paragraph.remove();
+                }
+
+                const alert = document.createElement('div');
+                alert.className = `md-alert md-alert--${type}`;
+                const title = document.createElement('p');
+                title.className = 'md-alert__title';
+                title.textContent = alertTitles[type];
+                alert.append(title, ...quote.childNodes);
+                quote.replaceWith(alert);
+            });
+
+            return template.innerHTML;
+        };
+
+        // Source line of every list item, in document (pre-order) order.
+        const listItemLines = (list, startLine) => {
+            const lines = [];
+            let cursor = 0;
+            const walk = (items) => items.forEach((item) => {
+                const at = list.raw.indexOf(item.raw, cursor);
+                if (at === -1) {
+                    lines.push((lines.at(-1) ?? startLine) + 1);
+                } else {
+                    cursor = at + 1;
+                    lines.push(startLine + (list.raw.slice(0, at).match(/\n/g) || []).length);
+                }
+                (item.tokens || []).filter((child) => child.type === 'list').forEach((child) => walk(child.items));
+            });
+            walk(list.items);
+
+            return lines;
+        };
+
+        // Render each top-level block on its own and tag it with its source line range,
+        // so the editor and the preview can jump to each other.
+        const renderMarkdownBlocks = (markdown) => {
+            // Locate every token in the real source instead of summing token lengths: marked drops
+            // some source (e.g. link reference definitions), which would shift every later block.
+            let cursor = 0;
+            let line = 0;
+            const advance = (to) => {
+                line += (markdown.slice(cursor, to).match(/\n/g) || []).length;
+                cursor = to;
+            };
+
+            return marked.lexer(markdown).map((token) => {
+                if (token.type !== 'space') {
+                    const at = markdown.indexOf(token.raw, cursor);
+                    if (at !== -1) {
+                        advance(at);
+                    }
+                }
+
+                const start = line;
+                const last = start + (token.raw.replace(/\n+$/, '').match(/\n/g) || []).length;
+                advance(Math.min(markdown.length, cursor + token.raw.length));
+
+                if (token.type === 'space') {
+                    return '';
+                }
+
+                const attrs = [`data-kind="${token.type}"`, `data-line-start="${start}"`, `data-line-end="${last}"`];
+                if (token.type === 'code' && token.codeBlockStyle !== 'indented') {
+                    attrs.push('data-fenced="true"');
+                }
+                if (token.type === 'list') {
+                    attrs.push(`data-item-lines="${listItemLines(token, start).join(',')}"`);
+                }
+
+                return `<div class="md-src" ${attrs.join(' ')}>${marked.parser([token])}</div>`;
+            }).join('');
+        };
+
+        // Give list items and table rows their own source line after sanitizing.
+        const annotateSourceLines = () => {
+            markdownPreviewContent.querySelectorAll('.md-src').forEach((block) => {
+                const start = Number(block.dataset.lineStart);
+                const itemLines = (block.dataset.itemLines || '').split(',');
+                const end = Number(block.dataset.lineEnd);
+                block.dataset.lines = end > start ? `L${start + 1}–${end + 1}` : `L${start + 1}`;
+
+                if (block.dataset.kind === 'list') {
+                    block.querySelectorAll('li').forEach((item, index) => {
+                        if (itemLines[index] !== undefined && itemLines[index] !== '') {
+                            item.dataset.line = itemLines[index];
+                        }
+                    });
+                }
+
+                if (block.dataset.kind === 'table') {
+                    block.querySelectorAll('tr').forEach((row, index) => {
+                        row.dataset.line = String(start + (index === 0 ? 0 : index + 1));
+                    });
+                }
+            });
+        };
+
         const renderMarkdownPreview = () => {
             if (markdownPreviewContent.dataset.toxicPreviewLocked === 'true') {
                 return;
             }
 
-            const markdown = markdownInput.value.trim();
-            const hasMarkdown = markdown.length > 0;
+            const markdown = markdownInput.value;
+            const hasMarkdown = markdown.trim().length > 0;
 
             markdownPreviewEmpty.hidden = hasMarkdown;
             markdownPreviewContent.hidden = !hasMarkdown;
             markdownPreviewContent.innerHTML = hasMarkdown
-                ? DOMPurify.sanitize(marked.parse(markdown))
+                ? DOMPurify.sanitize(renderGithubAlerts(renderMarkdownBlocks(markdown)))
                 : '';
+
+            annotateSourceLines();
+            markdownPreviewContent.querySelectorAll('a[href]').forEach((link) => {
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+            });
+            window.enhanceCodeBlocks?.(markdownPreviewContent);
         };
 
         const suggestions = document.querySelector('[data-markdown-suggestions]');
@@ -276,38 +427,38 @@
         let selectedCommand = null;
 
         const snippets = [
-            { trigger: 'table', label: 'Bảng', description: 'Chọn số cột và dòng', fields: [
-                { name: 'columns', label: 'Số cột', type: 'number', value: '3', min: 1, max: 12 },
-                { name: 'rows', label: 'Số dòng nội dung', type: 'number', value: '3', min: 1, max: 30 },
+            { trigger: 'table', label: 'Table', description: 'Choose columns and rows', fields: [
+                { name: 'columns', label: 'Columns', type: 'number', value: '3', min: 1, max: 12 },
+                { name: 'rows', label: 'Body rows', type: 'number', value: '3', min: 1, max: 30 },
             ], build: ({ columns, rows }) => {
-                const header = `| ${Array.from({ length: Number(columns) }, (_, index) => `Cột ${index + 1}`).join(' | ')} |`;
+                const header = `| ${Array.from({ length: Number(columns) }, (_, index) => `Column ${index + 1}`).join(' | ')} |`;
                 const divider = `| ${Array.from({ length: Number(columns) }, () => '---').join(' | ')} |`;
                 const body = Array.from({ length: Number(rows) }, () => `| ${Array.from({ length: Number(columns) }, () => ' ').join(' | ')} |`);
                 return [header, divider, ...body].join('\n');
             } },
-            { trigger: 'h1', label: 'Tiêu đề lớn', description: 'Tiêu đề cấp 1', value: '# Tiêu đề' },
-            { trigger: 'h2', label: 'Tiêu đề', description: 'Tiêu đề cấp 2', value: '## Tiêu đề' },
-            { trigger: 'h3', label: 'Tiêu đề nhỏ', description: 'Tiêu đề cấp 3', value: '### Tiêu đề' },
-            { trigger: 'bold', label: 'In đậm', description: 'Văn bản nhấn mạnh', value: '**văn bản**' },
-            { trigger: 'italic', label: 'In nghiêng', description: 'Văn bản nhấn nhẹ', value: '*văn bản*' },
-            { trigger: 'strike', label: 'Gạch ngang', description: 'Văn bản đã xóa', value: '~~văn bản~~' },
-            { trigger: 'inline-code', label: 'Mã nội dòng', description: 'Đoạn mã trong câu', value: '`code`' },
-            { trigger: 'code', label: 'Khối mã', description: 'Chọn ngôn ngữ', fields: [
-                { name: 'language', label: 'Ngôn ngữ', type: 'text', value: 'javascript', pattern: '[a-zA-Z0-9_+#.\\-]*' },
+            { trigger: 'h1', label: 'Heading 1', description: 'Level 1 heading', value: '# Heading' },
+            { trigger: 'h2', label: 'Heading 2', description: 'Level 2 heading', value: '## Heading' },
+            { trigger: 'h3', label: 'Heading 3', description: 'Level 3 heading', value: '### Heading' },
+            { trigger: 'bold', label: 'Bold', description: 'Strong emphasis', value: '**text**' },
+            { trigger: 'italic', label: 'Italic', description: 'Light emphasis', value: '*text*' },
+            { trigger: 'strike', label: 'Strikethrough', description: 'Deleted text', value: '~~text~~' },
+            { trigger: 'inline-code', label: 'Inline code', description: 'Code within a sentence', value: '`code`' },
+            { trigger: 'code', label: 'Code block', description: 'Choose a language', fields: [
+                { name: 'language', label: 'Language', type: 'text', value: 'javascript', pattern: '[a-zA-Z0-9_+#.\\-]*' },
             ], build: ({ language }) => `\`\`\`${language}\ncode\n\`\`\`` },
-            { trigger: 'quote', label: 'Trích dẫn', description: 'Blockquote', value: '> Nội dung trích dẫn' },
-            { trigger: 'bullet-list', label: 'Danh sách', description: 'Danh sách gạch đầu dòng', value: '- Mục 1\n- Mục 2' },
-            { trigger: 'numbered-list', label: 'Danh sách số', description: 'Danh sách có thứ tự', value: '1. Mục 1\n2. Mục 2' },
-            { trigger: 'task-list', label: 'Danh sách việc', description: 'Danh sách checkbox', value: '- [ ] Việc cần làm' },
-            { trigger: 'link', label: 'Liên kết', description: 'Nhập văn bản và URL', fields: [
-                { name: 'text', label: 'Văn bản liên kết', type: 'text', value: '' },
+            { trigger: 'quote', label: 'Quote', description: 'Blockquote', value: '> Quoted text' },
+            { trigger: 'bullet-list', label: 'Bullet list', description: 'Unordered list', value: '- Item 1\n- Item 2' },
+            { trigger: 'numbered-list', label: 'Numbered list', description: 'Ordered list', value: '1. Item 1\n2. Item 2' },
+            { trigger: 'task-list', label: 'Task list', description: 'Checkbox list', value: '- [ ] Task' },
+            { trigger: 'link', label: 'Link', description: 'Enter text and URL', fields: [
+                { name: 'text', label: 'Link text', type: 'text', value: '' },
                 { name: 'url', label: 'URL', type: 'url', value: '', required: true },
             ], build: ({ text, url }) => `[${escapeMarkdownLabel(text)}](<${escapeMarkdownUrl(url)}>)` },
-            { trigger: 'image', label: 'Hình ảnh', description: 'Nhập mô tả và URL ảnh', fields: [
-                { name: 'text', label: 'Mô tả ảnh', type: 'text', value: '' },
-                { name: 'url', label: 'URL ảnh', type: 'url', value: '', required: true },
+            { trigger: 'image', label: 'Image', description: 'Enter alt text and image URL', fields: [
+                { name: 'text', label: 'Alt text', type: 'text', value: '' },
+                { name: 'url', label: 'Image URL', type: 'url', value: '', required: true },
             ], build: ({ text, url }) => `![${escapeMarkdownLabel(text)}](<${escapeMarkdownUrl(url)}>)` },
-            { trigger: 'hr', label: 'Đường phân cách', description: 'Ngăn cách các phần', value: '\n---\n' },
+            { trigger: 'hr', label: 'Divider', description: 'Separate sections', value: '\n---\n' },
         ];
 
         const escapeMarkdownLabel = (text) => text.replace(/[\\[\]]/g, '\\$&');
@@ -394,7 +545,7 @@
             replacementRange = { start: cursor - query.length - 1, end: cursor };
             selectedCommand = null;
             activeSuggestion = 0;
-            commandTitle.textContent = 'Lệnh Markdown';
+            commandTitle.textContent = 'Markdown commands';
             commandFilter.textContent = `/${query}`;
             commandConfig.hidden = true;
             noCommands.hidden = suggestionItems.length > 0;
@@ -405,12 +556,12 @@
                 button.role = 'option';
                 button.id = `markdown-command-${item.trigger}`;
                 button.setAttribute('aria-selected', String(index === activeSuggestion));
-                button.className = 'flex flex-col rounded-md px-3 py-2 text-left hover:bg-[#272a30] aria-selected:bg-sky-500/10';
+                button.className = 'flex flex-col rounded-md px-3 py-2 text-left hover:bg-surface-high aria-selected:bg-sky-500/10';
                 const title = document.createElement('span');
-                title.className = 'text-sm text-[#e1e2ea]';
+                title.className = 'text-sm text-on-surface';
                 title.textContent = item.label;
                 const description = document.createElement('span');
-                description.className = 'text-xs text-[#87929a]';
+                description.className = 'text-xs text-outline';
                 description.textContent = `/${item.trigger} · ${item.description}`;
                 button.append(title, description);
                 button.addEventListener('mousedown', (event) => event.preventDefault());
@@ -449,13 +600,13 @@
             commandFilter.textContent = `/${item.trigger}`;
             commandFields.replaceChildren(...item.fields.map((field) => {
                 const label = document.createElement('label');
-                label.className = 'grid gap-1 text-sm text-[#e1e2ea]';
+                label.className = 'grid gap-1 text-sm text-on-surface';
                 label.textContent = field.label;
                 const input = document.createElement('input');
                 input.dataset.commandField = field.name;
                 input.type = field.type;
                 input.value = field.value;
-                input.className = 'w-full rounded-lg border border-[#32353b] bg-[#191c21] px-3 py-2 text-[#e1e2ea] focus:border-sky-400 focus:outline-none';
+                input.className = 'w-full rounded-lg border border-surface-highest bg-surface-low px-3 py-2 text-on-surface focus:border-sky-400 focus:outline-none';
                 for (const attribute of ['min', 'max', 'pattern']) {
                     if (field[attribute] !== undefined) {
                         input.setAttribute(attribute, field[attribute]);
@@ -478,12 +629,12 @@
             const values = {};
             for (const input of commandFields.querySelectorAll('input')) {
                 const field = selectedCommand.fields.find((field) => field.name === input.dataset.commandField);
-                input.setCustomValidity(field.required && !input.value.trim() ? 'Vui lòng nhập URL.' : '');
+                input.setCustomValidity(field.required && !input.value.trim() ? 'Please enter a URL.' : '');
                 if (!input.reportValidity()) {
                     return;
                 }
                 if (input.type === 'number' && !input.value) {
-                    input.setCustomValidity('Vui lòng nhập số nguyên trong giới hạn.');
+                    input.setCustomValidity('Please enter a whole number within the allowed range.');
                     input.reportValidity();
                     return;
                 }
@@ -571,38 +722,341 @@
         }, true);
         window.addEventListener('resize', positionCommands);
 
-        const selectMarkdownTab = (selectedTab) => {
-            closeCommands();
-            markdownTabs.forEach((tab) => {
-                const isSelected = tab.dataset.markdownTab === selectedTab;
-                tab.setAttribute('aria-selected', String(isSelected));
-            });
+        // ---- Two-way position sync between editor and preview ----
+        let ignoreEditorScrollUntil = 0;
+        let activeBlock = null;
 
-            markdownPanels.forEach((panel) => {
-                panel.hidden = panel.dataset.markdownPanel !== selectedTab;
-            });
+        const mirrorProps = ['boxSizing', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing', 'lineHeight', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth', 'wordSpacing', 'tabSize', 'textIndent'];
+        const textareaOffsetTop = (offset) => {
+            const style = getComputedStyle(markdownInput);
+            const mirror = document.createElement('div');
+            mirrorProps.forEach((property) => { mirror.style[property] = style[property]; });
+            Object.assign(mirror.style, { position: 'absolute', visibility: 'hidden', top: '0', left: '-9999px', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', width: `${markdownInput.clientWidth + parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth)}px` });
+            mirror.textContent = markdownInput.value.slice(0, offset);
+            const marker = document.createElement('span');
+            marker.textContent = '.';
+            mirror.append(marker);
+            document.body.append(mirror);
+            const top = marker.offsetTop;
+            mirror.remove();
 
-            markdownInput.required = selectedTab === 'write';
+            return top;
+        };
 
-            if (selectedTab === 'preview') {
-                renderMarkdownPreview();
+        const lineStartOffset = (line) => {
+            let offset = 0;
+            for (let index = 0; index < line; index += 1) {
+                const next = markdownInput.value.indexOf('\n', offset);
+                if (next === -1) {
+                    return markdownInput.value.length;
+                }
+                offset = next + 1;
+            }
+
+            return offset;
+        };
+
+        const setActiveBlock = (block) => {
+            if (activeBlock === block) {
+                return;
+            }
+            activeBlock?.classList.remove('md-src--active');
+            activeBlock = block;
+            block?.classList.add('md-src--active');
+        };
+
+        const blockForLine = (line) => {
+            const blocks = [...markdownPreviewContent.querySelectorAll('.md-src')];
+            const exact = blocks.find((block) => line >= Number(block.dataset.lineStart) && line <= Number(block.dataset.lineEnd));
+
+            return exact ?? blocks.filter((block) => Number(block.dataset.lineStart) <= line).pop() ?? blocks[0] ?? null;
+        };
+
+        const codeLineHeight = (code) => parseFloat(getComputedStyle(code).lineHeight) || 24;
+
+        // Source line for a click inside a preview block.
+        const sourceLineAt = (block, target, clientY) => {
+            const start = Number(block.dataset.lineStart);
+            const end = Number(block.dataset.lineEnd);
+            const marked = target.closest('[data-line]');
+
+            if (marked && block.contains(marked)) {
+                return Number(marked.dataset.line);
+            }
+
+            const code = target.closest('pre code');
+            if (code && block.dataset.kind === 'code') {
+                const rows = code.textContent.replace(/\n$/, '').split('\n').length;
+                const index = Math.min(rows - 1, Math.max(0, Math.floor((clientY - code.getBoundingClientRect().top) / codeLineHeight(code))));
+
+                return Math.min(end, start + (block.dataset.fenced ? 1 : 0) + index);
+            }
+
+            const box = block.getBoundingClientRect();
+            const fraction = box.height > 0 ? (clientY - box.top) / box.height : 0;
+
+            return Math.min(end, start + Math.floor(Math.max(0, fraction) * (end - start + 1)));
+        };
+
+        // Preview scroll position (relative to the preview content) for a source line.
+        const previewYForLine = (line, block) => {
+            const base = markdownPreviewContent.scrollTop - markdownPreviewContent.getBoundingClientRect().top;
+            const start = Number(block.dataset.lineStart);
+            const end = Number(block.dataset.lineEnd);
+            const candidates = [...block.querySelectorAll('[data-line]')].filter((element) => Number(element.dataset.line) <= line);
+
+            if (candidates.length > 0) {
+                const best = candidates.reduce((current, element) => (Number(element.dataset.line) >= Number(current.dataset.line) ? element : current));
+
+                return best.getBoundingClientRect().top + base;
+            }
+
+            const code = block.dataset.kind === 'code' ? block.querySelector('pre code') : null;
+            if (code) {
+                const index = Math.max(0, line - start - (block.dataset.fenced ? 1 : 0));
+
+                return code.getBoundingClientRect().top + base + index * codeLineHeight(code);
+            }
+
+            const box = block.getBoundingClientRect();
+            const fraction = end > start ? Math.min(1, Math.max(0, (line - start) / (end - start + 1))) : 0;
+
+            return box.top + base + fraction * box.height;
+        };
+
+        // Editor caret -> preview.
+        const syncPreviewToCaret = ({ smooth = true, onlyIfHidden = false } = {}) => {
+            if (markdownLayout.dataset.view !== 'split') {
+                return;
+            }
+
+            const line = markdownInput.value.slice(0, markdownInput.selectionStart).split('\n').length - 1;
+            const block = blockForLine(line);
+            setActiveBlock(block);
+
+            if (!block) {
+                return;
+            }
+
+            const targetY = previewYForLine(line, block);
+            const visibleTop = markdownPreviewContent.scrollTop;
+            const visibleBottom = visibleTop + markdownPreviewContent.clientHeight;
+
+            if (onlyIfHidden && targetY > visibleTop + 24 && targetY < visibleBottom - 24) {
+                return;
+            }
+
+            markdownPreviewContent.scrollTo({ top: Math.max(0, targetY - markdownPreviewContent.clientHeight * 0.35), behavior: smooth ? 'smooth' : 'auto' });
+        };
+
+        // Preview click -> editor.
+        markdownPreviewContent.addEventListener('click', (event) => {
+            if (markdownLayout.dataset.view !== 'split' || window.getSelection()?.toString() || event.target.closest('a, button')) {
+                return;
+            }
+
+            const block = event.target.closest('.md-src');
+            if (!block) {
+                return;
+            }
+
+            const line = sourceLineAt(block, event.target, event.clientY);
+            const from = lineStartOffset(line);
+            const lineEnd = markdownInput.value.indexOf('\n', from);
+
+            setActiveBlock(block);
+            ignoreEditorScrollUntil = performance.now() + 300;
+            markdownInput.focus({ preventScroll: true });
+            markdownInput.setSelectionRange(from, lineEnd === -1 ? markdownInput.value.length : lineEnd);
+            markdownInput.scrollTo({ top: Math.max(0, textareaOffsetTop(from) - markdownInput.clientHeight * 0.35), behavior: 'smooth' });
+        });
+
+        markdownInput.addEventListener('click', () => {
+            ignoreEditorScrollUntil = performance.now() + 300;
+            syncPreviewToCaret();
+        });
+        markdownInput.addEventListener('keyup', (event) => {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End'].includes(event.key)) {
+                ignoreEditorScrollUntil = performance.now() + 300;
+                syncPreviewToCaret();
+            }
+        });
+
+        // ---- Line number gutter + caret status ----
+        const gutterInner = document.querySelector('[data-line-gutter-inner]');
+        const editorStatus = document.querySelector('[data-editor-status]');
+        let gutterKey = '';
+        let activeGutterRow = null;
+
+        const markActiveLine = () => {
+            const before = markdownInput.value.slice(0, markdownInput.selectionStart);
+            const line = before.split('\n').length - 1;
+            const column = before.length - (before.lastIndexOf('\n') + 1) + 1;
+            const total = markdownInput.value.split('\n').length;
+
+            activeGutterRow?.classList.remove('is-active');
+            activeGutterRow = gutterInner?.children[line] ?? null;
+            activeGutterRow?.classList.add('is-active');
+
+            if (editorStatus) {
+                editorStatus.textContent = `Ln ${line + 1}, Col ${column} · ${total} ${total === 1 ? 'line' : 'lines'}`;
             }
         };
 
-        markdownTabs.forEach((tab, index) => {
-            tab.addEventListener('click', () => {
-                selectMarkdownTab(tab.dataset.markdownTab);
+        const syncGutterScroll = () => {
+            if (gutterInner) {
+                gutterInner.style.transform = `translateY(${-markdownInput.scrollTop}px)`;
+            }
+        };
+
+        // One gutter row per source line, as tall as that line is once wrapped.
+        const renderGutter = () => {
+            if (!gutterInner || markdownInput.clientWidth === 0) {
+                return;
+            }
+
+            const style = getComputedStyle(markdownInput);
+            const mirror = document.createElement('div');
+            mirrorProps.forEach((property) => { mirror.style[property] = style[property]; });
+            Object.assign(mirror.style, { position: 'absolute', visibility: 'hidden', top: '0', left: '-9999px', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', width: `${markdownInput.clientWidth + parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth)}px` });
+            markdownInput.value.split('\n').forEach((text) => {
+                const row = document.createElement('div');
+                row.textContent = text === '' ? '\u200b' : text;
+                mirror.append(row);
             });
-            tab.addEventListener('keydown', (event) => {
-                if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-                    event.preventDefault();
-                    const direction = event.key === 'ArrowRight' ? 1 : -1;
-                    const nextIndex = (index + direction + markdownTabs.length) % markdownTabs.length;
-                    markdownTabs[nextIndex].focus();
-                    markdownTabs[nextIndex].click();
-                }
+            document.body.append(mirror);
+            const heights = [...mirror.children].map((row) => row.offsetHeight);
+            mirror.remove();
+
+            const key = `${style.paddingTop}|${style.lineHeight}|${heights.join(',')}`;
+            if (key !== gutterKey) {
+                gutterKey = key;
+                gutterInner.style.paddingTop = style.paddingTop;
+                gutterInner.replaceChildren(...heights.map((height, index) => {
+                    const row = document.createElement('div');
+                    row.textContent = String(index + 1);
+                    row.style.height = `${height}px`;
+                    row.style.lineHeight = style.lineHeight;
+
+                    return row;
+                }));
+                activeGutterRow = null;
+            }
+
+            syncGutterScroll();
+            markActiveLine();
+        };
+
+        let gutterFrame = null;
+        const scheduleGutter = () => {
+            cancelAnimationFrame(gutterFrame);
+            gutterFrame = requestAnimationFrame(renderGutter);
+        };
+        markdownInput.addEventListener('input', scheduleGutter);
+        markdownInput.addEventListener('scroll', syncGutterScroll, { passive: true });
+        document.addEventListener('selectionchange', () => {
+            if (document.activeElement === markdownInput) {
+                markActiveLine();
+            }
+        });
+        window.addEventListener('resize', scheduleGutter);
+        if (window.ResizeObserver) {
+            new ResizeObserver(scheduleGutter).observe(markdownInput);
+        }
+
+        // ---- Focus mode: the whole Markdown editor fills the viewport ----
+        const editorRoot = document.querySelector('[data-markdown-editor]');
+        const fullscreenToggle = document.querySelector('[data-fullscreen-toggle]');
+        const setFullscreen = (on) => {
+            if (!editorRoot || !fullscreenToggle) {
+                return;
+            }
+
+            closeCommands();
+            editorRoot.classList.toggle('is-fullscreen', on);
+            document.documentElement.classList.toggle('md-fullscreen', on);
+            fullscreenToggle.setAttribute('aria-pressed', String(on));
+            fullscreenToggle.setAttribute('aria-label', on ? 'Exit focus mode' : 'Focus mode (fullscreen)');
+            fullscreenToggle.title = on ? 'Exit focus mode (Esc)' : 'Focus mode (fullscreen). Esc to exit';
+            fullscreenToggle.querySelector('[data-fullscreen-icon]').textContent = on ? 'fullscreen_exit' : 'fullscreen';
+            scheduleGutter();
+            markdownInput.focus({ preventScroll: true });
+            requestAnimationFrame(() => syncPreviewToCaret({ smooth: false }));
+        };
+
+        fullscreenToggle?.addEventListener('click', () => setFullscreen(!editorRoot.classList.contains('is-fullscreen')));
+        document.addEventListener('keydown', (event) => {
+            // Esc also closes the slash-command menu; that handler runs first and prevents default.
+            if (event.key === 'Escape' && !event.defaultPrevented && editorRoot?.classList.contains('is-fullscreen')) {
+                setFullscreen(false);
+            }
+        });
+
+        const selectMarkdownView = (view) => {
+            closeCommands();
+            markdownLayout.dataset.view = view;
+            markdownViewButtons.forEach((button) => {
+                button.setAttribute('aria-pressed', String(button.dataset.markdownView === view));
+            });
+
+            markdownPanels.forEach((panel) => {
+                panel.hidden = view !== 'split' && panel.dataset.markdownPanel !== view;
+            });
+
+            markdownInput.required = view !== 'preview';
+            renderMarkdownPreview();
+            scheduleGutter();
+
+            try {
+                localStorage.setItem('apollo.markdownView', view);
+            } catch (e) {}
+        };
+
+        markdownViewButtons.forEach((button) => {
+            button.addEventListener('click', () => selectMarkdownView(button.dataset.markdownView));
+        });
+
+        // Live preview: render on every keystroke, coalesced to one render per frame,
+        // then keep the block being edited in view.
+        let previewFrame = null;
+        markdownInput.addEventListener('input', () => {
+            cancelAnimationFrame(previewFrame);
+            previewFrame = requestAnimationFrame(() => {
+                renderMarkdownPreview();
+                ignoreEditorScrollUntil = performance.now() + 300;
+                syncPreviewToCaret({ smooth: false, onlyIfHidden: true });
             });
         });
+
+        // Wheel/drag scrolling of the editor keeps the preview roughly aligned.
+        markdownInput.addEventListener('scroll', () => {
+            if (markdownLayout.dataset.view !== 'split' || performance.now() < ignoreEditorScrollUntil) {
+                return;
+            }
+
+            const max = markdownInput.scrollHeight - markdownInput.clientHeight;
+            const previewMax = markdownPreviewContent.scrollHeight - markdownPreviewContent.clientHeight;
+            markdownPreviewContent.scrollTop = max > 0 ? (markdownInput.scrollTop / max) * previewMax : 0;
+        });
+
+        let savedView = 'split';
+        try {
+            savedView = localStorage.getItem('apollo.markdownView') || 'split';
+        } catch (e) {}
+        selectMarkdownView(['write', 'split', 'preview'].includes(savedView) ? savedView : 'split');
+
+        const sidebarToggle = document.querySelector('[data-sidebar-toggle]');
+        const syncSidebarToggle = () => {
+            const collapsed = document.documentElement.classList.contains('sidebar-collapsed');
+            sidebarToggle.setAttribute('aria-pressed', String(collapsed));
+            sidebarToggle.querySelector('[data-sidebar-toggle-label]').textContent = collapsed ? 'Show sidebar' : 'Hide sidebar';
+            sidebarToggle.querySelector('.material-symbols-outlined').textContent = collapsed ? 'left_panel_open' : 'left_panel_close';
+        };
+        sidebarToggle?.addEventListener('click', () => {
+            window.toggleAdminSidebar?.();
+            syncSidebarToggle();
+        });
+        syncSidebarToggle();
 
         const tagInput = document.querySelector('[data-new-tag-input]');
         const addTagButton = document.querySelector('[data-add-new-tag]');
@@ -633,7 +1087,7 @@
             const removeButton = document.createElement('button');
             removeButton.type = 'button';
             removeButton.dataset.removeNewTag = '';
-            removeButton.setAttribute('aria-label', `Xóa tag ${tagName}`);
+            removeButton.setAttribute('aria-label', `Remove tag ${tagName}`);
             removeButton.className = 'text-sky-200 hover:text-white';
             removeButton.innerHTML = '&times;';
 

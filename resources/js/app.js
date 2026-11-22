@@ -6,6 +6,41 @@ import './admin/toxic-highlight.js';
 import './admin/notifications.js';
 window.Alpine = Alpine;
 
+document.addEventListener('click', (event) => {
+    if (! event.target.closest('[data-theme-toggle]')) {
+        return;
+    }
+
+    const isLight = document.documentElement.getAttribute('data-mode') === 'light';
+
+    window.apolloTheme.apply(isLight ? 'dark' : 'light', true);
+});
+
+// Theme picker (palette dropdown), shared by the admin, public and auth layouts.
+const markThemeOptions = () => document.querySelectorAll('[data-theme-option]').forEach((option) => {
+    option.setAttribute('aria-current', String(option.dataset.themeOption === document.documentElement.dataset.theme));
+});
+
+markThemeOptions();
+new MutationObserver(markThemeOptions).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+document.addEventListener('click', (event) => {
+    const option = event.target.closest('[data-theme-option]');
+
+    if (option) {
+        window.apolloTheme.apply(option.dataset.themeOption, true);
+        option.closest('[data-theme-picker]').open = false;
+
+        return;
+    }
+
+    document.querySelectorAll('[data-theme-picker][open]').forEach((picker) => {
+        if (! picker.contains(event.target)) {
+            picker.open = false;
+        }
+    });
+});
+
 const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
 
 const bookmarkUrl = (template, postId) => template.replace('__POST__', String(postId));

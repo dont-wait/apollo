@@ -75,7 +75,7 @@ class ToxicContentInspector
             $value = $inspection['value'];
             $matches = $inspection['matches'];
 
-            $errors[$field][] = $label.' chứa từ ngữ không phù hợp. Vui lòng chỉnh sửa.';
+            $errors[$field][] = $label.' contains inappropriate language. Please edit it.';
             $matchCount += count($matches);
             $termIds = [...$termIds, ...array_map(fn (ToxicWordMatch $match): int => $match->termId, $matches)];
 
@@ -114,7 +114,7 @@ class ToxicContentInspector
         return ToxicContentException::fromMatches(
             $errors,
             [
-                'summary' => 'Tìm thấy '.$matchCount.' từ ngữ không phù hợp trong '.count($inspections).' trường.',
+                'summary' => 'Found '.$matchCount.' inappropriate '.Str::plural('word', $matchCount).' in '.count($inspections).' '.Str::plural('field', count($inspections)).'.',
                 'fields' => $moderationFields,
             ],
             $withModeration,

@@ -7,6 +7,7 @@ use App\Models\Media;
 use App\Models\Post;
 use App\Models\Tag;
 use App\Models\User;
+use App\Support\ArticleRevision;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -67,7 +68,7 @@ class AdminArticleTest extends TestCase
             ->assertSee('name="markdown_content"', false)
             ->assertSee('Write')
             ->assertSee('Preview')
-            ->assertSeeText('Chưa có nội dung để xem trước');
+            ->assertSeeText('Nothing to preview yet');
 
         $this->get(route('admin.articles.edit', $article))
             ->assertOk()
@@ -92,12 +93,12 @@ class AdminArticleTest extends TestCase
                 'status' => 'PUBLISHED',
             ])
             ->assertRedirect(route('admin.articles.index'))
-            ->assertSessionHas('status', 'Bài viết đã được tạo thành công');
+            ->assertSessionHas('status', 'Article created successfully.');
 
         $article = Post::query()->where('slug', 'a-new-article')->firstOrFail();
         $this->get(route('admin.articles.index'))
             ->assertOk()
-            ->assertSeeText('Bài viết đã được tạo thành công');
+            ->assertSeeText('Article created successfully.');
         $this->assertSame($admin->id, $article->author_id);
         $this->assertSame('PUBLISHED', $article->status);
         $this->assertNotNull($article->published_at);
@@ -236,7 +237,7 @@ class AdminArticleTest extends TestCase
 
         $this->actingAs($admin)
             ->put(route('admin.articles.update', $article), [
-                'revision' => \App\Support\ArticleRevision::for($article),
+                'revision' => ArticleRevision::for($article),
                 'title' => 'Article with replacement thumbnail',
                 'markdown_content' => 'Updated content',
                 'status' => 'DRAFT',
@@ -271,7 +272,7 @@ class AdminArticleTest extends TestCase
 
         $this->actingAs($admin)
             ->put(route('admin.articles.update', $article), [
-                'revision' => \App\Support\ArticleRevision::for($article),
+                'revision' => ArticleRevision::for($article),
                 'title' => 'Article with replacement thumbnail',
                 'markdown_content' => 'Updated content',
                 'status' => 'DRAFT',
@@ -305,7 +306,7 @@ class AdminArticleTest extends TestCase
 
         $this->actingAs($admin)
             ->put(route('admin.articles.update', $article), [
-                'revision' => \App\Support\ArticleRevision::for($article),
+                'revision' => ArticleRevision::for($article),
                 'title' => 'Article with a referenced old thumbnail',
                 'markdown_content' => '![Old cover](/storage/articles/old-cover.png)',
                 'status' => 'DRAFT',
@@ -327,7 +328,7 @@ class AdminArticleTest extends TestCase
 
         $this->actingAs($admin)
             ->put(route('admin.articles.update', $article), [
-                'revision' => \App\Support\ArticleRevision::for($article),
+                'revision' => ArticleRevision::for($article),
                 'title' => 'Updated article',
                 'slug' => '',
                 'tags' => [$replacementTag->id],
@@ -356,7 +357,7 @@ class AdminArticleTest extends TestCase
         $this->actingAs($admin)
             ->from(route('admin.articles.edit', $article))
             ->put(route('admin.articles.update', $article), [
-                'revision' => \App\Support\ArticleRevision::for($article),
+                'revision' => ArticleRevision::for($article),
                 'title' => '',
                 'slug' => $article->slug,
                 'markdown_content' => '# Content',
