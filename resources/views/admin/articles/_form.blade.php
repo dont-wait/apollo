@@ -41,126 +41,192 @@
 
     <script type="application/json" data-toxic-moderation>@json(session('moderation', []))</script>
 
+    {{-- Basics --}}
     <section class="space-y-5 rounded-xl bg-surface-low p-5 shadow-sm sm:p-6">
         <div>
-            <label for="title" class="mb-2 block text-sm font-medium">Title <span class="text-red-300">*</span></label>
-            <input id="title" name="title" type="text" value="{{ old('title', $article?->title) }}" required maxlength="255" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">
+            <div class="mb-2 flex items-end justify-between gap-3">
+                <label for="title" class="block text-sm font-medium">Title <span class="text-red-300">*</span></label>
+                <span data-char-count data-for="title" data-max="255" class="font-mono text-[11px] text-outline"></span>
+            </div>
+            <input id="title" name="title" type="text" value="{{ old('title', $article?->title) }}" required maxlength="255" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none text-base font-medium">
             @error('title') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
             <div data-toxic-snippet="title" hidden class="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"></div>
         </div>
 
         <div>
-            <label for="slug" class="mb-2 block text-sm font-medium">Slug</label>
-            <input id="slug" name="slug" type="text" value="{{ old('slug', $article?->slug) }}" maxlength="255" placeholder="Leave empty to generate from the title" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 font-mono text-sm text-on-surface placeholder:font-sans placeholder:text-outline focus:border-sky-400 focus:outline-none">
-            <p class="mt-1.5 text-xs text-outline">The slug is generated from the title if left empty.</p>
+            <div class="mb-2 flex items-end justify-between gap-3">
+                <label for="slug" class="block text-sm font-medium">Slug</label>
+                <button type="button" data-use-generated-slug hidden class="text-xs text-sky-300 hover:underline">Use generated slug</button>
+            </div>
+            <input id="slug" name="slug" type="text" value="{{ old('slug', $article?->slug) }}" maxlength="255" placeholder="Leave empty to generate from the title" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none font-mono placeholder:font-sans">
+            <p class="mt-1.5 truncate font-mono text-xs text-outline">
+                <span class="text-outline">{{ rtrim(config('app.url'), '/') }}/articles/</span><span data-slug-preview class="text-sky-300"></span>
+                <span data-slug-auto class="ml-1 font-sans text-outline" hidden>(auto-generated)</span>
+            </p>
             @error('slug') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
         </div>
 
-        <div class="grid gap-5 md:grid-cols-2">
-            <div>
-                <label for="category_id" class="mb-2 block text-sm font-medium">Category</label>
-                <select id="category_id" name="category_id" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface focus:border-sky-400 focus:outline-none">
-                    <option value="">Uncategorized</option>
-                    @foreach ($categories as $category)
-                        <option value="{{ $category->id }}" @selected((string) old('category_id', $article?->category_id) === (string) $category->id)>{{ $category->name }}</option>
-                    @endforeach
-                </select>
-                @error('category_id') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
+        <div>
+            <div class="mb-2 flex items-end justify-between gap-3">
+                <label for="excerpt" class="block text-sm font-medium">Excerpt</label>
+                <span data-char-count data-for="excerpt" data-max="{{ $maxExcerptLength }}" class="font-mono text-[11px] text-outline"></span>
             </div>
-
-            <div>
-                <label for="status" class="mb-2 block text-sm font-medium">Status <span class="text-red-300">*</span></label>
-                <select id="status" name="status" required data-publication-status class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface focus:border-sky-400 focus:outline-none">
-                    @if (! array_key_exists($selectedStatus, $statusOptions))
-                        <option value="{{ $selectedStatus }}" selected>{{ ucfirst(strtolower($selectedStatus)) }} (current)</option>
-                    @endif
-                    @foreach ($statusOptions as $value => $label)
-                        <option value="{{ $value }}" @selected($selectedStatus === $value)>{{ $label }}</option>
-                    @endforeach
-                </select>
-                <p class="mt-1.5 text-xs text-outline">Publish goes live immediately; Schedule publishes automatically at the set time; Archive hides it from the public.</p>
-                @error('status') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
-            </div>
+            <textarea id="excerpt" name="excerpt" rows="3" maxlength="{{ $maxExcerptLength }}" placeholder="A short summary shown in lists and search results" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">{{ old('excerpt', $article?->excerpt) }}</textarea>
+            @error('excerpt') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
+            <div data-toxic-snippet="excerpt" hidden class="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"></div>
         </div>
+    </section>
+
+    {{-- Publishing --}}
+    <section class="space-y-5 rounded-xl bg-surface-low p-5 shadow-sm sm:p-6">
+        <h2 class="text-sm font-semibold">Publishing</h2>
+
+        <fieldset>
+            <legend class="mb-2 block text-sm font-medium">Status <span class="text-red-300">*</span></legend>
+            @php
+                $statusMeta = [
+                    'DRAFT' => ['edit_note', 'Only admins can see it'],
+                    'SCHEDULED' => ['schedule', 'Goes live at the time you set'],
+                    'PUBLISHED' => ['public', 'Goes live immediately'],
+                    'ARCHIVED' => ['inventory_2', 'Hidden from the public'],
+                ];
+                $allStatuses = $statusOptions;
+                if (! array_key_exists($selectedStatus, $allStatuses)) {
+                    $allStatuses = [$selectedStatus => ucfirst(strtolower($selectedStatus))] + $allStatuses;
+                }
+            @endphp
+            <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                @foreach ($allStatuses as $value => $label)
+                    <label class="cursor-pointer">
+                        <input type="radio" name="status" value="{{ $value }}" data-publication-status required @checked($selectedStatus === $value) class="peer sr-only">
+                        <span class="flex h-full items-start gap-3 rounded-lg border border-surface-highest bg-surface-lowest p-3 transition hover:border-outline peer-checked:border-sky-400 peer-checked:bg-sky-500/10 peer-focus-visible:ring-2 peer-focus-visible:ring-sky-400">
+                            <span class="material-symbols-outlined mt-0.5 text-xl text-outline">{{ $statusMeta[$value][0] ?? 'flag' }}</span>
+                            <span class="min-w-0">
+                                <span class="block text-sm font-semibold text-on-surface">{{ $label }}</span>
+                                <span class="mt-0.5 block text-xs text-outline">{{ $statusMeta[$value][1] ?? 'Current status' }}</span>
+                            </span>
+                        </span>
+                    </label>
+                @endforeach
+            </div>
+            @error('status') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
+        </fieldset>
 
         <div data-schedule-field @if ($selectedStatus !== 'SCHEDULED') hidden @endif>
             <label for="scheduled_at" class="mb-2 block text-sm font-medium">Publish time <span class="text-red-300">*</span></label>
-            <input id="scheduled_at" name="scheduled_at" type="datetime-local" value="{{ old('scheduled_at', $article?->scheduled_at?->format('Y-m-d\TH:i')) }}" class="w-full max-w-md rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface focus:border-sky-400 focus:outline-none">
+            <input id="scheduled_at" name="scheduled_at" type="datetime-local" value="{{ old('scheduled_at', $article?->scheduled_at?->format('Y-m-d\TH:i')) }}" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none max-w-md">
             <p class="mt-1.5 text-xs text-outline">Must be in the future (system timezone: {{ config('app.timezone') }}).</p>
             @error('scheduled_at') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
         </div>
 
-        <fieldset>
-            <legend class="mb-2 block text-sm font-medium">Tags</legend>
-            <input type="hidden" name="tags_submitted" value="1">
-            @if ($tags->isEmpty())
-                <p class="mb-3 rounded-lg border border-dashed border-surface-highest px-3 py-4 text-sm text-outline">No tags have been created yet.</p>
-            @else
-                <div class="grid gap-2 rounded-lg border border-surface-highest bg-surface-lowest p-3 sm:grid-cols-2 lg:grid-cols-3">
-                    @foreach ($tags as $tag)
-                        <label class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-on-surface-variant hover:bg-surface-low">
-                            <input type="checkbox" name="tags[]" value="{{ $tag->id }}" @checked(in_array($tag->id, $selectedTags, true)) class="rounded border-outline-variant bg-surface-lowest text-sky-400 focus:ring-sky-400">
-                            {{ $tag->name }}
-                        </label>
-                    @endforeach
-                </div>
-            @endif
-            <div class="mt-3 flex max-w-md gap-2">
-                <label class="sr-only" for="new-tag-name">New tag name</label>
-                <input id="new-tag-name" type="text" maxlength="60" placeholder="Enter a new tag name" data-new-tag-input class="min-w-0 flex-1 rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">
-                <button type="button" data-add-new-tag class="shrink-0 whitespace-nowrap rounded-lg bg-surface-high px-4 py-2.5 text-sm font-medium text-on-surface transition hover:bg-surface-highest">+ Add tag</button>
-            </div>
-            <ul data-new-tags-list class="mt-2 flex flex-wrap gap-2">
-                @foreach (old('new_tags', []) as $newTagName)
-                    <li class="inline-flex items-center gap-2 rounded-full bg-sky-500/10 px-3 py-1.5 text-sm text-sky-200">
-                        <input type="hidden" name="new_tags[]" value="{{ $newTagName }}">
-                        <span>{{ $newTagName }}</span>
-                        <button type="button" data-remove-new-tag aria-label="Delete tag {{ $newTagName }}" class="text-sky-200 hover:text-white">&times;</button>
-                    </li>
+        <div>
+            <label for="category_id" class="mb-2 block text-sm font-medium">Category</label>
+            <select id="category_id" name="category_id" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none max-w-md">
+                <option value="">Uncategorized</option>
+                @foreach ($categories as $category)
+                    <option value="{{ $category->id }}" @selected((string) old('category_id', $article?->category_id) === (string) $category->id)>{{ $category->name }}</option>
                 @endforeach
-            </ul>
-            @error('tags') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
-            @error('tags.*') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
-            @error('new_tags') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
-            @error('new_tags.*') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
-            <div data-toxic-snippet="new_tags" hidden class="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"></div>
-        </fieldset>
+            </select>
+            @error('category_id') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
+        </div>
+    </section>
 
-        <div>
-            <label for="thumbnail" class="mb-2 block text-sm font-medium">Ảnh thumbnail / cover</label>
-            @if ($article?->thumbnail)
-                <div class="mb-3 flex items-center gap-3">
-                    <img src="{{ $article->thumbnail->url }}" alt="Current thumbnail" class="h-16 w-24 rounded-md object-cover">
-                    <span class="text-xs text-outline">Choose a new image to replace the current one.</span>
+    {{-- Tags + thumbnail --}}
+    <div class="grid gap-6 lg:grid-cols-2">
+        <section class="space-y-5 rounded-xl bg-surface-low p-5 shadow-sm sm:p-6">
+            <fieldset data-tag-picker>
+                <div class="mb-3 flex items-center justify-between gap-3">
+                    <legend class="text-sm font-semibold">Tags</legend>
+                    <span class="font-mono text-[11px] text-outline"><span data-tag-count>0</span> selected</span>
                 </div>
-            @endif
-            <input id="thumbnail" name="thumbnail" type="file" accept="{{ implode(',', array_map(fn ($mime) => '.'.$mime, $allowedImageMimes)) }}" class="block w-full rounded-lg border border-surface-highest bg-surface-lowest text-sm text-on-surface-variant file:mr-4 file:border-0 file:bg-surface-high file:px-4 file:py-2.5 file:text-sm file:font-medium file:text-on-surface hover:file:bg-surface-highest">
-            <p class="mt-1.5 text-xs text-outline">{{ strtoupper(implode(', ', $allowedImageMimes)) }}; max {{ $maxThumbnailKb / 1024 }} MB.</p>
-            @error('thumbnail') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
-        </div>
+                <input type="hidden" name="tags_submitted" value="1">
+                @if ($tags->count() > 8)
+                    <label class="sr-only" for="tag-filter">Filter tags</label>
+                    <input id="tag-filter" type="search" data-tag-filter placeholder="Filter tags..." class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none mb-3">
+                @endif
+                @if ($tags->isEmpty())
+                    <p class="mb-3 rounded-lg border border-dashed border-surface-highest px-3 py-4 text-sm text-outline">No tags have been created yet. Add one below.</p>
+                @else
+                    <div class="flex max-h-48 flex-wrap gap-2 overflow-y-auto" data-tag-list>
+                        @foreach ($tags as $tag)
+                            <label class="cursor-pointer" data-tag-chip data-tag-name="{{ \Illuminate\Support\Str::lower($tag->name) }}">
+                                <input type="checkbox" name="tags[]" value="{{ $tag->id }}" @checked(in_array($tag->id, $selectedTags, true)) class="peer sr-only">
+                                <span class="inline-flex items-center rounded-full border border-surface-highest bg-surface-lowest px-3 py-1 text-xs text-on-surface-variant transition hover:border-outline peer-checked:border-sky-400 peer-checked:bg-sky-500/15 peer-checked:text-sky-200 peer-focus-visible:ring-2 peer-focus-visible:ring-sky-400">#{{ $tag->name }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                    <p data-tag-empty hidden class="mt-2 text-xs text-outline">No tags match your filter.</p>
+                @endif
+                <div class="mt-3 flex gap-2">
+                    <label class="sr-only" for="new-tag-name">New tag name</label>
+                    <input id="new-tag-name" type="text" maxlength="60" placeholder="Create a new tag and press Enter" data-new-tag-input class="min-w-0 flex-1 w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">
+                    <button type="button" data-add-new-tag class="shrink-0 whitespace-nowrap rounded-lg bg-surface-high px-4 py-2.5 text-sm font-medium text-on-surface transition hover:bg-surface-highest">+ Add tag</button>
+                </div>
+                <ul data-new-tags-list class="mt-2 flex flex-wrap gap-2">
+                    @foreach (old('new_tags', []) as $newTagName)
+                        <li class="inline-flex items-center gap-2 rounded-full border border-sky-400 bg-sky-500/15 px-3 py-1 text-xs text-sky-200">
+                            <input type="hidden" name="new_tags[]" value="{{ $newTagName }}">
+                            <span>#{{ $newTagName }} <span class="text-sky-300/70">(new)</span></span>
+                            <button type="button" data-remove-new-tag aria-label="Remove tag {{ $newTagName }}" class="text-sky-200 hover:text-white">&times;</button>
+                        </li>
+                    @endforeach
+                </ul>
+                @error('tags') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
+                @error('tags.*') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
+                @error('new_tags') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
+                @error('new_tags.*') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
+                <div data-toxic-snippet="new_tags" hidden class="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"></div>
+            </fieldset>
+        </section>
 
-        <div>
-            <label for="excerpt" class="mb-2 block text-sm font-medium">Excerpt</label>
-            <textarea id="excerpt" name="excerpt" rows="3" maxlength="{{ $maxExcerptLength }}" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">{{ old('excerpt', $article?->excerpt) }}</textarea>
-            @error('excerpt') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
-            <div data-toxic-snippet="excerpt" hidden class="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"></div>
-        </div>
-
-        <section class="space-y-4 border-t border-surface-highest pt-5">
-            <div>
-                <h3 class="text-sm font-semibold">SEO metadata</h3>
-                <p class="mt-1 text-xs text-outline">Leave the SEO title or description empty to use the article data. A canonical URL is generated on publish if none is set.</p>
+        <section class="space-y-5 rounded-xl bg-surface-low p-5 shadow-sm sm:p-6" data-thumbnail-field data-max-kb="{{ $maxThumbnailKb }}">
+            <h2 class="text-sm font-semibold">Thumbnail / cover image</h2>
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-start">
+                <div class="flex h-32 w-full shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-surface-highest bg-surface-lowest sm:w-48">
+                    <img data-thumbnail-preview @if ($article?->thumbnail) src="{{ $article->thumbnail->url }}" data-original-src="{{ $article->thumbnail->url }}" @else hidden @endif alt="Thumbnail preview" class="h-full w-full object-cover">
+                    <span data-thumbnail-placeholder @if ($article?->thumbnail) hidden @endif class="material-symbols-outlined text-4xl text-outline">image</span>
+                </div>
+                <div class="min-w-0 flex-1 space-y-2">
+                    <label for="thumbnail" class="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-surface-high px-4 py-2 text-sm font-medium text-on-surface transition hover:bg-surface-highest">
+                        <span class="material-symbols-outlined text-lg">upload</span>
+                        {{ $article?->thumbnail ? 'Replace image' : 'Choose image' }}
+                    </label>
+                    <input id="thumbnail" name="thumbnail" type="file" accept="{{ implode(',', array_map(fn ($mime) => '.'.$mime, $allowedImageMimes)) }}" class="sr-only">
+                    <p data-thumbnail-name class="truncate text-xs text-on-surface-variant">{{ $article?->thumbnail ? 'Current image. Choose a new one to replace it.' : 'No image selected.' }}</p>
+                    <button type="button" data-thumbnail-clear hidden class="text-xs text-red-300 hover:underline">Remove selected image</button>
+                    <p data-thumbnail-warning hidden class="text-xs text-amber-300"></p>
+                    <p class="text-xs text-outline">{{ strtoupper(implode(', ', $allowedImageMimes)) }}; max {{ $maxThumbnailKb / 1024 }} MB.</p>
+                </div>
             </div>
+            @error('thumbnail') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
+        </section>
+    </div>
 
+    {{-- SEO --}}
+    <details class="group rounded-xl bg-surface-low shadow-sm" @if ($errors->hasAny(['seo_title', 'seo_description', 'canonical_url']) || old('seo_title', $article?->seo_title) || old('seo_description', $article?->seo_description) || old('canonical_url') || $article?->canonical_url) open @endif>
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-3 p-5 sm:px-6">
+            <span>
+                <span class="block text-sm font-semibold">SEO metadata</span>
+                <span class="mt-1 block text-xs text-outline">Leave the SEO title or description empty to use the article data. A canonical URL is generated on publish if none is set.</span>
+            </span>
+            <span class="material-symbols-outlined text-outline transition group-open:rotate-180">expand_more</span>
+        </summary>
+        <div class="space-y-4 border-t border-surface-highest p-5 sm:p-6">
             <div>
-                <label for="seo_title" class="mb-2 block text-sm font-medium">SEO title</label>
-                <input id="seo_title" name="seo_title" type="text" value="{{ old('seo_title', $article?->seo_title) }}" maxlength="255" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">
+                <div class="mb-2 flex items-end justify-between gap-3">
+                    <label for="seo_title" class="block text-sm font-medium">SEO title</label>
+                    <span data-char-count data-for="seo_title" data-soft="60" data-max="255" class="font-mono text-[11px] text-outline"></span>
+                </div>
+                <input id="seo_title" name="seo_title" type="text" value="{{ old('seo_title', $article?->seo_title) }}" maxlength="255" placeholder="Defaults to the article title" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">
                 @error('seo_title') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
             </div>
 
             <div>
-                <label for="seo_description" class="mb-2 block text-sm font-medium">SEO description</label>
-                <textarea id="seo_description" name="seo_description" rows="3" maxlength="320" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">{{ old('seo_description', $article?->seo_description) }}</textarea>
+                <div class="mb-2 flex items-end justify-between gap-3">
+                    <label for="seo_description" class="block text-sm font-medium">SEO description</label>
+                    <span data-char-count data-for="seo_description" data-soft="160" data-max="320" class="font-mono text-[11px] text-outline"></span>
+                </div>
+                <textarea id="seo_description" name="seo_description" rows="3" maxlength="320" placeholder="Defaults to the excerpt" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">{{ old('seo_description', $article?->seo_description) }}</textarea>
                 @error('seo_description') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
             </div>
 
@@ -170,8 +236,11 @@
                 <p class="mt-1.5 text-xs text-outline">Only HTTP or HTTPS URLs are accepted. A generated canonical stays stable when the article is saved.</p>
                 @error('canonical_url') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
             </div>
-        </section>
+        </div>
+    </details>
 
+    {{-- Content --}}
+    <section class="space-y-5 rounded-xl bg-surface-low p-5 shadow-sm sm:p-6">
         <div data-markdown-editor>
             <label for="markdown_content" class="mb-2 block text-sm font-medium">Markdown content <span class="text-red-300">*</span></label>
             <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -224,12 +293,17 @@
 
     </section>
 
-    <div class="flex flex-col-reverse justify-end gap-3 sm:flex-row">
-        <a href="{{ route('admin.articles.index') }}" class="rounded-lg px-5 py-2.5 text-center text-sm text-on-surface-variant transition hover:bg-surface-high">Cancel</a>
-        <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-lg bg-sky-500 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-sky-400">
-            <span class="material-symbols-outlined text-lg">save</span>
-            {{ $article ? 'Save changes' : 'Create article' }}
-        </button>
+    <div class="sticky bottom-0 z-30 -mx-4 border-t border-surface-highest bg-background/90 px-4 py-3 backdrop-blur sm:-mx-8 sm:px-8">
+        <div class="flex flex-col-reverse items-stretch justify-end gap-3 sm:flex-row sm:items-center">
+            <p data-dirty-indicator hidden class="mr-auto inline-flex items-center gap-2 text-xs text-amber-300" role="status">
+                <span class="size-2 rounded-full bg-amber-400"></span>Unsaved changes
+            </p>
+            <a href="{{ route('admin.articles.index') }}" class="rounded-lg px-5 py-2.5 text-center text-sm text-on-surface-variant transition hover:bg-surface-high">Cancel</a>
+            <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-lg bg-sky-500 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-sky-400" title="Ctrl/Cmd + S">
+                <span class="material-symbols-outlined text-lg">save</span>
+                {{ $article ? 'Save changes' : 'Create article' }}
+            </button>
+        </div>
     </div>
 </form>
 
@@ -239,22 +313,176 @@
 <script src="{{ asset('code-blocks.js') }}"></script>
 <script>
     (() => {
-        const publicationStatus = document.querySelector('[data-publication-status]');
+        const form = document.querySelector('form[enctype="multipart/form-data"]');
         const scheduleField = document.querySelector('[data-schedule-field]');
         const scheduledAtInput = document.querySelector('#scheduled_at');
         const syncScheduleField = () => {
-            if (!publicationStatus || !scheduleField || !scheduledAtInput) {
+            if (!scheduleField || !scheduledAtInput) {
                 return;
             }
 
-            const scheduled = publicationStatus.value === 'SCHEDULED';
+            const scheduled = document.querySelector('[data-publication-status]:checked')?.value === 'SCHEDULED';
             scheduleField.hidden = !scheduled;
             scheduledAtInput.required = scheduled;
             scheduledAtInput.disabled = !scheduled;
         };
 
-        publicationStatus?.addEventListener('change', syncScheduleField);
+        document.querySelectorAll('[data-publication-status]').forEach((radio) => radio.addEventListener('change', syncScheduleField));
         syncScheduleField();
+
+        // Character counters: n / max, amber once past the recommended (soft) length.
+        document.querySelectorAll('[data-char-count]').forEach((counter) => {
+            const field = document.getElementById(counter.dataset.for);
+            const soft = Number(counter.dataset.soft || 0);
+            const max = Number(counter.dataset.max || 0);
+            const update = () => {
+                const length = field.value.length;
+                counter.textContent = soft ? `${length} / ${soft} recommended` : `${length} / ${max}`;
+                counter.classList.toggle('text-amber-300', soft > 0 && length > soft);
+                counter.classList.toggle('text-outline', !(soft > 0 && length > soft));
+            };
+            field?.addEventListener('input', update);
+            update();
+        });
+
+        // Slug preview: what the URL will be (generated from the title while the slug is empty).
+        const titleInput = document.querySelector('#title');
+        const slugInput = document.querySelector('#slug');
+        const slugPreview = document.querySelector('[data-slug-preview]');
+        const slugAuto = document.querySelector('[data-slug-auto]');
+        const useGeneratedSlug = document.querySelector('[data-use-generated-slug]');
+        const slugify = (text) => text
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/đ/gi, 'd')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+        const syncSlugPreview = () => {
+            if (!slugInput || !titleInput || !slugPreview) {
+                return;
+            }
+
+            const generated = slugify(titleInput.value);
+            const manual = slugInput.value.trim();
+            slugPreview.textContent = manual || generated || '…';
+            slugAuto.hidden = manual !== '';
+            useGeneratedSlug.hidden = manual === '' || manual === generated || generated === '';
+        };
+        titleInput?.addEventListener('input', syncSlugPreview);
+        slugInput?.addEventListener('input', syncSlugPreview);
+        useGeneratedSlug?.addEventListener('click', () => {
+            slugInput.value = slugify(titleInput.value);
+            slugInput.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        syncSlugPreview();
+
+        // Tag picker: selected counter + filter.
+        const tagPicker = document.querySelector('[data-tag-picker]');
+        const tagCount = document.querySelector('[data-tag-count]');
+        const updateTagCount = () => {
+            if (tagCount) {
+                tagCount.textContent = String(tagPicker.querySelectorAll('input[name="tags[]"]:checked, input[name="new_tags[]"]').length);
+            }
+        };
+        tagPicker?.addEventListener('change', updateTagCount);
+        const tagFilter = document.querySelector('[data-tag-filter]');
+        tagFilter?.addEventListener('input', () => {
+            const needle = tagFilter.value.trim().toLowerCase();
+            let visible = 0;
+            tagPicker.querySelectorAll('[data-tag-chip]').forEach((chip) => {
+                const match = needle === '' || chip.dataset.tagName.includes(needle);
+                chip.hidden = !match;
+                visible += match ? 1 : 0;
+            });
+            tagPicker.querySelector('[data-tag-empty]').hidden = visible > 0;
+        });
+        updateTagCount();
+
+        // Thumbnail: preview the chosen file and warn about size before uploading.
+        const thumbnailField = document.querySelector('[data-thumbnail-field]');
+        if (thumbnailField) {
+            const input = thumbnailField.querySelector('#thumbnail');
+            const preview = thumbnailField.querySelector('[data-thumbnail-preview]');
+            const placeholder = thumbnailField.querySelector('[data-thumbnail-placeholder]');
+            const nameLabel = thumbnailField.querySelector('[data-thumbnail-name]');
+            const clearButton = thumbnailField.querySelector('[data-thumbnail-clear]');
+            const warning = thumbnailField.querySelector('[data-thumbnail-warning]');
+            const originalSrc = preview.dataset.originalSrc || '';
+            const originalLabel = nameLabel.textContent;
+            let objectUrl = null;
+            const showPreview = (src) => {
+                preview.hidden = !src;
+                placeholder.hidden = Boolean(src);
+                if (src) {
+                    preview.src = src;
+                }
+            };
+            const reset = () => {
+                input.value = '';
+                if (objectUrl) {
+                    URL.revokeObjectURL(objectUrl);
+                    objectUrl = null;
+                }
+                showPreview(originalSrc);
+                nameLabel.textContent = originalLabel;
+                clearButton.hidden = true;
+                warning.hidden = true;
+            };
+            input.addEventListener('change', () => {
+                const file = input.files[0];
+                if (!file) {
+                    reset();
+
+                    return;
+                }
+                if (objectUrl) {
+                    URL.revokeObjectURL(objectUrl);
+                }
+                objectUrl = URL.createObjectURL(file);
+                showPreview(objectUrl);
+                nameLabel.textContent = `${file.name} · ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+                clearButton.hidden = false;
+                const tooBig = file.size > Number(thumbnailField.dataset.maxKb) * 1024;
+                warning.hidden = !tooBig;
+                warning.textContent = tooBig ? `This file is larger than ${Number(thumbnailField.dataset.maxKb) / 1024} MB and will be rejected.` : '';
+            });
+            clearButton.addEventListener('click', () => {
+                reset();
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        }
+
+        // Unsaved-changes indicator, leave warning and Ctrl/Cmd+S.
+        if (form) {
+            const dirtyIndicator = document.querySelector('[data-dirty-indicator]');
+            const snapshot = () => JSON.stringify([...new FormData(form).entries()].filter(([key, value]) => !(value instanceof File) && key !== '_token'));
+            const thumbnailChosen = () => Boolean(form.querySelector('#thumbnail')?.files?.length);
+            let baseline = null;
+            let submitting = false;
+            const isDirty = () => baseline !== null && (snapshot() !== baseline || thumbnailChosen());
+            const refreshDirty = () => {
+                if (dirtyIndicator) {
+                    dirtyIndicator.hidden = !isDirty();
+                }
+            };
+            form.addEventListener('input', refreshDirty);
+            form.addEventListener('change', refreshDirty);
+            form.addEventListener('click', () => setTimeout(refreshDirty, 0));
+            form.addEventListener('submit', () => { submitting = true; });
+            window.addEventListener('beforeunload', (event) => {
+                if (!submitting && isDirty()) {
+                    event.preventDefault();
+                    event.returnValue = '';
+                }
+            });
+            document.addEventListener('keydown', (event) => {
+                if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+                    event.preventDefault();
+                    form.requestSubmit();
+                }
+            });
+            setTimeout(() => { baseline = snapshot(); refreshDirty(); }, 0);
+        }
 
         const markdownInput = document.querySelector('#markdown_content');
         const markdownViewButtons = document.querySelectorAll('[data-markdown-view]');
@@ -1073,8 +1301,28 @@
                 return;
             }
 
+            const lower = tagName.toLowerCase();
+            const existing = [...document.querySelectorAll('[data-tag-chip]')].find((chip) => chip.dataset.tagName === lower);
+
+            // An existing tag is selected instead of being created twice.
+            if (existing) {
+                const checkbox = existing.querySelector('input');
+                checkbox.checked = true;
+                checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                existing.scrollIntoView({ block: 'nearest' });
+                tagInput.value = '';
+
+                return;
+            }
+
+            if ([...newTagsList.querySelectorAll('input[name="new_tags[]"]')].some((input) => input.value.toLowerCase() === lower)) {
+                tagInput.value = '';
+
+                return;
+            }
+
             const tagItem = document.createElement('li');
-            tagItem.className = 'inline-flex items-center gap-2 rounded-full bg-sky-500/10 px-3 py-1.5 text-sm text-sky-200';
+            tagItem.className = 'inline-flex items-center gap-2 rounded-full border border-sky-400 bg-sky-500/15 px-3 py-1 text-xs text-sky-200';
 
             const hiddenInput = document.createElement('input');
             hiddenInput.type = 'hidden';
@@ -1082,7 +1330,11 @@
             hiddenInput.value = tagName;
 
             const tagLabel = document.createElement('span');
-            tagLabel.textContent = tagName;
+            tagLabel.textContent = `#${tagName} `;
+            const badge = document.createElement('span');
+            badge.className = 'text-sky-300/70';
+            badge.textContent = '(new)';
+            tagLabel.append(badge);
 
             const removeButton = document.createElement('button');
             removeButton.type = 'button';
@@ -1094,6 +1346,8 @@
             tagItem.append(hiddenInput, tagLabel, removeButton);
             newTagsList.append(tagItem);
             tagInput.value = '';
+            updateTagCount();
+            form?.dispatchEvent(new Event('change', { bubbles: true }));
         };
 
         addTagButton.addEventListener('click', addTag);
@@ -1106,6 +1360,8 @@
         newTagsList.addEventListener('click', (event) => {
             if (event.target instanceof Element && event.target.closest('[data-remove-new-tag]')) {
                 event.target.closest('li').remove();
+                updateTagCount();
+                form?.dispatchEvent(new Event('change', { bubbles: true }));
             }
         });
     })();

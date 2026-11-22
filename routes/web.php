@@ -134,6 +134,9 @@ Route::prefix('admin')
         Route::post('/notifications/{notification}/open', [NotificationController::class, 'open'])->name('notifications.open');
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+        Route::patch('articles/{article}/restore', [ArticleController::class, 'restore'])
+            ->withTrashed()
+            ->name('articles.restore');
         Route::resource('articles', ArticleController::class)->except(['show']);
         Route::resource('users', UserController::class)->except(['show']);
 

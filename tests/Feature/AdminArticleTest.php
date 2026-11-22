@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Category;
+use App\Models\Comment;
 use App\Models\Media;
 use App\Models\Post;
 use App\Models\Tag;
@@ -52,6 +53,174 @@ class AdminArticleTest extends TestCase
             ->assertOk()
             ->assertSeeText($article->title)
             ->assertDontSeeText('Different article');
+    }
+
+    public function test_article_list_shows_status_overview_and_engagement_metrics(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $author = User::factory()->create(['name' => 'Ada Lovelace']);
+        $tag = Tag::factory()->create(['name' => 'Inference']);
+        $published = Post::factory()->published()->create([
+            'author_id' => $author->id,
+            'title' => 'Live article',
+            'view_count' => 1234,
+        ]);
+        $published->tags()->attach($tag);
+        $published->bookmarks()->attach(User::factory()->create());
+        Comment::factory()->create(['post_id' => $published->id]);
+        Comment::factory()->hidden()->create(['post_id' => $published->id]);
+        Post::factory()->create([
+            'title' => 'Queued article',
+            'status' => 'SCHEDULED',
+            'scheduled_at' => now()->addDays(2),
+        ]);
+        Post::factory()->create(['title' => 'Working draft']);
+        Post::factory()->create(['title' => 'Old article', 'status' => 'ARCHIVED']);
+
+        $this->actingAs($admin)
+            ->get(route('admin.articles.index'))
+            ->assertOk()
+            ->assertSeeText('Showing 1–4 of 4 articles')
+            ->assertSeeText('Ada Lovelace')
+            ->assertSeeText('#Inference')
+            ->assertSeeText('1,234')
+            ->assertSeeText('min read')
+            ->assertSeeText('Releases in')
+            ->assertSeeText('Edited')
+            ->assertSee('/articles/'.$published->slug, false)
+            ->assertViewHas('statusCounts', fn ($counts): bool => $counts['PUBLISHED'] === 1
+                && $counts['SCHEDULED'] === 1
+                && $counts['DRAFT'] === 1
+                && $counts['ARCHIVED'] === 1)
+            ->assertViewHas('articles', fn ($articles): bool => $articles->first()->bookmarks_count === 0
+                || $articles->contains(fn (Post $post): bool => $post->bookmarks_count === 1 && $post->comments_count === 1));
+    }
+
+    public function test_article_list_can_filter_by_author_and_search_author_name(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $ada = User::factory()->create(['name' => 'Ada Lovelace']);
+        $grace = User::factory()->create(['name' => 'Grace Hopper']);
+        Post::factory()->create(['author_id' => $ada->id, 'title' => 'By Ada']);
+        Post::factory()->create(['author_id' => $grace->id, 'title' => 'By Grace']);
+
+        $this->actingAs($admin)
+            ->get(route('admin.articles.index', ['author_id' => $ada->id]))
+            ->assertOk()
+            ->assertSeeText('By Ada')
+            ->assertDontSeeText('By Grace');
+
+        $this->get(route('admin.articles.index', ['q' => 'Hopper']))
+            ->assertOk()
+            ->assertSeeText('By Grace')
+            ->assertDontSeeText('By Ada');
+    }
+
+    public function test_article_list_can_be_sorted_by_views_and_title(): void
+    {
+        $admin = User::factory()->admin()->create();
+        Post::factory()->create(['title' => 'Zeta', 'view_count' => 50]);
+        Post::factory()->create(['title' => 'Alpha', 'view_count' => 5]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.articles.index', ['sort' => 'views']))
+            ->assertOk()
+            ->assertSeeInOrder(['Zeta', 'Alpha']);
+
+        $this->get(route('admin.articles.index', ['sort' => 'title']))
+            ->assertOk()
+            ->assertSeeInOrder(['Alpha', 'Zeta']);
+
+        $this->get(route('admin.articles.index', ['sort' => 'bogus']))
+            ->assertSessionHasErrors('sort');
+    }
+
+    public function test_deleted_articles_appear_in_trash_and_can_be_restored(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $article = Post::factory()->published()->create(['title' => 'Accidentally deleted']);
+        Post::factory()->create(['title' => 'Still here']);
+
+        $this->actingAs($admin)
+            ->delete(route('admin.articles.destroy', $article))
+            ->assertRedirect(route('admin.articles.index'));
+        $this->assertSoftDeleted($article);
+
+        $this->get(route('admin.articles.index'))
+            ->assertOk()
+            ->assertDontSeeText('Accidentally deleted')
+            ->assertSeeText('Still here')
+            ->assertViewHas('trashedCount', 1);
+
+        $this->get(route('admin.articles.index', ['trashed' => 1]))
+            ->assertOk()
+            ->assertSeeText('Accidentally deleted')
+            ->assertSeeText('Restore')
+            ->assertSeeText('Deleted')
+            ->assertDontSeeText('Still here');
+
+        $this->patch(route('admin.articles.restore', $article))
+            ->assertRedirect(route('admin.articles.index'))
+            ->assertSessionHas('status', 'Article "Accidentally deleted" restored.');
+
+        $this->assertNotSoftDeleted($article);
+        $this->assertSame('PUBLISHED', $article->fresh()->status);
+        $this->get(route('admin.articles.index'))->assertSeeText('Accidentally deleted');
+    }
+
+    public function test_restoring_an_article_that_is_not_deleted_is_a_noop(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $article = Post::factory()->create();
+
+        $this->actingAs($admin)
+            ->patch(route('admin.articles.restore', $article))
+            ->assertRedirect(route('admin.articles.index'));
+
+        $this->assertNotSoftDeleted($article);
+    }
+
+    public function test_non_admin_cannot_restore_articles(): void
+    {
+        $article = Post::factory()->create();
+        $article->delete();
+
+        $this->actingAs(User::factory()->create())
+            ->patch(route('admin.articles.restore', $article))
+            ->assertForbidden();
+
+        $this->assertSoftDeleted($article);
+    }
+
+    public function test_article_form_renders_status_cards_tag_chips_and_helpers(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $tag = Tag::factory()->create(['name' => 'Inference']);
+        $article = Post::factory()->create([
+            'status' => 'SCHEDULED',
+            'scheduled_at' => now()->addDay(),
+            'seo_title' => 'Custom SEO title',
+        ]);
+        $article->tags()->attach($tag);
+
+        $this->actingAs($admin)
+            ->get(route('admin.articles.create'))
+            ->assertOk()
+            ->assertSee('type="radio" name="status" value="DRAFT"', false)
+            ->assertSee('type="radio" name="status" value="PUBLISHED"', false)
+            ->assertSee('data-tag-picker', false)
+            ->assertSee('data-char-count', false)
+            ->assertSee('data-slug-preview', false)
+            ->assertSee('data-thumbnail-field', false)
+            ->assertSee('data-dirty-indicator', false)
+            ->assertSeeText('Create article');
+
+        $this->get(route('admin.articles.edit', $article))
+            ->assertOk()
+            ->assertSee('name="status" value="SCHEDULED" data-publication-status required checked', false)
+            ->assertSee('name="tags[]" value="'.$tag->id.'" checked', false)
+            ->assertSeeText('Save changes')
+            ->assertSeeText('#Inference');
     }
 
     public function test_admin_can_open_create_and_edit_forms(): void
