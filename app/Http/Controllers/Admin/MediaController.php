@@ -23,7 +23,7 @@ use Illuminate\View\View;
 
 class MediaController extends Controller
 {
-    private const int PER_PAGE = 24;
+    private const int PER_PAGE = 6;
 
     public function index(Request $request): JsonResponse|View|RedirectResponse
     {

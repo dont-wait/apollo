@@ -72,15 +72,15 @@ class AdminMediaTest extends TestCase
         $this->actingAs($admin)
             ->get('/admin/media')
             ->assertOk()
-            ->assertSeeText('Showing 1–24 of 30 assets')
+            ->assertSeeText('Showing 1–6 of 30 assets')
             ->assertViewHas('totalAssets', 30)
             ->assertViewHas('totalBytes', 30 * 1024)
-            ->assertViewHas('media', fn ($media): bool => $media->count() === 24 && $media->lastPage() === 2);
+            ->assertViewHas('media', fn ($media): bool => $media->count() === 6 && $media->lastPage() === 5);
 
         $this->get('/admin/media?page=2')
             ->assertOk()
-            ->assertSeeText('Showing 25–30 of 30 assets')
-            ->assertViewHas('media', fn ($media): bool => $media->count() === 6);
+            ->assertSeeText('Showing 7–12 of 30 assets')
+            ->assertViewHas('media', fn ($media): bool => $media->count() === 6 && $media->currentPage() === 2);
 
         $this->getJson('/admin/media?page=2')
             ->assertOk()
@@ -91,7 +91,7 @@ class AdminMediaTest extends TestCase
     public function test_media_list_can_be_searched_and_filtered_by_type_across_pages(): void
     {
         $admin = User::factory()->create(['role' => 'ADMIN']);
-        Media::factory()->count(26)->create(['uploaded_by' => $admin->id, 'mime_type' => 'image/png']);
+        Media::factory()->count(14)->create(['uploaded_by' => $admin->id, 'mime_type' => 'image/png']);
         Media::factory()->create(['uploaded_by' => $admin->id, 'file_name' => 'quarterly-report.pdf', 'mime_type' => 'application/pdf']);
         Media::factory()->create(['uploaded_by' => $admin->id, 'file_name' => 'hero_banner.png', 'mime_type' => 'image/png']);
 
@@ -100,7 +100,7 @@ class AdminMediaTest extends TestCase
             ->assertOk()
             ->assertSeeText('quarterly-report.pdf')
             ->assertSeeText('Showing 1–1 of 1 asset')
-            ->assertSeeText('(28 total)');
+            ->assertSeeText('(16 total)');
 
         $this->get('/admin/media?q=hero_banner')
             ->assertOk()
@@ -109,7 +109,7 @@ class AdminMediaTest extends TestCase
 
         $this->get('/admin/media?type=image')
             ->assertOk()
-            ->assertViewHas('media', fn ($media): bool => $media->total() === 27);
+            ->assertViewHas('media', fn ($media): bool => $media->total() === 15);
 
         $this->get('/admin/media?q=zzz-no-match')
             ->assertOk()
@@ -122,11 +122,11 @@ class AdminMediaTest extends TestCase
     public function test_requesting_a_page_past_the_end_redirects_to_the_last_page(): void
     {
         $admin = User::factory()->create(['role' => 'ADMIN']);
-        Media::factory()->count(25)->create(['uploaded_by' => $admin->id]);
+        Media::factory()->count(13)->create(['uploaded_by' => $admin->id]);
 
         $this->actingAs($admin)
-            ->get('/admin/media?page=5')
-            ->assertRedirect('/admin/media?page=2');
+            ->get('/admin/media?page=9')
+            ->assertRedirect('/admin/media?page=3');
     }
 
     public function test_media_page_shows_the_configured_storage_label(): void
