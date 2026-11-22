@@ -165,6 +165,12 @@ Route::prefix('admin')
         Route::post('/toxic-words', [ToxicWordController::class, 'store'])
             ->name('toxic-words.store');
 
+        Route::post('/toxic-words/import', [ToxicWordController::class, 'import'])
+            ->name('toxic-words.import');
+
+        Route::get('/toxic-words/import-template', [ToxicWordController::class, 'importTemplate'])
+            ->name('toxic-words.import-template');
+
         Route::put('/toxic-words/{toxicWord}', [ToxicWordController::class, 'update'])
             ->name('toxic-words.update');
 
