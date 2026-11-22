@@ -87,7 +87,7 @@
             <img class="mt-8 max-h-[30rem] w-full rounded-xl object-cover shadow-xl shadow-black/20" src="{{ $article->thumbnail->url }}" alt="{{ $article->title }}">
         @endif
 
-        <div class="mt-8 text-base leading-8 text-on-surface-variant [&_a]:text-primary [&_a]:underline [&_blockquote]:my-6 [&_blockquote]:border-l-2 [&_blockquote]:border-primary [&_blockquote]:pl-5 [&_code]:rounded [&_code]:bg-surface-high [&_code]:px-1.5 [&_code]:py-0.5 [&_h1]:mb-5 [&_h1]:font-display [&_h1]:text-3xl [&_h1]:font-semibold [&_h1]:text-on-surface [&_h2]:mb-4 [&_h2]:mt-8 [&_h2]:font-display [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:text-on-surface [&_h3]:mb-3 [&_h3]:mt-6 [&_h3]:font-display [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:text-on-surface [&_li]:my-1 [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-5 [&_pre]:my-6 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-surface-low [&_pre]:p-4 [&_pre]:text-sm [&_pre]:leading-6 [&_strong]:font-semibold [&_strong]:text-on-surface [&_ul]:list-disc">
+        <div data-article-content class="mt-8 text-base leading-8 text-on-surface-variant [&_a]:text-primary [&_a]:underline [&_blockquote]:my-6 [&_blockquote]:border-l-2 [&_blockquote]:border-primary [&_blockquote]:pl-5 [&_code]:rounded [&_code]:bg-surface-high [&_code]:px-1.5 [&_code]:py-0.5 [&_h1]:mb-5 [&_h1]:font-display [&_h1]:text-3xl [&_h1]:font-semibold [&_h1]:text-on-surface [&_h2]:mb-4 [&_h2]:mt-8 [&_h2]:font-display [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:text-on-surface [&_h3]:mb-3 [&_h3]:mt-6 [&_h3]:font-display [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:text-on-surface [&_li]:my-1 [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-5 [&_pre]:my-6 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-surface-low [&_pre]:p-4 [&_pre]:text-sm [&_pre]:leading-6 [&_strong]:font-semibold [&_strong]:text-on-surface [&_ul]:list-disc">
             {!! $content !!}
         </div>
 
@@ -287,4 +287,7 @@
         </div>
     </section>
     <x-confirm-modal />
+
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js"></script>
+<script src="{{ asset('code-blocks.js') }}"></script>
 @endsection

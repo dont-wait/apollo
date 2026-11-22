@@ -7,10 +7,10 @@
         <header class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
                 <p class="text-[11px] uppercase tracking-[0.16em] text-outline">Content // Workspace</p>
-                <h1 class="mt-2 text-3xl font-semibold tracking-tight">Tạo bài viết</h1>
-                <p class="mt-2 text-sm text-on-surface-variant">Soạn thảo bài viết mới bằng Markdown.</p>
+                <h1 class="mt-2 text-3xl font-semibold tracking-tight">Create article</h1>
+                <p class="mt-2 text-sm text-on-surface-variant">Write a new article in Markdown.</p>
             </div>
-            <a href="{{ route('admin.articles.index') }}" class="rounded-lg bg-surface-high px-4 py-2 text-sm text-on-surface transition hover:bg-surface-highest">Quay lại danh sách</a>
+            <a href="{{ route('admin.articles.index') }}" class="rounded-lg bg-surface-high px-4 py-2 text-sm text-on-surface transition hover:bg-surface-highest">Back to list</a>
         </header>
 
         @include('admin.articles._form', [

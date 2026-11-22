@@ -11,15 +11,9 @@ document.addEventListener('click', (event) => {
         return;
     }
 
-    const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    const isLight = document.documentElement.getAttribute('data-mode') === 'light';
 
-    document.documentElement.setAttribute('data-theme', next);
-
-    try {
-        localStorage.setItem('apollo-theme', next);
-    } catch (error) {
-        // Storage unavailable; theme applies for this page only.
-    }
+    window.apolloTheme.apply(isLight ? 'dark' : 'light', true);
 });
 
 const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';

@@ -8,11 +8,11 @@
             <div>
                 <p class="text-[11px] uppercase tracking-[0.16em] text-outline">Content // Workspace</p>
                 <h1 class="mt-2 text-3xl font-semibold tracking-tight">Articles</h1>
-                <p class="mt-2 text-sm text-on-surface-variant">Quản lý bài viết, nội dung Markdown và trạng thái xuất bản.</p>
+                <p class="mt-2 text-sm text-on-surface-variant">Manage articles, Markdown content and publishing status.</p>
             </div>
             <a href="{{ route('admin.articles.create') }}" class="inline-flex items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-sky-400">
                 <span class="material-symbols-outlined text-lg">add</span>
-                Thêm bài viết
+                Add article
             </a>
         </header>
 
@@ -24,24 +24,24 @@
 
         <section class="rounded-xl bg-surface-low p-4 shadow-sm">
             <form method="GET" action="{{ route('admin.articles.index') }}" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(12rem,1fr)_minmax(10rem,0.7fr)_minmax(10rem,0.7fr)_auto_auto]">
-                <label class="sr-only" for="article-search">Tìm bài viết</label>
-                <input id="article-search" name="q" type="search" value="{{ $filters['q'] ?? '' }}" placeholder="Tìm theo tiêu đề hoặc slug..." class="min-w-0 rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">
-                <label class="sr-only" for="category-filter">Lọc theo danh mục</label>
+                <label class="sr-only" for="article-search">Search articles</label>
+                <input id="article-search" name="q" type="search" value="{{ $filters['q'] ?? '' }}" placeholder="Search by title or slug..." class="min-w-0 rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">
+                <label class="sr-only" for="category-filter">Filter by category</label>
                 <select id="category-filter" name="category_id" class="rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2 text-sm text-on-surface focus:border-sky-400 focus:outline-none">
-                    <option value="">Tất cả danh mục</option>
+                    <option value="">All categories</option>
                     @foreach ($categories as $category)
                         <option value="{{ $category->id }}" @selected((string) ($filters['category_id'] ?? '') === (string) $category->id)>{{ $category->name }}</option>
                     @endforeach
                 </select>
-                <label class="sr-only" for="status-filter">Lọc theo trạng thái</label>
+                <label class="sr-only" for="status-filter">Filter by status</label>
                 <select id="status-filter" name="status" class="rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2 text-sm text-on-surface focus:border-sky-400 focus:outline-none">
-                    <option value="">Tất cả trạng thái</option>
+                    <option value="">All statuses</option>
                     @foreach ($statusFilterOptions as $value => $label)
                         <option value="{{ $value }}" @selected(($filters['status'] ?? '') === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
-                <button type="submit" class="rounded-lg bg-surface-high px-4 py-2 text-sm font-medium text-on-surface transition hover:bg-surface-highest">Lọc</button>
-                <a href="{{ route('admin.articles.index') }}" class="rounded-lg px-4 py-2 text-center text-sm text-on-surface-variant transition hover:bg-surface-high">Xóa lọc</a>
+                <button type="submit" class="rounded-lg bg-surface-high px-4 py-2 text-sm font-medium text-on-surface transition hover:bg-surface-highest">Filter</button>
+                <a href="{{ route('admin.articles.index') }}" class="rounded-lg px-4 py-2 text-center text-sm text-on-surface-variant transition hover:bg-surface-high">Clear filters</a>
             </form>
         </section>
 
@@ -49,19 +49,19 @@
             @if ($articles->isEmpty())
                 <div class="px-6 py-14 text-center">
                     <span class="material-symbols-outlined text-4xl text-sky-300">article</span>
-                    <h2 class="mt-3 font-semibold">Chưa có bài viết phù hợp</h2>
-                    <p class="mt-1 text-sm text-on-surface-variant">Tạo bài viết mới hoặc thay đổi bộ lọc.</p>
+                    <h2 class="mt-3 font-semibold">No matching articles</h2>
+                    <p class="mt-1 text-sm text-on-surface-variant">Create a new article or change the filters.</p>
                 </div>
             @else
                 <div class="overflow-x-auto">
                     <table class="w-full min-w-[760px] text-left text-sm">
                         <thead class="border-b border-surface-highest bg-surface-lowest text-[10px] uppercase tracking-wider text-outline">
                             <tr>
-                                <th class="px-5 py-3 font-medium">Bài viết</th>
-                                <th class="px-4 py-3 font-medium">Danh mục</th>
-                                <th class="px-4 py-3 font-medium">Trạng thái</th>
-                                <th class="px-4 py-3 font-medium">Cập nhật</th>
-                                <th class="px-5 py-3 text-right font-medium">Thao tác</th>
+                                <th class="px-5 py-3 font-medium">Article</th>
+                                <th class="px-4 py-3 font-medium">Category</th>
+                                <th class="px-4 py-3 font-medium">Status</th>
+                                <th class="px-4 py-3 font-medium">Updated</th>
+                                <th class="px-5 py-3 text-right font-medium">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-surface-highest/70">
@@ -82,7 +82,7 @@
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="px-4 py-4 text-on-surface-variant">{{ $article->category?->name ?? 'Chưa phân loại' }}</td>
+                                    <td class="px-4 py-4 text-on-surface-variant">{{ $article->category?->name ?? 'Uncategorized' }}</td>
                                     <td class="px-4 py-4">
                                         <span @class([
                                             'inline-flex rounded-full px-2.5 py-1 text-xs font-medium',
@@ -98,13 +98,13 @@
                                     <td class="whitespace-nowrap px-4 py-4 text-xs text-on-surface-variant">{{ $article->updated_at->format('d/m/Y H:i') }}</td>
                                     <td class="px-5 py-4">
                                         <div class="flex justify-end gap-2">
-                                            <a href="{{ route('admin.articles.edit', $article) }}" class="rounded-md p-2 text-on-surface-variant transition hover:bg-surface-high hover:text-sky-300" aria-label="Sửa {{ $article->title }}" title="Sửa">
+                                            <a href="{{ route('admin.articles.edit', $article) }}" class="rounded-md p-2 text-on-surface-variant transition hover:bg-surface-high hover:text-sky-300" aria-label="Edit {{ $article->title }}" title="Edit">
                                                 <span class="material-symbols-outlined text-lg">edit</span>
                                             </a>
-                                            <form method="POST" action="{{ route('admin.articles.destroy', $article) }}" onsubmit="return confirm('Bạn có chắc muốn xóa bài viết này?')">
+                                            <form method="POST" action="{{ route('admin.articles.destroy', $article) }}" onsubmit="return confirm('Are you sure you want to delete this article?')">
                                                 @csrf
                                                 @method('DELETE')
-                                                <button type="submit" class="rounded-md p-2 text-on-surface-variant transition hover:bg-red-500/10 hover:text-red-300" aria-label="Xóa {{ $article->title }}" title="Xóa">
+                                                <button type="submit" class="rounded-md p-2 text-on-surface-variant transition hover:bg-red-500/10 hover:text-red-300" aria-label="Delete {{ $article->title }}" title="Delete">
                                                     <span class="material-symbols-outlined text-lg">delete</span>
                                                 </button>
                                             </form>

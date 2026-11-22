@@ -21,7 +21,7 @@ class ToxicContentException extends DomainException implements Responsable, Shou
         public readonly array $moderation = [],
         public readonly bool $withModeration = true,
         public readonly int $status = 422,
-        string $message = 'Nội dung chứa từ ngữ không phù hợp. Vui lòng chỉnh sửa.',
+        string $message = 'Content contains inappropriate language. Please edit it.',
     ) {
         parent::__construct($message);
     }
@@ -33,7 +33,7 @@ class ToxicContentException extends DomainException implements Responsable, Shou
         bool $withModeration = true,
         int $status = 422,
     ): self {
-        $message = collect($errors)->flatten()->first() ?? 'Nội dung chứa từ ngữ không phù hợp. Vui lòng chỉnh sửa.';
+        $message = collect($errors)->flatten()->first() ?? 'Content contains inappropriate language. Please edit it.';
 
         return new self($errors, $moderation, $withModeration, $status, $message);
     }

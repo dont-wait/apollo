@@ -22,11 +22,11 @@ class UpdateArticleRequest extends FormRequest
     protected function toxicContentFields(): array
     {
         return [
-            'title' => ['scope' => 'post', 'label' => 'Tiêu đề'],
+            'title' => ['scope' => 'post', 'label' => 'Title'],
             'slug' => ['scope' => 'post', 'label' => 'Slug'],
-            'excerpt' => ['scope' => 'post', 'label' => 'Tóm tắt'],
-            'markdown_content' => ['scope' => 'post', 'label' => 'Nội dung bài viết', 'markdown' => true],
-            'new_tags.*' => ['scope' => 'tag', 'label' => 'Tên tag'],
+            'excerpt' => ['scope' => 'post', 'label' => 'Excerpt'],
+            'markdown_content' => ['scope' => 'post', 'label' => 'Article content', 'markdown' => true],
+            'new_tags.*' => ['scope' => 'tag', 'label' => 'Tag name'],
             'new_tag_slugs.*' => ['scope' => 'tag', 'label' => 'Slug tag'],
         ];
     }

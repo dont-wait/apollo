@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Post;
+use App\Support\Markdown\GithubAlerts;
 use App\Support\SiteUrl;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
@@ -31,10 +32,10 @@ class ArticleController extends Controller
             'seoTitle' => $article->seo_title ?: $article->title,
             'seoDescription' => $article->seo_description ?: $article->excerpt,
             'canonicalUrl' => SiteUrl::canonical($article->slug, $article->canonical_url),
-            'content' => Str::markdown($article->markdown_content, [
+            'content' => GithubAlerts::apply(Str::markdown($article->markdown_content, [
                 'html_input' => 'strip',
                 'allow_unsafe_links' => false,
-            ]),
+            ])),
             'isBookmarked' => $request->user()?->bookmarkedPosts()
                 ->whereKey($article->id)
                 ->exists() ?? false,
