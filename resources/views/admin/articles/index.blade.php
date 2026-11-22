@@ -251,6 +251,14 @@
                                                         Restore
                                                     </button>
                                                 </form>
+                                                <form method="POST" action="{{ route('admin.articles.force-destroy', $article) }}" data-confirm-form data-confirm-title="Delete article permanently" data-confirm-message="This permanently deletes {{ $article->title }} and its comments, likes, bookmarks, and tags. This action cannot be undone." data-confirm-text="Delete permanently">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 transition hover:bg-red-500/20" aria-label="Delete {{ $article->title }} permanently" title="Delete this article permanently">
+                                                        <span class="material-symbols-outlined text-base">delete_forever</span>
+                                                        Delete permanently
+                                                    </button>
+                                                </form>
                                             @else
                                                 @if ($article->status === 'PUBLISHED')
                                                     <a href="{{ route('articles.show', $article->slug) }}" target="_blank" rel="noopener" class="rounded-md p-2 text-on-surface-variant transition hover:bg-surface-high hover:text-sky-300" aria-label="View {{ $article->title }} on the site" title="View on site">
@@ -260,7 +268,7 @@
                                                 <a href="{{ route('admin.articles.edit', $article) }}" class="rounded-md p-2 text-on-surface-variant transition hover:bg-surface-high hover:text-sky-300" aria-label="Edit {{ $article->title }}" title="Edit">
                                                     <span class="material-symbols-outlined text-lg">edit</span>
                                                 </a>
-                                                <form method="POST" action="{{ route('admin.articles.destroy', $article) }}" onsubmit="return confirm('Are you sure you want to delete this article?')">
+                                                <form method="POST" action="{{ route('admin.articles.destroy', $article) }}" data-confirm-form data-confirm-title="Move article to trash" data-confirm-message="Move {{ $article->title }} to the trash? You can restore it later." data-confirm-text="Move to trash">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit" class="rounded-md p-2 text-on-surface-variant transition hover:bg-red-500/10 hover:text-red-300" aria-label="Delete {{ $article->title }}" title="Delete">
@@ -284,5 +292,28 @@
                 </div>
             @endif
         </section>
+
+        <x-confirm-modal />
+        <script>
+            document.addEventListener('submit', async (event) => {
+                const form = event.target.closest('[data-confirm-form]');
+
+                if (! form) {
+                    return;
+                }
+
+                event.preventDefault();
+
+                const confirmed = await window.showConfirmModal({
+                    title: form.dataset.confirmTitle,
+                    message: form.dataset.confirmMessage,
+                    confirmText: form.dataset.confirmText,
+                });
+
+                if (confirmed) {
+                    form.submit();
+                }
+            });
+        </script>
     </div>
 @endsection

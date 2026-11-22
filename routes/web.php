@@ -137,6 +137,9 @@ Route::prefix('admin')
         Route::patch('articles/{article}/restore', [ArticleController::class, 'restore'])
             ->withTrashed()
             ->name('articles.restore');
+        Route::delete('articles/{article}/force', [ArticleController::class, 'forceDestroy'])
+            ->withTrashed()
+            ->name('articles.force-destroy');
         Route::resource('articles', ArticleController::class)->except(['show']);
         Route::resource('users', UserController::class)->except(['show']);
 

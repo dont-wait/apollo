@@ -268,6 +268,45 @@ class ArticleController extends Controller
             ->with('status', 'Article moved to trash.');
     }
 
+    public function forceDestroy(Post $article): RedirectResponse
+    {
+        if (! $article->trashed()) {
+            return redirect()
+                ->route('admin.articles.index')
+                ->with('error', 'Only articles in the trash can be permanently deleted.');
+        }
+
+        $thumbnail = $article->thumbnail_media_id === null
+            ? null
+            : Media::query()->find($article->thumbnail_media_id);
+
+        DB::transaction(function () use ($article): void {
+            $article->forceDelete();
+        });
+
+        $thumbnailCleanup = null;
+
+        if ($thumbnail !== null && ! $this->mediaUsageService->isInUse($thumbnail)) {
+            $thumbnailCleanup = $this->cleanupService->schedule(
+                $this->mediaStorage->diskName(),
+                $thumbnail->storage_key,
+            );
+
+            $thumbnail->delete();
+        }
+
+        if ($thumbnailCleanup !== null) {
+            $this->cleanupService->attempt(
+                $thumbnailCleanup,
+                $this->mediaStorage,
+            );
+        }
+
+        return redirect()
+            ->route('admin.articles.index', ['trashed' => 1])
+            ->with('status', "Article \"{$article->title}\" permanently deleted.");
+    }
+
     public function restore(Post $article): RedirectResponse
     {
         if (! $article->trashed()) {
