@@ -47,6 +47,7 @@
 
             <div class="hidden items-center gap-3 lg:flex">
                 <x-theme-toggle />
+                <x-theme-picker />
                 @auth
                     <details class="relative" @click.outside="$el.open = false" @keydown.escape.window="$el.open = false">
                         <summary class="flex cursor-pointer list-none items-center gap-1.5 rounded-full p-1 text-on-surface-variant transition-colors hover:bg-surface-high hover:text-primary" aria-haspopup="menu">
@@ -82,7 +83,10 @@
                 @endauth
             </div>
 
-            <x-theme-toggle class="ml-auto lg:hidden" />
+            <div class="ml-auto flex items-center gap-1 lg:hidden">
+                <x-theme-toggle />
+                <x-theme-picker />
+            </div>
 
             <button
                 class="rounded-md border border-outline-variant px-3 py-2 font-mono text-xs uppercase tracking-[0.16em] text-on-surface-variant transition-colors hover:border-primary hover:text-primary lg:hidden"

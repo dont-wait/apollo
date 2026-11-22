@@ -11,7 +11,10 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="relative flex min-h-screen items-center justify-center overflow-x-hidden bg-background px-4 py-8 font-sans text-on-surface sm:px-6">
-    <x-theme-toggle class="fixed right-4 top-4 z-50" />
+    <div class="fixed right-4 top-4 z-50 flex items-center gap-1">
+        <x-theme-toggle />
+        <x-theme-picker />
+    </div>
     <div class="pointer-events-none absolute -left-32 -top-32 size-80 rounded-full bg-primary/10 blur-3xl" aria-hidden="true"></div>
     <div class="pointer-events-none absolute -bottom-32 -right-32 size-80 rounded-full bg-tertiary/10 blur-3xl" aria-hidden="true"></div>
 
