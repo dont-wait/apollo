@@ -121,9 +121,12 @@ class AdminDashboardTest extends TestCase
                 $publishedPost->id,
                 $pendingPost->id,
             ])
+            ->assertSeeText('Operations Dashboard')
+            ->assertSeeText('Pipeline Ingestion')
+            ->assertSeeText('Recent Articles & Editorial Log')
             ->assertSeeText('Research')
             ->assertSeeText($admin->name)
-            ->assertSeeText('Chờ duyệt')
+            ->assertSeeText('REVIEW')
             ->assertSee('href="'.route('articles.show', ['article' => $publishedPost->slug]).'"', false)
             ->assertSee('href="'.route('admin.articles.edit', $draftPost).'"', false);
     }
@@ -158,8 +161,9 @@ class AdminDashboardTest extends TestCase
                 'inactive' => 0,
             ])
             ->assertViewHas('totalBookmarks', 0)
+            ->assertSeeText('Operations Dashboard')
             ->assertSeeText('Chưa có bài viết nào.')
-            ->assertSeeText('Chưa có bài viết được lưu.');
+            ->assertSeeText('No active sources configured.');
     }
 
     public function test_non_admin_user_is_forbidden_from_viewing_the_dashboard(): void
