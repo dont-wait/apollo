@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
+    <script>try{if(localStorage.getItem("apollo.sidebarCollapsed")==="1")document.documentElement.classList.add("sidebar-collapsed")}catch(e){}</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Apollo Admin')</title>
@@ -138,9 +139,12 @@
         </div>
     </aside>
 
-    <div class="pl-64">
-        <header class="fixed top-0 left-64 right-0 h-16 bg-surface-container-lowest/80 backdrop-blur-xl border-b border-outline-variant/30 z-40 flex items-center justify-between px-space-lg">
+    <div class="admin-shell pl-64">
+        <header class="admin-topbar fixed top-0 left-64 right-0 h-16 bg-surface-container-lowest/80 backdrop-blur-xl border-b border-outline-variant/30 z-40 flex items-center justify-between px-space-lg">
             <div class="flex items-center gap-space-md">
+                <button type="button" data-admin-sidebar-toggle aria-label="Đóng/mở sidebar" class="rounded p-2 text-on-surface-variant hover:bg-surface-container hover:text-on-surface">
+                    <span class="material-symbols-outlined text-[20px]">menu</span>
+                </button>
                 <div class="flex items-center gap-2 bg-surface-container-low border border-outline-variant/30 px-3 py-1.5 rounded w-72 text-on-surface-variant">
                     <span class="material-symbols-outlined text-[18px] text-outline">search</span>
                     <input class="bg-transparent font-label-sm text-label-sm text-on-surface focus:outline-none w-full placeholder:text-outline" placeholder="Filter logs, tags, articles..." type="text">
@@ -188,5 +192,14 @@
             </div>
         </main>
     </div>
+    <script>
+        window.toggleAdminSidebar = () => {
+            const collapsed = document.documentElement.classList.toggle('sidebar-collapsed');
+            document.body.classList.toggle('sidebar-collapsed', collapsed);
+            try { localStorage.setItem('apollo.sidebarCollapsed', collapsed ? '1' : '0'); } catch (e) {}
+        };
+        document.body.classList.toggle('sidebar-collapsed', document.documentElement.classList.contains('sidebar-collapsed'));
+        document.querySelector('[data-admin-sidebar-toggle]')?.addEventListener('click', window.toggleAdminSidebar);
+    </script>
 </body>
 </html>

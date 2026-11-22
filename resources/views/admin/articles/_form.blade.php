@@ -174,11 +174,19 @@
 
         <div>
             <label for="markdown_content" class="mb-2 block text-sm font-medium">Nội dung Markdown <span class="text-red-300">*</span></label>
-            <div role="tablist" aria-label="Chế độ nội dung Markdown" class="flex border-b border-[#32353b]">
-                <button type="button" role="tab" id="markdown-write-tab" aria-controls="markdown-write-panel" aria-selected="true" data-markdown-tab="write" class="rounded-t-lg border-b-2 border-transparent px-4 py-2 text-sm font-medium text-[#87929a] transition hover:text-[#e1e2ea] aria-selected:border-sky-400 aria-selected:text-[#e1e2ea]">Write</button>
-                <button type="button" role="tab" id="markdown-preview-tab" aria-controls="markdown-preview-panel" aria-selected="false" data-markdown-tab="preview" class="rounded-t-lg border-b-2 border-transparent px-4 py-2 text-sm font-medium text-[#87929a] transition hover:text-[#e1e2ea] aria-selected:border-sky-400 aria-selected:text-[#e1e2ea]">Preview</button>
+            <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <div role="group" aria-label="Chế độ hiển thị Markdown" class="inline-flex rounded-lg border border-[#32353b] bg-[#0b0e13] p-0.5">
+                    <button type="button" aria-pressed="false" data-markdown-view="write" class="rounded-md px-3 py-1.5 text-xs font-medium text-[#87929a] transition hover:text-[#e1e2ea] aria-pressed:bg-[#272a30] aria-pressed:text-[#e1e2ea]">Write</button>
+                    <button type="button" aria-pressed="true" data-markdown-view="split" class="rounded-md px-3 py-1.5 text-xs font-medium text-[#87929a] transition hover:text-[#e1e2ea] aria-pressed:bg-[#272a30] aria-pressed:text-[#e1e2ea]">Split</button>
+                    <button type="button" aria-pressed="false" data-markdown-view="preview" class="rounded-md px-3 py-1.5 text-xs font-medium text-[#87929a] transition hover:text-[#e1e2ea] aria-pressed:bg-[#272a30] aria-pressed:text-[#e1e2ea]">Preview</button>
+                </div>
+                <button type="button" data-sidebar-toggle aria-pressed="false" class="inline-flex items-center gap-1.5 rounded-lg border border-[#32353b] px-3 py-1.5 text-xs text-[#bdc8d1] transition hover:bg-[#272a30]">
+                    <span class="material-symbols-outlined text-base">left_panel_close</span>
+                    <span data-sidebar-toggle-label>Ẩn sidebar</span>
+                </button>
             </div>
-            <div id="markdown-write-panel" role="tabpanel" aria-labelledby="markdown-write-tab" data-markdown-panel="write">
+            <div data-markdown-layout data-view="split" class="grid gap-3 data-[view=split]:lg:grid-cols-2">
+            <div id="markdown-write-panel" data-markdown-panel="write" class="min-w-0">
                 <section data-markdown-command-menu hidden aria-label="Lệnh Markdown" class="fixed z-50 w-80 max-w-[calc(100vw-1rem)] space-y-3 overflow-y-auto rounded-lg border border-[#32353b] bg-[#111319] p-3 shadow-xl">
                     <div class="flex items-center justify-between gap-2">
                         <h3 data-markdown-command-title class="text-sm font-medium text-[#e1e2ea]">Lệnh Markdown</h3>
@@ -199,9 +207,10 @@
                     <textarea id="markdown_content" name="markdown_content" rows="18" required aria-controls="markdown-suggestions" aria-expanded="false" aria-autocomplete="list" aria-describedby="toxic-summary" class="toxic-editor__textarea relative z-10 w-full rounded-b-lg border border-[#32353b] bg-[#0b0e13] px-3 py-3 font-mono text-sm leading-6 text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none" placeholder="# Tiêu đề bài viết">{{ old('markdown_content', $article?->markdown_content) }}</textarea>
                 </div>
             </div>
-            <div id="markdown-preview-panel" role="tabpanel" aria-labelledby="markdown-preview-tab" data-markdown-panel="preview" hidden>
-                <p data-markdown-preview-empty data-toxic-preview-empty="markdown_content" class="min-h-[27rem] rounded-b-lg border border-[#32353b] bg-[#0b0e13] px-4 py-3 text-sm text-[#87929a]">Chưa có nội dung để xem trước</p>
-                <div data-markdown-preview-content data-toxic-preview="markdown_content" hidden class="markdown-preview min-h-[27rem] rounded-b-lg border border-[#32353b] bg-[#0b0e13] px-4 py-3 text-sm leading-7 text-[#bdc8d1] [&_a]:text-sky-300 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-[#4b5059] [&_blockquote]:pl-4 [&_h1]:mb-4 [&_h1]:text-3xl [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-xl [&_h3]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-4 [&_pre]:my-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-[#191c21] [&_pre]:p-4 [&_ul]:list-disc"></div>
+            <div id="markdown-preview-panel" data-markdown-panel="preview" class="min-w-0">
+                <p data-markdown-preview-empty data-toxic-preview-empty="markdown_content" class="min-h-[27rem] rounded-lg border border-[#32353b] bg-[#0b0e13] px-4 py-3 text-sm text-[#87929a]">Chưa có nội dung để xem trước</p>
+                <div data-markdown-preview-content data-toxic-preview="markdown_content" hidden class="markdown-preview max-h-[40rem] min-h-[27rem] overflow-y-auto rounded-lg border border-[#32353b] bg-[#0b0e13] px-4 py-3 text-sm leading-7 text-[#bdc8d1] [&_a]:text-sky-300 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-[#4b5059] [&_blockquote]:pl-4 [&_h1]:mb-4 [&_h1]:text-3xl [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-xl [&_h3]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-4 [&_pre]:my-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-[#191c21] [&_pre]:p-4 [&_ul]:list-disc"></div>
+            </div>
             </div>
             @error('markdown_content') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
         </div>
@@ -239,7 +248,8 @@
         syncScheduleField();
 
         const markdownInput = document.querySelector('#markdown_content');
-        const markdownTabs = document.querySelectorAll('[data-markdown-tab]');
+        const markdownViewButtons = document.querySelectorAll('[data-markdown-view]');
+        const markdownLayout = document.querySelector('[data-markdown-layout]');
         const markdownPanels = document.querySelectorAll('[data-markdown-panel]');
         const markdownPreviewEmpty = document.querySelector('[data-markdown-preview-empty]');
         const markdownPreviewContent = document.querySelector('[data-markdown-preview-content]');
@@ -247,6 +257,48 @@
         if (!markdownInput || !markdownPreviewEmpty || !markdownPreviewContent) {
             return;
         }
+
+        const alertTitles = { note: 'Note', tip: 'Tip', important: 'Important', warning: 'Warning', caution: 'Caution' };
+        const alertMarker = /^\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*/i;
+        const renderGithubAlerts = (html) => {
+            if (!html.includes('[!')) {
+                return html;
+            }
+
+            const template = document.createElement('template');
+            template.innerHTML = html;
+            template.content.querySelectorAll('blockquote').forEach((quote) => {
+                const paragraph = quote.querySelector(':scope > p');
+                const first = paragraph?.firstChild;
+                const match = first?.nodeType === Node.TEXT_NODE && first.nodeValue.match(alertMarker);
+
+                if (!match) {
+                    return;
+                }
+
+                const type = match[1].toLowerCase();
+                first.nodeValue = first.nodeValue.replace(alertMarker, '');
+                if (first.nodeValue === '') {
+                    first.remove();
+                    if (paragraph.firstChild?.nodeName === 'BR') {
+                        paragraph.firstChild.remove();
+                    }
+                }
+                if (!paragraph.hasChildNodes()) {
+                    paragraph.remove();
+                }
+
+                const alert = document.createElement('div');
+                alert.className = `md-alert md-alert--${type}`;
+                const title = document.createElement('p');
+                title.className = 'md-alert__title';
+                title.textContent = alertTitles[type];
+                alert.append(title, ...quote.childNodes);
+                quote.replaceWith(alert);
+            });
+
+            return template.innerHTML;
+        };
 
         const renderMarkdownPreview = () => {
             if (markdownPreviewContent.dataset.toxicPreviewLocked === 'true') {
@@ -259,7 +311,7 @@
             markdownPreviewEmpty.hidden = hasMarkdown;
             markdownPreviewContent.hidden = !hasMarkdown;
             markdownPreviewContent.innerHTML = hasMarkdown
-                ? DOMPurify.sanitize(marked.parse(markdown))
+                ? DOMPurify.sanitize(renderGithubAlerts(marked.parse(markdown)))
                 : '';
         };
 
@@ -571,38 +623,65 @@
         }, true);
         window.addEventListener('resize', positionCommands);
 
-        const selectMarkdownTab = (selectedTab) => {
+        const selectMarkdownView = (view) => {
             closeCommands();
-            markdownTabs.forEach((tab) => {
-                const isSelected = tab.dataset.markdownTab === selectedTab;
-                tab.setAttribute('aria-selected', String(isSelected));
+            markdownLayout.dataset.view = view;
+            markdownViewButtons.forEach((button) => {
+                button.setAttribute('aria-pressed', String(button.dataset.markdownView === view));
             });
 
             markdownPanels.forEach((panel) => {
-                panel.hidden = panel.dataset.markdownPanel !== selectedTab;
+                panel.hidden = view !== 'split' && panel.dataset.markdownPanel !== view;
             });
 
-            markdownInput.required = selectedTab === 'write';
+            markdownInput.required = view !== 'preview';
+            renderMarkdownPreview();
 
-            if (selectedTab === 'preview') {
-                renderMarkdownPreview();
-            }
+            try {
+                localStorage.setItem('apollo.markdownView', view);
+            } catch (e) {}
         };
 
-        markdownTabs.forEach((tab, index) => {
-            tab.addEventListener('click', () => {
-                selectMarkdownTab(tab.dataset.markdownTab);
-            });
-            tab.addEventListener('keydown', (event) => {
-                if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-                    event.preventDefault();
-                    const direction = event.key === 'ArrowRight' ? 1 : -1;
-                    const nextIndex = (index + direction + markdownTabs.length) % markdownTabs.length;
-                    markdownTabs[nextIndex].focus();
-                    markdownTabs[nextIndex].click();
-                }
-            });
+        markdownViewButtons.forEach((button) => {
+            button.addEventListener('click', () => selectMarkdownView(button.dataset.markdownView));
         });
+
+        // Live preview: render on every keystroke, coalesced to one render per frame.
+        let previewFrame = null;
+        markdownInput.addEventListener('input', () => {
+            cancelAnimationFrame(previewFrame);
+            previewFrame = requestAnimationFrame(renderMarkdownPreview);
+        });
+
+        // Keep preview scroll proportional to the editor scroll in split view.
+        markdownInput.addEventListener('scroll', () => {
+            if (markdownLayout.dataset.view !== 'split') {
+                return;
+            }
+
+            const max = markdownInput.scrollHeight - markdownInput.clientHeight;
+            const previewMax = markdownPreviewContent.scrollHeight - markdownPreviewContent.clientHeight;
+            markdownPreviewContent.scrollTop = max > 0 ? (markdownInput.scrollTop / max) * previewMax : 0;
+        });
+
+        let savedView = 'split';
+        try {
+            savedView = localStorage.getItem('apollo.markdownView') || 'split';
+        } catch (e) {}
+        selectMarkdownView(['write', 'split', 'preview'].includes(savedView) ? savedView : 'split');
+
+        const sidebarToggle = document.querySelector('[data-sidebar-toggle]');
+        const syncSidebarToggle = () => {
+            const collapsed = document.documentElement.classList.contains('sidebar-collapsed');
+            sidebarToggle.setAttribute('aria-pressed', String(collapsed));
+            sidebarToggle.querySelector('[data-sidebar-toggle-label]').textContent = collapsed ? 'Hiện sidebar' : 'Ẩn sidebar';
+            sidebarToggle.querySelector('.material-symbols-outlined').textContent = collapsed ? 'left_panel_open' : 'left_panel_close';
+        };
+        sidebarToggle?.addEventListener('click', () => {
+            window.toggleAdminSidebar?.();
+            syncSidebarToggle();
+        });
+        syncSidebarToggle();
 
         const tagInput = document.querySelector('[data-new-tag-input]');
         const addTagButton = document.querySelector('[data-add-new-tag]');
