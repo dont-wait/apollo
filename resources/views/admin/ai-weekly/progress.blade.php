@@ -9,7 +9,7 @@
             <article class="space-y-3 rounded-lg border border-outline-variant/50 bg-surface-container-low p-4" :aria-busy="isActive(run)">
                 <div class="flex items-center justify-between gap-3">
                     <a :href="run.url" class="font-medium text-primary" x-text="`#${run.id} · ${typeLabel(run.run_type)}`"></a>
-                    <span class="rounded bg-surface-container-high px-2 py-1 text-xs" :class="{ 'text-primary': isActive(run), 'text-error': run.status === 'FAILED', 'text-tertiary': run.status === 'SUCCESS' }" x-text="statusLabel(run.status)"></span>
+                    <span class="rounded bg-surface-container-high px-2 py-1 text-xs" :class="{ 'text-primary': isActive(run), 'text-error': run.status === 'FAILED', 'text-tertiary': run.status === 'SUCCESS', 'text-amber-300': run.status === 'PAUSED', 'text-outline': run.status === 'CANCELLED' }" x-text="statusLabel(run.status)"></span>
                 </div>
                 <p role="status" class="text-sm text-on-surface-variant" x-text="run.progress.message"></p>
                 <progress class="h-2 w-full accent-primary" max="100" :value="run.progress.percent ?? (isActive(run) ? null : 0)" :aria-label="`Tiến trình job #${run.id}`"></progress>

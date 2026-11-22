@@ -20,6 +20,9 @@ class AnalyzeArticles implements ShouldQueue
 {
     use Queueable;
 
+    /** Pausing lets the article already being analyzed finish and be saved; cancelling does not. */
+    private const array SAVE_STATUSES = ['PENDING', 'RUNNING', 'PAUSED'];
+
     public int $timeout;
 
     public function __construct(public int $runId, public int $attempt = 1)
@@ -150,7 +153,7 @@ class AnalyzeArticles implements ShouldQueue
                     $active->update(['payload' => $payload, 'locked_at' => now()]);
 
                     return true;
-                });
+                }, self::SAVE_STATUSES);
                 if ($saved === null) {
                     return;
                 }
@@ -170,14 +173,19 @@ class AnalyzeArticles implements ShouldQueue
                     $active->update(['payload' => $payload, 'locked_at' => now()]);
 
                     return true;
-                });
+                }, self::SAVE_STATUSES);
                 if ($saved === null) {
                     return;
                 }
             }
             $payload['cursor'] = $article->id;
             unset($payload['current_item']);
-            if ($run->withinAttempt($this->attempt, fn (AutomationRun $locked): bool => $locked->update(['payload' => $payload, 'locked_at' => now()]))) {
+            // A paused run keeps its progress but does not queue the next article; Resume restarts the chain.
+            if ($run->withinAttempt($this->attempt, function (AutomationRun $locked) use ($payload): bool {
+                $locked->update(['payload' => $payload, 'locked_at' => now()]);
+
+                return $locked->status !== 'PAUSED';
+            }, self::SAVE_STATUSES)) {
                 self::dispatch($this->runId, $this->attempt);
             }
         } finally {

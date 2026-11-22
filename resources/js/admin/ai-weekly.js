@@ -143,7 +143,46 @@ window.aiPipeline = (initialRuns, url, initialListing = null) => ({
     },
 
     statusLabel(status) {
-        return { PENDING: 'Đang chờ', RUNNING: 'Đang chạy', SUCCESS: 'Hoàn tất', PARTIAL: 'Có lỗi một phần', FAILED: 'Thất bại' }[status] ?? status;
+        return { PENDING: 'Đang chờ', RUNNING: 'Đang chạy', PAUSED: 'Đã hoãn', SUCCESS: 'Hoàn tất', PARTIAL: 'Có lỗi một phần', FAILED: 'Thất bại', CANCELLED: 'Đã hủy' }[status] ?? status;
+    },
+
+    canPause(run) {
+        return run.run_type === 'ANALYZE' && ['PENDING', 'RUNNING'].includes(run.status);
+    },
+
+    canResume(run) {
+        return run.run_type === 'ANALYZE' && run.status === 'PAUSED';
+    },
+
+    canCancel(run) {
+        return ['PENDING', 'RUNNING', 'PAUSED'].includes(run.status);
+    },
+
+    acting: {},
+    actionError: '',
+
+    async act(run, action) {
+        if (action === 'cancel' && ! window.confirm(`Hủy job #${run.id}? Phần đang xử lý sẽ bị bỏ và job không thể chạy lại.`)) return;
+        if (this.acting[run.id]) return;
+
+        this.acting = { ...this.acting, [run.id]: action };
+        this.actionError = '';
+
+        try {
+            const response = await fetch(`${run.url}/${action}`, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': this.$el.closest('[data-csrf]').dataset.csrf },
+            });
+            const result = await response.json();
+            if (! response.ok) throw new Error(result.message || 'Thao tác thất bại.');
+            this.track(result);
+        } catch (error) {
+            this.actionError = error.message;
+        } finally {
+            const next = { ...this.acting };
+            delete next[run.id];
+            this.acting = next;
+        }
     },
 });
 

@@ -20,7 +20,7 @@ class AutomationRunController extends Controller
         $filter = $request->validate([
             'monitor' => ['sometimes', 'boolean'],
             'run_type' => ['nullable', 'in:COLLECT,ANALYZE,GENERATE_REVIEW'],
-            'status' => ['nullable', 'in:PENDING,RUNNING,SUCCESS,PARTIAL,FAILED'],
+            'status' => ['nullable', 'in:PENDING,RUNNING,PAUSED,SUCCESS,PARTIAL,FAILED,CANCELLED'],
             'created_from' => ['nullable', 'date_format:Y-m-d'],
             'created_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:created_from'],
         ]);
@@ -38,8 +38,8 @@ class AutomationRunController extends Controller
         }
         $runs->appends($request->except(['page', 'monitor']));
 
-        $monitorRuns = $this->runQuery()->whereIn('status', ['PENDING', 'RUNNING'])->orderByDesc('id')->get()
-            ->concat($this->runQuery()->whereNotIn('status', ['PENDING', 'RUNNING'])->orderByDesc('id')->limit(5)->get())
+        $monitorRuns = $this->runQuery()->whereIn('status', ['PENDING', 'RUNNING', 'PAUSED'])->orderByDesc('id')->get()
+            ->concat($this->runQuery()->whereNotIn('status', ['PENDING', 'RUNNING', 'PAUSED'])->orderByDesc('id')->limit(5)->get())
             ->unique('id')->map(fn (AutomationRun $run): array => $this->runState($run))->values()->all();
 
         $listing = [
@@ -109,6 +109,30 @@ class AutomationRunController extends Controller
         }
 
         return response()->json(['run_id' => $run->id, 'reused' => ! $run->wasRecentlyCreated, 'state' => $this->runState($run)], 202);
+    }
+
+    public function cancel(AutomationRun $run, RunCoordinator $coordinator): JsonResponse
+    {
+        return $this->transition($run, $coordinator->cancel($run), 'Job này đã kết thúc nên không thể hủy.');
+    }
+
+    public function pause(AutomationRun $run, RunCoordinator $coordinator): JsonResponse
+    {
+        return $this->transition($run, $coordinator->pause($run), 'Chỉ có thể hoãn job phân tích đang chờ hoặc đang chạy.');
+    }
+
+    public function resume(AutomationRun $run, RunCoordinator $coordinator): JsonResponse
+    {
+        return $this->transition($run, $coordinator->resume($run), 'Chỉ có thể tiếp tục job phân tích đang bị hoãn.');
+    }
+
+    private function transition(AutomationRun $run, bool $changed, string $refusal): JsonResponse
+    {
+        if (! $changed) {
+            return response()->json(['message' => $refusal], 409);
+        }
+
+        return response()->json(['run_id' => $run->id, 'reused' => true, 'state' => $this->runState($run->fresh(), includePayload: true)]);
     }
 
     public function retry(AutomationRun $run, RunCoordinator $coordinator): JsonResponse

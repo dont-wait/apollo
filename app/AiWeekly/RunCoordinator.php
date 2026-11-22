@@ -91,6 +91,67 @@ class RunCoordinator
         });
     }
 
+    /** Stop a run for good: in-flight work is discarded and it is never retried. */
+    public function cancel(AutomationRun $run): bool
+    {
+        return DB::transaction(function () use ($run): bool {
+            $locked = AutomationRun::query()->lockForUpdate()->findOrFail($run->id);
+            if (! in_array($locked->status, ['PENDING', 'RUNNING', 'PAUSED'], true)) {
+                return false;
+            }
+
+            $payload = $locked->payload ?? [];
+            if ($locked->run_type === 'COLLECT') {
+                foreach ($payload['sources'] ?? [] as $id => $result) {
+                    if (in_array($result['status'] ?? '', ['PENDING', 'RUNNING'], true)) {
+                        $payload['sources'][$id] = ['status' => 'FAILED', 'retryable' => false, 'error' => 'Đã hủy.'];
+                    }
+                }
+            }
+            unset($payload['current_item']);
+            $locked->update(['status' => 'CANCELLED', 'payload' => $payload, 'finished_at' => now(), 'error_message' => 'Đã hủy bởi quản trị viên.']);
+
+            return true;
+        });
+    }
+
+    /** Postpone an analysis run: the article being analyzed finishes, then the chain stops until resumed. */
+    public function pause(AutomationRun $run): bool
+    {
+        return DB::transaction(function () use ($run): bool {
+            $locked = AutomationRun::query()->lockForUpdate()->findOrFail($run->id);
+            if ($locked->run_type !== 'ANALYZE' || ! in_array($locked->status, ['PENDING', 'RUNNING'], true)) {
+                return false;
+            }
+
+            $locked->update(['status' => 'PAUSED']);
+
+            return true;
+        });
+    }
+
+    public function resume(AutomationRun $run): bool
+    {
+        $resumed = DB::transaction(function () use ($run): ?AutomationRun {
+            $locked = AutomationRun::query()->lockForUpdate()->findOrFail($run->id);
+            if ($locked->run_type !== 'ANALYZE' || $locked->status !== 'PAUSED') {
+                return null;
+            }
+
+            $locked->update(['status' => $locked->started_at ? 'RUNNING' : 'PENDING', 'locked_at' => now(), 'dispatched_at' => now()]);
+
+            return $locked;
+        });
+
+        if ($resumed === null) {
+            return false;
+        }
+
+        AnalyzeArticles::dispatch($resumed->id, $resumed->attempt);
+
+        return true;
+    }
+
     public function retry(AutomationRun $run): bool
     {
         try {

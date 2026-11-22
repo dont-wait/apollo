@@ -21,13 +21,14 @@ class AutomationRun extends Model
      * @template TResult
      *
      * @param  Closure(self): TResult  $callback
+     * @param  list<string>  $statuses  Statuses the run may be in for the callback to run.
      * @return TResult|null
      */
-    public function withinAttempt(int $attempt, Closure $callback): mixed
+    public function withinAttempt(int $attempt, Closure $callback, array $statuses = ['PENDING', 'RUNNING']): mixed
     {
-        return DB::transaction(function () use ($attempt, $callback): mixed {
+        return DB::transaction(function () use ($attempt, $callback, $statuses): mixed {
             $run = self::query()->lockForUpdate()->findOrFail($this->id);
-            if ($run->attempt !== $attempt || ! in_array($run->status, ['PENDING', 'RUNNING'], true)) {
+            if ($run->attempt !== $attempt || ! in_array($run->status, $statuses, true)) {
                 return null;
             }
 
@@ -59,6 +60,8 @@ class AutomationRun extends Model
             'SUCCESS' => 'Đã hoàn tất',
             'PARTIAL' => 'Hoàn tất một phần, có mục bị lỗi',
             'FAILED' => 'Job thất bại',
+            'PAUSED' => 'Đã hoãn, bấm Tiếp tục để chạy tiếp',
+            'CANCELLED' => 'Đã hủy',
             default => match ($this->run_type) {
                 'COLLECT' => 'Đang thu thập nguồn',
                 'ANALYZE' => 'Đang phân tích bài viết',
