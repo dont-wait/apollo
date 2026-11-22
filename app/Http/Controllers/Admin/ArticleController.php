@@ -120,7 +120,7 @@ class ArticleController extends Controller
 
         return redirect()
             ->route('admin.articles.index')
-            ->with('status', 'Bài viết đã được tạo thành công');
+            ->with('status', 'Article created successfully.');
     }
 
     public function edit(Post $article): View
@@ -162,7 +162,7 @@ class ArticleController extends Controller
                 $this->ensurePublicationStateIsCurrent($originalStatus, $lockedArticle);
                 if (! hash_equals(ArticleRevision::for($lockedArticle), $originalRevision)) {
                     throw ValidationException::withMessages([
-                        'revision' => 'Bài viết đã được người khác cập nhật. Vui lòng tải lại trang trước khi lưu.',
+                        'revision' => 'This article was updated by someone else. Please reload the page before saving.',
                     ]);
                 }
 
@@ -205,7 +205,7 @@ class ArticleController extends Controller
 
         return redirect()
             ->route('admin.articles.edit', $article)
-            ->with('status', 'Bài viết đã được cập nhật.');
+            ->with('status', 'Article updated successfully.');
     }
 
     public function destroy(Post $article): RedirectResponse
@@ -214,7 +214,7 @@ class ArticleController extends Controller
 
         return redirect()
             ->route('admin.articles.index')
-            ->with('status', 'Bài viết đã được chuyển vào thùng rác.');
+            ->with('status', 'Article moved to trash.');
     }
 
     /**
@@ -276,7 +276,7 @@ class ArticleController extends Controller
         }
 
         throw ValidationException::withMessages([
-            'status' => 'Trạng thái bài viết đã thay đổi. Vui lòng tải lại trang trước khi lưu.',
+            'status' => 'The article status has changed. Please reload the page before saving.',
         ]);
     }
 

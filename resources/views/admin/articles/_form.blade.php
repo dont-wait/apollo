@@ -25,42 +25,42 @@
     @endif
     @error('revision')
         <div role="alert" class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-            {{ $message }} <a class="underline" href="{{ route('admin.articles.edit', $article) }}">Tải lại bài viết</a>.
+            {{ $message }} <a class="underline" href="{{ route('admin.articles.edit', $article) }}">Reload article</a>.
         </div>
     @enderror
     @if ($errors->any())
         <div role="alert" class="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-            Vui lòng kiểm tra lại các trường được đánh dấu bên dưới.
+            Please review the fields highlighted below.
         </div>
     @endif
 
     <div class="flex items-start gap-3">
         <div id="toxic-summary" data-toxic-summary hidden role="status" class="flex-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200"></div>
-        <button type="button" data-toxic-jump="markdown_content" hidden class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-500/20">Nhảy đến lỗi</button>
+        <button type="button" data-toxic-jump="markdown_content" hidden class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-500/20">Jump to issue</button>
     </div>
 
     <script type="application/json" data-toxic-moderation>@json(session('moderation', []))</script>
 
-    <section class="space-y-5 rounded-xl bg-[#191c21] p-5 shadow-sm sm:p-6">
+    <section class="space-y-5 rounded-xl bg-surface-low p-5 shadow-sm sm:p-6">
         <div>
-            <label for="title" class="mb-2 block text-sm font-medium">Tiêu đề <span class="text-red-300">*</span></label>
-            <input id="title" name="title" type="text" value="{{ old('title', $article?->title) }}" required maxlength="255" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">
+            <label for="title" class="mb-2 block text-sm font-medium">Title <span class="text-red-300">*</span></label>
+            <input id="title" name="title" type="text" value="{{ old('title', $article?->title) }}" required maxlength="255" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">
             @error('title') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
             <div data-toxic-snippet="title" hidden class="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"></div>
         </div>
 
         <div>
             <label for="slug" class="mb-2 block text-sm font-medium">Slug</label>
-            <input id="slug" name="slug" type="text" value="{{ old('slug', $article?->slug) }}" maxlength="255" placeholder="Để trống để tự tạo từ tiêu đề" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 font-mono text-sm text-[#e1e2ea] placeholder:font-sans placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">
-            <p class="mt-1.5 text-xs text-[#87929a]">Slug sẽ được tự tạo từ tiêu đề nếu bạn để trống.</p>
+            <input id="slug" name="slug" type="text" value="{{ old('slug', $article?->slug) }}" maxlength="255" placeholder="Leave empty to generate from the title" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 font-mono text-sm text-on-surface placeholder:font-sans placeholder:text-outline focus:border-sky-400 focus:outline-none">
+            <p class="mt-1.5 text-xs text-outline">The slug is generated from the title if left empty.</p>
             @error('slug') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
         </div>
 
         <div class="grid gap-5 md:grid-cols-2">
             <div>
-                <label for="category_id" class="mb-2 block text-sm font-medium">Danh mục</label>
-                <select id="category_id" name="category_id" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] focus:border-sky-400 focus:outline-none">
-                    <option value="">Chưa phân loại</option>
+                <label for="category_id" class="mb-2 block text-sm font-medium">Category</label>
+                <select id="category_id" name="category_id" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface focus:border-sky-400 focus:outline-none">
+                    <option value="">Uncategorized</option>
                     @foreach ($categories as $category)
                         <option value="{{ $category->id }}" @selected((string) old('category_id', $article?->category_id) === (string) $category->id)>{{ $category->name }}</option>
                     @endforeach
@@ -69,53 +69,53 @@
             </div>
 
             <div>
-                <label for="status" class="mb-2 block text-sm font-medium">Trạng thái <span class="text-red-300">*</span></label>
-                <select id="status" name="status" required data-publication-status class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] focus:border-sky-400 focus:outline-none">
+                <label for="status" class="mb-2 block text-sm font-medium">Status <span class="text-red-300">*</span></label>
+                <select id="status" name="status" required data-publication-status class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface focus:border-sky-400 focus:outline-none">
                     @if (! array_key_exists($selectedStatus, $statusOptions))
-                        <option value="{{ $selectedStatus }}" selected>{{ ucfirst(strtolower($selectedStatus)) }} (hiện tại)</option>
+                        <option value="{{ $selectedStatus }}" selected>{{ ucfirst(strtolower($selectedStatus)) }} (current)</option>
                     @endif
                     @foreach ($statusOptions as $value => $label)
                         <option value="{{ $value }}" @selected($selectedStatus === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
-                <p class="mt-1.5 text-xs text-[#87929a]">Publish công khai ngay; Schedule sẽ tự publish khi đến thời điểm; Archive ngừng hiển thị public.</p>
+                <p class="mt-1.5 text-xs text-outline">Publish goes live immediately; Schedule publishes automatically at the set time; Archive hides it from the public.</p>
                 @error('status') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
             </div>
         </div>
 
         <div data-schedule-field @if ($selectedStatus !== 'SCHEDULED') hidden @endif>
-            <label for="scheduled_at" class="mb-2 block text-sm font-medium">Thời điểm xuất bản <span class="text-red-300">*</span></label>
-            <input id="scheduled_at" name="scheduled_at" type="datetime-local" value="{{ old('scheduled_at', $article?->scheduled_at?->format('Y-m-d\TH:i')) }}" class="w-full max-w-md rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] focus:border-sky-400 focus:outline-none">
-            <p class="mt-1.5 text-xs text-[#87929a]">Phải là thời điểm trong tương lai (timezone hệ thống: {{ config('app.timezone') }}).</p>
+            <label for="scheduled_at" class="mb-2 block text-sm font-medium">Publish time <span class="text-red-300">*</span></label>
+            <input id="scheduled_at" name="scheduled_at" type="datetime-local" value="{{ old('scheduled_at', $article?->scheduled_at?->format('Y-m-d\TH:i')) }}" class="w-full max-w-md rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface focus:border-sky-400 focus:outline-none">
+            <p class="mt-1.5 text-xs text-outline">Must be in the future (system timezone: {{ config('app.timezone') }}).</p>
             @error('scheduled_at') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
         </div>
 
         <fieldset>
-            <legend class="mb-2 block text-sm font-medium">Thẻ</legend>
+            <legend class="mb-2 block text-sm font-medium">Tags</legend>
             <input type="hidden" name="tags_submitted" value="1">
             @if ($tags->isEmpty())
-                <p class="mb-3 rounded-lg border border-dashed border-[#32353b] px-3 py-4 text-sm text-[#87929a]">Chưa có thẻ nào được tạo.</p>
+                <p class="mb-3 rounded-lg border border-dashed border-surface-highest px-3 py-4 text-sm text-outline">No tags have been created yet.</p>
             @else
-                <div class="grid gap-2 rounded-lg border border-[#32353b] bg-[#0b0e13] p-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div class="grid gap-2 rounded-lg border border-surface-highest bg-surface-lowest p-3 sm:grid-cols-2 lg:grid-cols-3">
                     @foreach ($tags as $tag)
-                        <label class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[#bdc8d1] hover:bg-[#191c21]">
-                            <input type="checkbox" name="tags[]" value="{{ $tag->id }}" @checked(in_array($tag->id, $selectedTags, true)) class="rounded border-[#4b5059] bg-[#0b0e13] text-sky-400 focus:ring-sky-400">
+                        <label class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-on-surface-variant hover:bg-surface-low">
+                            <input type="checkbox" name="tags[]" value="{{ $tag->id }}" @checked(in_array($tag->id, $selectedTags, true)) class="rounded border-outline-variant bg-surface-lowest text-sky-400 focus:ring-sky-400">
                             {{ $tag->name }}
                         </label>
                     @endforeach
                 </div>
             @endif
             <div class="mt-3 flex max-w-md gap-2">
-                <label class="sr-only" for="new-tag-name">Tên tag mới</label>
-                <input id="new-tag-name" type="text" maxlength="60" placeholder="Nhập tên tag mới" data-new-tag-input class="min-w-0 flex-1 rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">
-                <button type="button" data-add-new-tag class="shrink-0 whitespace-nowrap rounded-lg bg-[#272a30] px-4 py-2.5 text-sm font-medium text-[#e1e2ea] transition hover:bg-[#32353b]">+ Thêm tag</button>
+                <label class="sr-only" for="new-tag-name">New tag name</label>
+                <input id="new-tag-name" type="text" maxlength="60" placeholder="Enter a new tag name" data-new-tag-input class="min-w-0 flex-1 rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">
+                <button type="button" data-add-new-tag class="shrink-0 whitespace-nowrap rounded-lg bg-surface-high px-4 py-2.5 text-sm font-medium text-on-surface transition hover:bg-surface-highest">+ Add tag</button>
             </div>
             <ul data-new-tags-list class="mt-2 flex flex-wrap gap-2">
                 @foreach (old('new_tags', []) as $newTagName)
                     <li class="inline-flex items-center gap-2 rounded-full bg-sky-500/10 px-3 py-1.5 text-sm text-sky-200">
                         <input type="hidden" name="new_tags[]" value="{{ $newTagName }}">
                         <span>{{ $newTagName }}</span>
-                        <button type="button" data-remove-new-tag aria-label="Xóa tag {{ $newTagName }}" class="text-sky-200 hover:text-white">&times;</button>
+                        <button type="button" data-remove-new-tag aria-label="Delete tag {{ $newTagName }}" class="text-sky-200 hover:text-white">&times;</button>
                     </li>
                 @endforeach
             </ul>
@@ -130,86 +130,86 @@
             <label for="thumbnail" class="mb-2 block text-sm font-medium">Ảnh thumbnail / cover</label>
             @if ($article?->thumbnail)
                 <div class="mb-3 flex items-center gap-3">
-                    <img src="{{ $article->thumbnail->url }}" alt="Ảnh thumbnail hiện tại" class="h-16 w-24 rounded-md object-cover">
-                    <span class="text-xs text-[#87929a]">Chọn ảnh mới để thay thế ảnh hiện tại.</span>
+                    <img src="{{ $article->thumbnail->url }}" alt="Current thumbnail" class="h-16 w-24 rounded-md object-cover">
+                    <span class="text-xs text-outline">Choose a new image to replace the current one.</span>
                 </div>
             @endif
-            <input id="thumbnail" name="thumbnail" type="file" accept="{{ implode(',', array_map(fn ($mime) => '.'.$mime, $allowedImageMimes)) }}" class="block w-full rounded-lg border border-[#32353b] bg-[#0b0e13] text-sm text-[#bdc8d1] file:mr-4 file:border-0 file:bg-[#272a30] file:px-4 file:py-2.5 file:text-sm file:font-medium file:text-[#e1e2ea] hover:file:bg-[#32353b]">
-            <p class="mt-1.5 text-xs text-[#87929a]">{{ strtoupper(implode(', ', $allowedImageMimes)) }}; tối đa {{ $maxThumbnailKb / 1024 }} MB.</p>
+            <input id="thumbnail" name="thumbnail" type="file" accept="{{ implode(',', array_map(fn ($mime) => '.'.$mime, $allowedImageMimes)) }}" class="block w-full rounded-lg border border-surface-highest bg-surface-lowest text-sm text-on-surface-variant file:mr-4 file:border-0 file:bg-surface-high file:px-4 file:py-2.5 file:text-sm file:font-medium file:text-on-surface hover:file:bg-surface-highest">
+            <p class="mt-1.5 text-xs text-outline">{{ strtoupper(implode(', ', $allowedImageMimes)) }}; max {{ $maxThumbnailKb / 1024 }} MB.</p>
             @error('thumbnail') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
         </div>
 
         <div>
-            <label for="excerpt" class="mb-2 block text-sm font-medium">Tóm tắt</label>
-            <textarea id="excerpt" name="excerpt" rows="3" maxlength="{{ $maxExcerptLength }}" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">{{ old('excerpt', $article?->excerpt) }}</textarea>
+            <label for="excerpt" class="mb-2 block text-sm font-medium">Excerpt</label>
+            <textarea id="excerpt" name="excerpt" rows="3" maxlength="{{ $maxExcerptLength }}" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">{{ old('excerpt', $article?->excerpt) }}</textarea>
             @error('excerpt') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
             <div data-toxic-snippet="excerpt" hidden class="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"></div>
         </div>
 
-        <section class="space-y-4 border-t border-[#32353b] pt-5">
+        <section class="space-y-4 border-t border-surface-highest pt-5">
             <div>
                 <h3 class="text-sm font-semibold">SEO metadata</h3>
-                <p class="mt-1 text-xs text-[#87929a]">Để trống tiêu đề hoặc mô tả SEO để dùng dữ liệu bài viết. Canonical URL sẽ được tạo khi xuất bản nếu chưa nhập.</p>
+                <p class="mt-1 text-xs text-outline">Leave the SEO title or description empty to use the article data. A canonical URL is generated on publish if none is set.</p>
             </div>
 
             <div>
-                <label for="seo_title" class="mb-2 block text-sm font-medium">Tiêu đề SEO</label>
-                <input id="seo_title" name="seo_title" type="text" value="{{ old('seo_title', $article?->seo_title) }}" maxlength="255" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">
+                <label for="seo_title" class="mb-2 block text-sm font-medium">SEO title</label>
+                <input id="seo_title" name="seo_title" type="text" value="{{ old('seo_title', $article?->seo_title) }}" maxlength="255" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">
                 @error('seo_title') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
             </div>
 
             <div>
-                <label for="seo_description" class="mb-2 block text-sm font-medium">Mô tả SEO</label>
-                <textarea id="seo_description" name="seo_description" rows="3" maxlength="320" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">{{ old('seo_description', $article?->seo_description) }}</textarea>
+                <label for="seo_description" class="mb-2 block text-sm font-medium">SEO description</label>
+                <textarea id="seo_description" name="seo_description" rows="3" maxlength="320" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">{{ old('seo_description', $article?->seo_description) }}</textarea>
                 @error('seo_description') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
             </div>
 
             <div>
                 <label for="canonical_url" class="mb-2 block text-sm font-medium">Canonical URL</label>
-                <input id="canonical_url" name="canonical_url" type="url" value="{{ old('canonical_url') ?: $article?->canonical_url }}" maxlength="500" placeholder="https://example.com/articles/example" class="w-full rounded-lg border border-[#32353b] bg-[#0b0e13] px-3 py-2.5 text-sm text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none">
-                <p class="mt-1.5 text-xs text-[#87929a]">Chỉ chấp nhận URL HTTP hoặc HTTPS. Canonical đã tạo sẽ được giữ ổn định khi lưu bài.</p>
+                <input id="canonical_url" name="canonical_url" type="url" value="{{ old('canonical_url') ?: $article?->canonical_url }}" maxlength="500" placeholder="https://example.com/articles/example" class="w-full rounded-lg border border-surface-highest bg-surface-lowest px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none">
+                <p class="mt-1.5 text-xs text-outline">Only HTTP or HTTPS URLs are accepted. A generated canonical stays stable when the article is saved.</p>
                 @error('canonical_url') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
             </div>
         </section>
 
         <div>
-            <label for="markdown_content" class="mb-2 block text-sm font-medium">Nội dung Markdown <span class="text-red-300">*</span></label>
+            <label for="markdown_content" class="mb-2 block text-sm font-medium">Markdown content <span class="text-red-300">*</span></label>
             <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <div role="group" aria-label="Chế độ hiển thị Markdown" class="inline-flex rounded-lg border border-[#32353b] bg-[#0b0e13] p-0.5">
-                    <button type="button" aria-pressed="false" data-markdown-view="write" class="rounded-md px-3 py-1.5 text-xs font-medium text-[#87929a] transition hover:text-[#e1e2ea] aria-pressed:bg-[#272a30] aria-pressed:text-[#e1e2ea]">Write</button>
-                    <button type="button" aria-pressed="true" data-markdown-view="split" class="rounded-md px-3 py-1.5 text-xs font-medium text-[#87929a] transition hover:text-[#e1e2ea] aria-pressed:bg-[#272a30] aria-pressed:text-[#e1e2ea]">Split</button>
-                    <button type="button" aria-pressed="false" data-markdown-view="preview" class="rounded-md px-3 py-1.5 text-xs font-medium text-[#87929a] transition hover:text-[#e1e2ea] aria-pressed:bg-[#272a30] aria-pressed:text-[#e1e2ea]">Preview</button>
+                <div role="group" aria-label="Markdown view mode" class="inline-flex rounded-lg border border-surface-highest bg-surface-lowest p-0.5">
+                    <button type="button" aria-pressed="false" data-markdown-view="write" class="rounded-md px-3 py-1.5 text-xs font-medium text-outline transition hover:text-on-surface aria-pressed:bg-surface-high aria-pressed:text-on-surface">Write</button>
+                    <button type="button" aria-pressed="true" data-markdown-view="split" class="rounded-md px-3 py-1.5 text-xs font-medium text-outline transition hover:text-on-surface aria-pressed:bg-surface-high aria-pressed:text-on-surface">Split</button>
+                    <button type="button" aria-pressed="false" data-markdown-view="preview" class="rounded-md px-3 py-1.5 text-xs font-medium text-outline transition hover:text-on-surface aria-pressed:bg-surface-high aria-pressed:text-on-surface">Preview</button>
                 </div>
-                <button type="button" data-sidebar-toggle aria-pressed="false" class="inline-flex items-center gap-1.5 rounded-lg border border-[#32353b] px-3 py-1.5 text-xs text-[#bdc8d1] transition hover:bg-[#272a30]">
+                <button type="button" data-sidebar-toggle aria-pressed="false" class="inline-flex items-center gap-1.5 rounded-lg border border-surface-highest px-3 py-1.5 text-xs text-on-surface-variant transition hover:bg-surface-high">
                     <span class="material-symbols-outlined text-base">left_panel_close</span>
-                    <span data-sidebar-toggle-label>Ẩn sidebar</span>
+                    <span data-sidebar-toggle-label>Hide sidebar</span>
                 </button>
             </div>
             <div data-markdown-layout data-view="split" class="grid gap-3 data-[view=split]:lg:grid-cols-2">
             <div id="markdown-write-panel" data-markdown-panel="write" class="min-w-0">
-                <section data-markdown-command-menu hidden aria-label="Lệnh Markdown" class="fixed z-50 w-80 max-w-[calc(100vw-1rem)] space-y-3 overflow-y-auto rounded-lg border border-[#32353b] bg-[#111319] p-3 shadow-xl">
+                <section data-markdown-command-menu hidden aria-label="Markdown commands" class="fixed z-50 w-80 max-w-[calc(100vw-1rem)] space-y-3 overflow-y-auto rounded-lg border border-surface-highest bg-background p-3 shadow-xl">
                     <div class="flex items-center justify-between gap-2">
-                        <h3 data-markdown-command-title class="text-sm font-medium text-[#e1e2ea]">Lệnh Markdown</h3>
+                        <h3 data-markdown-command-title class="text-sm font-medium text-on-surface">Markdown commands</h3>
                         <span data-markdown-command-filter class="font-mono text-xs text-sky-300"></span>
                     </div>
-                    <div id="markdown-suggestions" data-markdown-suggestions role="listbox" aria-label="Lệnh Markdown" class="grid max-h-56 gap-1 overflow-y-auto"></div>
-                    <p data-markdown-no-commands hidden class="text-sm text-[#87929a]">Không tìm thấy lệnh phù hợp.</p>
+                    <div id="markdown-suggestions" data-markdown-suggestions role="listbox" aria-label="Markdown commands" class="grid max-h-56 gap-1 overflow-y-auto"></div>
+                    <p data-markdown-no-commands hidden class="text-sm text-outline">No matching commands.</p>
                     <div data-markdown-command-config hidden class="space-y-3">
                         <div data-markdown-command-fields class="grid gap-3"></div>
                         <div class="flex justify-end gap-2">
-                            <button type="button" data-markdown-command-cancel class="rounded-lg px-3 py-2 text-sm text-[#bdc8d1] hover:bg-[#272a30]">Hủy</button>
-                            <button type="button" data-markdown-command-insert class="rounded-lg bg-sky-500 px-3 py-2 text-sm font-medium text-slate-950 hover:bg-sky-400">Chèn</button>
+                            <button type="button" data-markdown-command-cancel class="rounded-lg px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-high">Cancel</button>
+                            <button type="button" data-markdown-command-insert class="rounded-lg bg-sky-500 px-3 py-2 text-sm font-medium text-slate-950 hover:bg-sky-400">Insert</button>
                         </div>
                     </div>
                 </section>
                 <div class="toxic-editor" data-toxic-editor data-toxic-field="markdown_content">
                     <div class="toxic-editor__overlay rounded-b-lg px-3 py-3 font-mono text-sm leading-6" data-toxic-overlay aria-hidden="true"></div>
-                    <textarea id="markdown_content" name="markdown_content" rows="18" required aria-controls="markdown-suggestions" aria-expanded="false" aria-autocomplete="list" aria-describedby="toxic-summary" class="toxic-editor__textarea relative z-10 w-full rounded-b-lg border border-[#32353b] bg-[#0b0e13] px-3 py-3 font-mono text-sm leading-6 text-[#e1e2ea] placeholder:text-[#87929a] focus:border-sky-400 focus:outline-none" placeholder="# Tiêu đề bài viết">{{ old('markdown_content', $article?->markdown_content) }}</textarea>
+                    <textarea id="markdown_content" name="markdown_content" rows="18" required aria-controls="markdown-suggestions" aria-expanded="false" aria-autocomplete="list" aria-describedby="toxic-summary" class="toxic-editor__textarea relative z-10 w-full rounded-b-lg border border-surface-highest bg-surface-lowest px-3 py-3 font-mono text-sm leading-6 text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none" placeholder="# Article title">{{ old('markdown_content', $article?->markdown_content) }}</textarea>
                 </div>
             </div>
             <div id="markdown-preview-panel" data-markdown-panel="preview" class="min-w-0">
-                <p data-markdown-preview-empty data-toxic-preview-empty="markdown_content" class="min-h-[27rem] rounded-lg border border-[#32353b] bg-[#0b0e13] px-4 py-3 text-sm text-[#87929a]">Chưa có nội dung để xem trước</p>
-                <div data-markdown-preview-content data-toxic-preview="markdown_content" hidden class="markdown-preview max-h-[40rem] min-h-[27rem] overflow-y-auto rounded-lg border border-[#32353b] bg-[#0b0e13] px-4 py-3 text-sm leading-7 text-[#bdc8d1] [&_a]:text-sky-300 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-[#4b5059] [&_blockquote]:pl-4 [&_h1]:mb-4 [&_h1]:text-3xl [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-xl [&_h3]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-4 [&_pre]:my-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-[#191c21] [&_pre]:p-4 [&_ul]:list-disc"></div>
+                <p data-markdown-preview-empty data-toxic-preview-empty="markdown_content" class="min-h-[27rem] rounded-lg border border-surface-highest bg-surface-lowest px-4 py-3 text-sm text-outline">Nothing to preview yet</p>
+                <div data-markdown-preview-content data-toxic-preview="markdown_content" hidden class="markdown-preview max-h-[40rem] min-h-[27rem] overflow-y-auto rounded-lg border border-surface-highest bg-surface-lowest px-4 py-3 text-sm leading-7 text-on-surface-variant [&_a]:text-sky-300 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-outline-variant [&_blockquote]:pl-4 [&_h1]:mb-4 [&_h1]:text-3xl [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-xl [&_h3]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-4 [&_pre]:my-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-surface-low [&_pre]:p-4 [&_ul]:list-disc"></div>
             </div>
             </div>
             @error('markdown_content') <p class="mt-1.5 text-xs text-red-300">{{ $message }}</p> @enderror
@@ -218,10 +218,10 @@
     </section>
 
     <div class="flex flex-col-reverse justify-end gap-3 sm:flex-row">
-        <a href="{{ route('admin.articles.index') }}" class="rounded-lg px-5 py-2.5 text-center text-sm text-[#bdc8d1] transition hover:bg-[#272a30]">Hủy</a>
+        <a href="{{ route('admin.articles.index') }}" class="rounded-lg px-5 py-2.5 text-center text-sm text-on-surface-variant transition hover:bg-surface-high">Cancel</a>
         <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-lg bg-sky-500 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-sky-400">
             <span class="material-symbols-outlined text-lg">save</span>
-            {{ $article ? 'Lưu thay đổi' : 'Tạo bài viết' }}
+            {{ $article ? 'Save changes' : 'Create article' }}
         </button>
     </div>
 </form>
@@ -328,38 +328,38 @@
         let selectedCommand = null;
 
         const snippets = [
-            { trigger: 'table', label: 'Bảng', description: 'Chọn số cột và dòng', fields: [
-                { name: 'columns', label: 'Số cột', type: 'number', value: '3', min: 1, max: 12 },
-                { name: 'rows', label: 'Số dòng nội dung', type: 'number', value: '3', min: 1, max: 30 },
+            { trigger: 'table', label: 'Table', description: 'Choose columns and rows', fields: [
+                { name: 'columns', label: 'Columns', type: 'number', value: '3', min: 1, max: 12 },
+                { name: 'rows', label: 'Body rows', type: 'number', value: '3', min: 1, max: 30 },
             ], build: ({ columns, rows }) => {
-                const header = `| ${Array.from({ length: Number(columns) }, (_, index) => `Cột ${index + 1}`).join(' | ')} |`;
+                const header = `| ${Array.from({ length: Number(columns) }, (_, index) => `Column ${index + 1}`).join(' | ')} |`;
                 const divider = `| ${Array.from({ length: Number(columns) }, () => '---').join(' | ')} |`;
                 const body = Array.from({ length: Number(rows) }, () => `| ${Array.from({ length: Number(columns) }, () => ' ').join(' | ')} |`);
                 return [header, divider, ...body].join('\n');
             } },
-            { trigger: 'h1', label: 'Tiêu đề lớn', description: 'Tiêu đề cấp 1', value: '# Tiêu đề' },
-            { trigger: 'h2', label: 'Tiêu đề', description: 'Tiêu đề cấp 2', value: '## Tiêu đề' },
-            { trigger: 'h3', label: 'Tiêu đề nhỏ', description: 'Tiêu đề cấp 3', value: '### Tiêu đề' },
-            { trigger: 'bold', label: 'In đậm', description: 'Văn bản nhấn mạnh', value: '**văn bản**' },
-            { trigger: 'italic', label: 'In nghiêng', description: 'Văn bản nhấn nhẹ', value: '*văn bản*' },
-            { trigger: 'strike', label: 'Gạch ngang', description: 'Văn bản đã xóa', value: '~~văn bản~~' },
-            { trigger: 'inline-code', label: 'Mã nội dòng', description: 'Đoạn mã trong câu', value: '`code`' },
-            { trigger: 'code', label: 'Khối mã', description: 'Chọn ngôn ngữ', fields: [
-                { name: 'language', label: 'Ngôn ngữ', type: 'text', value: 'javascript', pattern: '[a-zA-Z0-9_+#.\\-]*' },
+            { trigger: 'h1', label: 'Heading 1', description: 'Level 1 heading', value: '# Heading' },
+            { trigger: 'h2', label: 'Heading 2', description: 'Level 2 heading', value: '## Heading' },
+            { trigger: 'h3', label: 'Heading 3', description: 'Level 3 heading', value: '### Heading' },
+            { trigger: 'bold', label: 'Bold', description: 'Strong emphasis', value: '**text**' },
+            { trigger: 'italic', label: 'Italic', description: 'Light emphasis', value: '*text*' },
+            { trigger: 'strike', label: 'Strikethrough', description: 'Deleted text', value: '~~text~~' },
+            { trigger: 'inline-code', label: 'Inline code', description: 'Code within a sentence', value: '`code`' },
+            { trigger: 'code', label: 'Code block', description: 'Choose a language', fields: [
+                { name: 'language', label: 'Language', type: 'text', value: 'javascript', pattern: '[a-zA-Z0-9_+#.\\-]*' },
             ], build: ({ language }) => `\`\`\`${language}\ncode\n\`\`\`` },
-            { trigger: 'quote', label: 'Trích dẫn', description: 'Blockquote', value: '> Nội dung trích dẫn' },
-            { trigger: 'bullet-list', label: 'Danh sách', description: 'Danh sách gạch đầu dòng', value: '- Mục 1\n- Mục 2' },
-            { trigger: 'numbered-list', label: 'Danh sách số', description: 'Danh sách có thứ tự', value: '1. Mục 1\n2. Mục 2' },
-            { trigger: 'task-list', label: 'Danh sách việc', description: 'Danh sách checkbox', value: '- [ ] Việc cần làm' },
-            { trigger: 'link', label: 'Liên kết', description: 'Nhập văn bản và URL', fields: [
-                { name: 'text', label: 'Văn bản liên kết', type: 'text', value: '' },
+            { trigger: 'quote', label: 'Quote', description: 'Blockquote', value: '> Quoted text' },
+            { trigger: 'bullet-list', label: 'Bullet list', description: 'Unordered list', value: '- Item 1\n- Item 2' },
+            { trigger: 'numbered-list', label: 'Numbered list', description: 'Ordered list', value: '1. Item 1\n2. Item 2' },
+            { trigger: 'task-list', label: 'Task list', description: 'Checkbox list', value: '- [ ] Task' },
+            { trigger: 'link', label: 'Link', description: 'Enter text and URL', fields: [
+                { name: 'text', label: 'Link text', type: 'text', value: '' },
                 { name: 'url', label: 'URL', type: 'url', value: '', required: true },
             ], build: ({ text, url }) => `[${escapeMarkdownLabel(text)}](<${escapeMarkdownUrl(url)}>)` },
-            { trigger: 'image', label: 'Hình ảnh', description: 'Nhập mô tả và URL ảnh', fields: [
-                { name: 'text', label: 'Mô tả ảnh', type: 'text', value: '' },
-                { name: 'url', label: 'URL ảnh', type: 'url', value: '', required: true },
+            { trigger: 'image', label: 'Image', description: 'Enter alt text and image URL', fields: [
+                { name: 'text', label: 'Alt text', type: 'text', value: '' },
+                { name: 'url', label: 'Image URL', type: 'url', value: '', required: true },
             ], build: ({ text, url }) => `![${escapeMarkdownLabel(text)}](<${escapeMarkdownUrl(url)}>)` },
-            { trigger: 'hr', label: 'Đường phân cách', description: 'Ngăn cách các phần', value: '\n---\n' },
+            { trigger: 'hr', label: 'Divider', description: 'Separate sections', value: '\n---\n' },
         ];
 
         const escapeMarkdownLabel = (text) => text.replace(/[\\[\]]/g, '\\$&');
@@ -446,7 +446,7 @@
             replacementRange = { start: cursor - query.length - 1, end: cursor };
             selectedCommand = null;
             activeSuggestion = 0;
-            commandTitle.textContent = 'Lệnh Markdown';
+            commandTitle.textContent = 'Markdown commands';
             commandFilter.textContent = `/${query}`;
             commandConfig.hidden = true;
             noCommands.hidden = suggestionItems.length > 0;
@@ -457,12 +457,12 @@
                 button.role = 'option';
                 button.id = `markdown-command-${item.trigger}`;
                 button.setAttribute('aria-selected', String(index === activeSuggestion));
-                button.className = 'flex flex-col rounded-md px-3 py-2 text-left hover:bg-[#272a30] aria-selected:bg-sky-500/10';
+                button.className = 'flex flex-col rounded-md px-3 py-2 text-left hover:bg-surface-high aria-selected:bg-sky-500/10';
                 const title = document.createElement('span');
-                title.className = 'text-sm text-[#e1e2ea]';
+                title.className = 'text-sm text-on-surface';
                 title.textContent = item.label;
                 const description = document.createElement('span');
-                description.className = 'text-xs text-[#87929a]';
+                description.className = 'text-xs text-outline';
                 description.textContent = `/${item.trigger} · ${item.description}`;
                 button.append(title, description);
                 button.addEventListener('mousedown', (event) => event.preventDefault());
@@ -501,13 +501,13 @@
             commandFilter.textContent = `/${item.trigger}`;
             commandFields.replaceChildren(...item.fields.map((field) => {
                 const label = document.createElement('label');
-                label.className = 'grid gap-1 text-sm text-[#e1e2ea]';
+                label.className = 'grid gap-1 text-sm text-on-surface';
                 label.textContent = field.label;
                 const input = document.createElement('input');
                 input.dataset.commandField = field.name;
                 input.type = field.type;
                 input.value = field.value;
-                input.className = 'w-full rounded-lg border border-[#32353b] bg-[#191c21] px-3 py-2 text-[#e1e2ea] focus:border-sky-400 focus:outline-none';
+                input.className = 'w-full rounded-lg border border-surface-highest bg-surface-low px-3 py-2 text-on-surface focus:border-sky-400 focus:outline-none';
                 for (const attribute of ['min', 'max', 'pattern']) {
                     if (field[attribute] !== undefined) {
                         input.setAttribute(attribute, field[attribute]);
@@ -530,12 +530,12 @@
             const values = {};
             for (const input of commandFields.querySelectorAll('input')) {
                 const field = selectedCommand.fields.find((field) => field.name === input.dataset.commandField);
-                input.setCustomValidity(field.required && !input.value.trim() ? 'Vui lòng nhập URL.' : '');
+                input.setCustomValidity(field.required && !input.value.trim() ? 'Please enter a URL.' : '');
                 if (!input.reportValidity()) {
                     return;
                 }
                 if (input.type === 'number' && !input.value) {
-                    input.setCustomValidity('Vui lòng nhập số nguyên trong giới hạn.');
+                    input.setCustomValidity('Please enter a whole number within the allowed range.');
                     input.reportValidity();
                     return;
                 }
@@ -674,7 +674,7 @@
         const syncSidebarToggle = () => {
             const collapsed = document.documentElement.classList.contains('sidebar-collapsed');
             sidebarToggle.setAttribute('aria-pressed', String(collapsed));
-            sidebarToggle.querySelector('[data-sidebar-toggle-label]').textContent = collapsed ? 'Hiện sidebar' : 'Ẩn sidebar';
+            sidebarToggle.querySelector('[data-sidebar-toggle-label]').textContent = collapsed ? 'Show sidebar' : 'Hide sidebar';
             sidebarToggle.querySelector('.material-symbols-outlined').textContent = collapsed ? 'left_panel_open' : 'left_panel_close';
         };
         sidebarToggle?.addEventListener('click', () => {
@@ -712,7 +712,7 @@
             const removeButton = document.createElement('button');
             removeButton.type = 'button';
             removeButton.dataset.removeNewTag = '';
-            removeButton.setAttribute('aria-label', `Xóa tag ${tagName}`);
+            removeButton.setAttribute('aria-label', `Remove tag ${tagName}`);
             removeButton.className = 'text-sky-200 hover:text-white';
             removeButton.innerHTML = '&times;';
 
