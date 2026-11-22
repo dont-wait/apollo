@@ -168,8 +168,17 @@ window.aiPipeline = (initialRuns, url, initialListing = null) => ({
     },
 
     async act(run, action) {
-        if (action === 'cancel' && ! window.confirm(`Hủy job #${run.id}? Phần đang xử lý sẽ bị bỏ và job không thể chạy lại.`)) return;
         if (this.acting[run.id]) return;
+
+        if (action === 'cancel') {
+            const confirmed = await window.showConfirmModal({
+                title: 'Hủy job',
+                message: `Hủy job #${run.id}? Phần đang xử lý sẽ bị bỏ và job không thể chạy lại.`,
+                confirmText: 'Hủy job',
+            });
+
+            if (! confirmed) return;
+        }
 
         this.acting = { ...this.acting, [run.id]: action };
         this.actionError = '';
@@ -290,6 +299,8 @@ window.analyzePicker = ({ listUrl, analyzeUrl, csrf }) => ({
     },
 
     close() {
+        // Escape should only dismiss the confirm popup when it is open on top of this dialog.
+        if (document.getElementById('confirmModal')?.classList.contains('flex')) return;
         this.open = false;
     },
 
@@ -375,8 +386,13 @@ window.analyzePicker = ({ listUrl, analyzeUrl, csrf }) => ({
         this.send({ article_ids: Object.keys(this.selected).map(Number) });
     },
 
-    submitAllPending() {
-        if (! window.confirm('Phân tích TẤT CẢ bài chưa được phân tích? Số lượng lớn có thể làm mô hình chạy rất lâu.')) return;
-        this.send({});
+    async submitAllPending() {
+        const confirmed = await window.showConfirmModal({
+            title: 'Phân tích tất cả bài',
+            message: 'Phân tích TẤT CẢ bài chưa được phân tích? Số lượng lớn có thể làm mô hình chạy rất lâu.',
+            confirmText: 'Phân tích tất cả',
+        });
+
+        if (confirmed) this.send({});
     },
 });

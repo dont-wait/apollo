@@ -32,4 +32,5 @@
         </details>
     </div>
 </div>
+<x-confirm-modal cancelText="Đóng" />
 @endsection
