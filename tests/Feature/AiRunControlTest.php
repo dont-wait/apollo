@@ -168,7 +168,10 @@ class AiRunControlTest extends TestCase
             ->assertOk()
             ->assertSee("act(run, 'pause')", false)
             ->assertSee("act(run, 'cancel')", false)
-            ->assertSee('data-csrf', false);
+            ->assertSee('data-csrf', false)
+            // Alpine disables a button whose dotted :disabled expression is undefined, so it must be a real boolean.
+            ->assertSee(':disabled="isActing(run)"', false)
+            ->assertDontSee(':disabled="acting[', false);
         $this->getJson('/admin/automation-runs?monitor=1')
             ->assertOk()
             ->assertJsonPath('current_runs.0.status', 'PAUSED');

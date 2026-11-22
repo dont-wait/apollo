@@ -161,6 +161,12 @@ window.aiPipeline = (initialRuns, url, initialListing = null) => ({
     acting: {},
     actionError: '',
 
+    // Must return a real boolean: Alpine turns an undefined result of a dotted :disabled expression
+    // into '' and then disables the button.
+    isActing(run) {
+        return Boolean(this.acting[run.id]);
+    },
+
     async act(run, action) {
         if (action === 'cancel' && ! window.confirm(`Hủy job #${run.id}? Phần đang xử lý sẽ bị bỏ và job không thể chạy lại.`)) return;
         if (this.acting[run.id]) return;
