@@ -219,3 +219,119 @@ document.addEventListener('submit', async (event) => {
         refreshSelection(form);
     }
 });
+
+// "Choose articles to analyze" dialog on the Pipeline page.
+window.analyzePicker = ({ listUrl, analyzeUrl, csrf }) => ({
+    open: false,
+    loading: false,
+    submitting: false,
+    error: '',
+    query: '',
+    filter: 'pending',
+    items: [],
+    nextPage: null,
+    total: 0,
+    selected: {},
+    searchTimer: null,
+
+    get count() {
+        return Object.keys(this.selected).length;
+    },
+
+    openPicker() {
+        this.open = true;
+        this.error = '';
+        if (this.items.length === 0) this.load(true);
+    },
+
+    close() {
+        this.open = false;
+    },
+
+    search() {
+        window.clearTimeout(this.searchTimer);
+        this.searchTimer = window.setTimeout(() => this.load(true), 300);
+    },
+
+    setFilter(filter) {
+        this.filter = filter;
+        this.load(true);
+    },
+
+    async load(reset = false) {
+        if (this.loading) return;
+        this.loading = true;
+        this.error = '';
+        const page = reset ? 1 : this.nextPage;
+
+        try {
+            const params = new URLSearchParams({ picker: '1', filter: this.filter, q: this.query, page: String(page) });
+            const response = await fetch(`${listUrl}?${params}`, { headers: { Accept: 'application/json' } });
+            if (! response.ok) throw new Error('Không tải được danh sách bài.');
+            const result = await response.json();
+            this.items = reset ? result.data : [...this.items, ...result.data];
+            this.nextPage = result.next_page;
+            this.total = result.total;
+        } catch (error) {
+            this.error = error.message;
+        } finally {
+            this.loading = false;
+        }
+    },
+
+    isSelected(item) {
+        return Object.prototype.hasOwnProperty.call(this.selected, item.id);
+    },
+
+    toggle(item) {
+        if (! item.selectable) return;
+        const next = { ...this.selected };
+        if (this.isSelected(item)) delete next[item.id]; else next[item.id] = item.title;
+        this.selected = next;
+    },
+
+    selectVisible() {
+        const next = { ...this.selected };
+        this.items.filter((item) => item.selectable).forEach((item) => { next[item.id] = item.title; });
+        this.selected = next;
+    },
+
+    clearSelection() {
+        this.selected = {};
+    },
+
+    async send(body) {
+        this.submitting = true;
+        this.error = '';
+
+        try {
+            const response = await fetch(analyzeUrl, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
+                body: JSON.stringify(body),
+            });
+            const result = await response.json();
+            if (! response.ok) {
+                throw new Error(Object.values(result.errors || {}).flat().join(' ') || result.message || 'Thao tác thất bại.');
+            }
+            window.dispatchEvent(new CustomEvent('ai-run-started', { detail: result }));
+            this.selected = {};
+            this.items = [];
+            this.open = false;
+        } catch (error) {
+            this.error = error.message;
+        } finally {
+            this.submitting = false;
+        }
+    },
+
+    submitSelected() {
+        if (this.count === 0) return;
+        this.send({ article_ids: Object.keys(this.selected).map(Number) });
+    },
+
+    submitAllPending() {
+        if (! window.confirm('Phân tích TẤT CẢ bài chưa được phân tích? Số lượng lớn có thể làm mô hình chạy rất lâu.')) return;
+        this.send({});
+    },
+});

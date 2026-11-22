@@ -150,4 +150,63 @@ class AiAnalysisSelectionTest extends TestCase
             ->assertSeeText('0 selected')
             ->assertSee('title="Duplicate article"', false);
     }
+
+    public function test_pipeline_analyze_button_opens_the_article_picker(): void
+    {
+        $this->actingAs(User::factory()->admin()->create());
+
+        $this->get('/admin/automation-runs')
+            ->assertOk()
+            ->assertSee('open-analyze-picker', false)
+            ->assertSee('analyzePicker(', false)
+            ->assertSeeText('Chọn bài để phân tích');
+    }
+
+    public function test_picker_feed_lists_pending_articles_without_exposing_their_bodies(): void
+    {
+        $pending = AiArticle::factory()->create(['title' => 'Pending article', 'raw_content' => 'SECRET BODY']);
+        AiArticle::factory()->create(['title' => 'Done article', 'status' => 'ANALYZED'])
+            ->analyses()->create(['version' => 1, 'is_current' => true, 'status' => 'SUCCESS', 'summary' => 'S']);
+        $original = AiArticle::factory()->create(['title' => 'Original']);
+        AiArticle::factory()->create(['title' => 'Copy', 'duplicate_of' => $original->id]);
+        AiArticle::factory()->create(['title' => 'Empty article', 'raw_summary' => null, 'raw_content' => '']);
+        $this->actingAs(User::factory()->admin()->create());
+
+        $response = $this->getJson('/admin/ai-articles?picker=1')->assertOk();
+        $titles = collect($response->json('data'))->pluck('title');
+
+        $this->assertEqualsCanonicalizing(['Pending article', 'Original'], $titles->all());
+        $this->assertStringNotContainsString('SECRET BODY', $response->getContent());
+        $response->assertJsonPath('total', 2)->assertJsonPath('next_page', null);
+        $this->assertTrue(collect($response->json('data'))->firstWhere('id', $pending->id)['selectable']);
+    }
+
+    public function test_picker_feed_can_show_everything_and_search_by_title(): void
+    {
+        $original = AiArticle::factory()->create(['title' => 'Quantum original']);
+        AiArticle::factory()->create(['title' => 'Quantum copy', 'duplicate_of' => $original->id]);
+        AiArticle::factory()->create(['title' => 'Something else']);
+        $this->actingAs(User::factory()->admin()->create());
+
+        $data = $this->getJson('/admin/ai-articles?picker=1&filter=all&q=Quantum')->assertOk()->json('data');
+
+        $this->assertCount(2, $data);
+        $copy = collect($data)->firstWhere('title', 'Quantum copy');
+        $this->assertFalse($copy['selectable']);
+        $this->assertSame('Bài trùng', $copy['reason']);
+        $this->assertSame('DUPLICATE', $copy['status']);
+    }
+
+    public function test_picker_feed_is_paginated_by_twenty(): void
+    {
+        AiArticle::factory()->count(23)->create();
+        $this->actingAs(User::factory()->admin()->create());
+
+        $this->getJson('/admin/ai-articles?picker=1')
+            ->assertOk()
+            ->assertJsonCount(20, 'data')
+            ->assertJsonPath('next_page', 2)
+            ->assertJsonPath('total', 23);
+        $this->getJson('/admin/ai-articles?picker=1&page=2')->assertJsonCount(3, 'data')->assertJsonPath('next_page', null);
+    }
 }
