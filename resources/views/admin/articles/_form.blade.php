@@ -202,10 +202,12 @@
                         </div>
                     </div>
                 </section>
-                <div class="toxic-editor" data-toxic-editor data-toxic-field="markdown_content">
+                <div class="toxic-editor toxic-editor--numbered" data-toxic-editor data-toxic-field="markdown_content">
+                    <div class="line-gutter" aria-hidden="true"><div data-line-gutter-inner></div></div>
                     <div class="toxic-editor__overlay rounded-b-lg px-3 py-3 font-mono text-sm leading-6" data-toxic-overlay aria-hidden="true"></div>
                     <textarea id="markdown_content" name="markdown_content" rows="18" required aria-controls="markdown-suggestions" aria-expanded="false" aria-autocomplete="list" aria-describedby="toxic-summary" class="toxic-editor__textarea relative z-10 w-full rounded-b-lg border border-surface-highest bg-surface-lowest px-3 py-3 font-mono text-sm leading-6 text-on-surface placeholder:text-outline focus:border-sky-400 focus:outline-none" placeholder="# Article title">{{ old('markdown_content', $article?->markdown_content) }}</textarea>
                 </div>
+                <p data-editor-status class="mt-1.5 font-mono text-xs text-outline" aria-live="off">Ln 1, Col 1</p>
             </div>
             <div id="markdown-preview-panel" data-markdown-panel="preview" class="min-w-0">
                 <p data-markdown-preview-empty data-toxic-preview-empty="markdown_content" class="min-h-[27rem] rounded-lg border border-surface-highest bg-surface-lowest px-4 py-3 text-sm text-outline">Nothing to preview yet</p>
@@ -228,6 +230,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/lib/marked.umd.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js"></script>
+<script src="{{ asset('code-blocks.js') }}"></script>
 <script>
     (() => {
         const publicationStatus = document.querySelector('[data-publication-status]');
@@ -300,19 +304,109 @@
             return template.innerHTML;
         };
 
+        // Source line of every list item, in document (pre-order) order.
+        const listItemLines = (list, startLine) => {
+            const lines = [];
+            let cursor = 0;
+            const walk = (items) => items.forEach((item) => {
+                const at = list.raw.indexOf(item.raw, cursor);
+                if (at === -1) {
+                    lines.push((lines.at(-1) ?? startLine) + 1);
+                } else {
+                    cursor = at + 1;
+                    lines.push(startLine + (list.raw.slice(0, at).match(/\n/g) || []).length);
+                }
+                (item.tokens || []).filter((child) => child.type === 'list').forEach((child) => walk(child.items));
+            });
+            walk(list.items);
+
+            return lines;
+        };
+
+        // Render each top-level block on its own and tag it with its source line range,
+        // so the editor and the preview can jump to each other.
+        const renderMarkdownBlocks = (markdown) => {
+            // Locate every token in the real source instead of summing token lengths: marked drops
+            // some source (e.g. link reference definitions), which would shift every later block.
+            let cursor = 0;
+            let line = 0;
+            const advance = (to) => {
+                line += (markdown.slice(cursor, to).match(/\n/g) || []).length;
+                cursor = to;
+            };
+
+            return marked.lexer(markdown).map((token) => {
+                if (token.type !== 'space') {
+                    const at = markdown.indexOf(token.raw, cursor);
+                    if (at !== -1) {
+                        advance(at);
+                    }
+                }
+
+                const start = line;
+                const last = start + (token.raw.replace(/\n+$/, '').match(/\n/g) || []).length;
+                advance(Math.min(markdown.length, cursor + token.raw.length));
+
+                if (token.type === 'space') {
+                    return '';
+                }
+
+                const attrs = [`data-kind="${token.type}"`, `data-line-start="${start}"`, `data-line-end="${last}"`];
+                if (token.type === 'code' && token.codeBlockStyle !== 'indented') {
+                    attrs.push('data-fenced="true"');
+                }
+                if (token.type === 'list') {
+                    attrs.push(`data-item-lines="${listItemLines(token, start).join(',')}"`);
+                }
+
+                return `<div class="md-src" ${attrs.join(' ')}>${marked.parser([token])}</div>`;
+            }).join('');
+        };
+
+        // Give list items and table rows their own source line after sanitizing.
+        const annotateSourceLines = () => {
+            markdownPreviewContent.querySelectorAll('.md-src').forEach((block) => {
+                const start = Number(block.dataset.lineStart);
+                const itemLines = (block.dataset.itemLines || '').split(',');
+                const end = Number(block.dataset.lineEnd);
+                block.dataset.lines = end > start ? `L${start + 1}–${end + 1}` : `L${start + 1}`;
+
+                if (block.dataset.kind === 'list') {
+                    block.querySelectorAll('li').forEach((item, index) => {
+                        if (itemLines[index] !== undefined && itemLines[index] !== '') {
+                            item.dataset.line = itemLines[index];
+                        }
+                    });
+                }
+
+                if (block.dataset.kind === 'table') {
+                    block.querySelectorAll('tr').forEach((row, index) => {
+                        row.dataset.line = String(start + (index === 0 ? 0 : index + 1));
+                    });
+                }
+            });
+        };
+
         const renderMarkdownPreview = () => {
             if (markdownPreviewContent.dataset.toxicPreviewLocked === 'true') {
                 return;
             }
 
-            const markdown = markdownInput.value.trim();
-            const hasMarkdown = markdown.length > 0;
+            const markdown = markdownInput.value;
+            const hasMarkdown = markdown.trim().length > 0;
 
             markdownPreviewEmpty.hidden = hasMarkdown;
             markdownPreviewContent.hidden = !hasMarkdown;
             markdownPreviewContent.innerHTML = hasMarkdown
-                ? DOMPurify.sanitize(renderGithubAlerts(marked.parse(markdown)))
+                ? DOMPurify.sanitize(renderGithubAlerts(renderMarkdownBlocks(markdown)))
                 : '';
+
+            annotateSourceLines();
+            markdownPreviewContent.querySelectorAll('a[href]').forEach((link) => {
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+            });
+            window.enhanceCodeBlocks?.(markdownPreviewContent);
         };
 
         const suggestions = document.querySelector('[data-markdown-suggestions]');
@@ -623,6 +717,248 @@
         }, true);
         window.addEventListener('resize', positionCommands);
 
+        // ---- Two-way position sync between editor and preview ----
+        let ignoreEditorScrollUntil = 0;
+        let activeBlock = null;
+
+        const mirrorProps = ['boxSizing', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing', 'lineHeight', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth', 'wordSpacing', 'tabSize', 'textIndent'];
+        const textareaOffsetTop = (offset) => {
+            const style = getComputedStyle(markdownInput);
+            const mirror = document.createElement('div');
+            mirrorProps.forEach((property) => { mirror.style[property] = style[property]; });
+            Object.assign(mirror.style, { position: 'absolute', visibility: 'hidden', top: '0', left: '-9999px', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', width: `${markdownInput.clientWidth + parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth)}px` });
+            mirror.textContent = markdownInput.value.slice(0, offset);
+            const marker = document.createElement('span');
+            marker.textContent = '.';
+            mirror.append(marker);
+            document.body.append(mirror);
+            const top = marker.offsetTop;
+            mirror.remove();
+
+            return top;
+        };
+
+        const lineStartOffset = (line) => {
+            let offset = 0;
+            for (let index = 0; index < line; index += 1) {
+                const next = markdownInput.value.indexOf('\n', offset);
+                if (next === -1) {
+                    return markdownInput.value.length;
+                }
+                offset = next + 1;
+            }
+
+            return offset;
+        };
+
+        const setActiveBlock = (block) => {
+            if (activeBlock === block) {
+                return;
+            }
+            activeBlock?.classList.remove('md-src--active');
+            activeBlock = block;
+            block?.classList.add('md-src--active');
+        };
+
+        const blockForLine = (line) => {
+            const blocks = [...markdownPreviewContent.querySelectorAll('.md-src')];
+            const exact = blocks.find((block) => line >= Number(block.dataset.lineStart) && line <= Number(block.dataset.lineEnd));
+
+            return exact ?? blocks.filter((block) => Number(block.dataset.lineStart) <= line).pop() ?? blocks[0] ?? null;
+        };
+
+        const codeLineHeight = (code) => parseFloat(getComputedStyle(code).lineHeight) || 24;
+
+        // Source line for a click inside a preview block.
+        const sourceLineAt = (block, target, clientY) => {
+            const start = Number(block.dataset.lineStart);
+            const end = Number(block.dataset.lineEnd);
+            const marked = target.closest('[data-line]');
+
+            if (marked && block.contains(marked)) {
+                return Number(marked.dataset.line);
+            }
+
+            const code = target.closest('pre code');
+            if (code && block.dataset.kind === 'code') {
+                const rows = code.textContent.replace(/\n$/, '').split('\n').length;
+                const index = Math.min(rows - 1, Math.max(0, Math.floor((clientY - code.getBoundingClientRect().top) / codeLineHeight(code))));
+
+                return Math.min(end, start + (block.dataset.fenced ? 1 : 0) + index);
+            }
+
+            const box = block.getBoundingClientRect();
+            const fraction = box.height > 0 ? (clientY - box.top) / box.height : 0;
+
+            return Math.min(end, start + Math.floor(Math.max(0, fraction) * (end - start + 1)));
+        };
+
+        // Preview scroll position (relative to the preview content) for a source line.
+        const previewYForLine = (line, block) => {
+            const base = markdownPreviewContent.scrollTop - markdownPreviewContent.getBoundingClientRect().top;
+            const start = Number(block.dataset.lineStart);
+            const end = Number(block.dataset.lineEnd);
+            const candidates = [...block.querySelectorAll('[data-line]')].filter((element) => Number(element.dataset.line) <= line);
+
+            if (candidates.length > 0) {
+                const best = candidates.reduce((current, element) => (Number(element.dataset.line) >= Number(current.dataset.line) ? element : current));
+
+                return best.getBoundingClientRect().top + base;
+            }
+
+            const code = block.dataset.kind === 'code' ? block.querySelector('pre code') : null;
+            if (code) {
+                const index = Math.max(0, line - start - (block.dataset.fenced ? 1 : 0));
+
+                return code.getBoundingClientRect().top + base + index * codeLineHeight(code);
+            }
+
+            const box = block.getBoundingClientRect();
+            const fraction = end > start ? Math.min(1, Math.max(0, (line - start) / (end - start + 1))) : 0;
+
+            return box.top + base + fraction * box.height;
+        };
+
+        // Editor caret -> preview.
+        const syncPreviewToCaret = ({ smooth = true, onlyIfHidden = false } = {}) => {
+            if (markdownLayout.dataset.view !== 'split') {
+                return;
+            }
+
+            const line = markdownInput.value.slice(0, markdownInput.selectionStart).split('\n').length - 1;
+            const block = blockForLine(line);
+            setActiveBlock(block);
+
+            if (!block) {
+                return;
+            }
+
+            const targetY = previewYForLine(line, block);
+            const visibleTop = markdownPreviewContent.scrollTop;
+            const visibleBottom = visibleTop + markdownPreviewContent.clientHeight;
+
+            if (onlyIfHidden && targetY > visibleTop + 24 && targetY < visibleBottom - 24) {
+                return;
+            }
+
+            markdownPreviewContent.scrollTo({ top: Math.max(0, targetY - markdownPreviewContent.clientHeight * 0.35), behavior: smooth ? 'smooth' : 'auto' });
+        };
+
+        // Preview click -> editor.
+        markdownPreviewContent.addEventListener('click', (event) => {
+            if (markdownLayout.dataset.view !== 'split' || window.getSelection()?.toString() || event.target.closest('a, button')) {
+                return;
+            }
+
+            const block = event.target.closest('.md-src');
+            if (!block) {
+                return;
+            }
+
+            const line = sourceLineAt(block, event.target, event.clientY);
+            const from = lineStartOffset(line);
+            const lineEnd = markdownInput.value.indexOf('\n', from);
+
+            setActiveBlock(block);
+            ignoreEditorScrollUntil = performance.now() + 300;
+            markdownInput.focus({ preventScroll: true });
+            markdownInput.setSelectionRange(from, lineEnd === -1 ? markdownInput.value.length : lineEnd);
+            markdownInput.scrollTo({ top: Math.max(0, textareaOffsetTop(from) - markdownInput.clientHeight * 0.35), behavior: 'smooth' });
+        });
+
+        markdownInput.addEventListener('click', () => {
+            ignoreEditorScrollUntil = performance.now() + 300;
+            syncPreviewToCaret();
+        });
+        markdownInput.addEventListener('keyup', (event) => {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End'].includes(event.key)) {
+                ignoreEditorScrollUntil = performance.now() + 300;
+                syncPreviewToCaret();
+            }
+        });
+
+        // ---- Line number gutter + caret status ----
+        const gutterInner = document.querySelector('[data-line-gutter-inner]');
+        const editorStatus = document.querySelector('[data-editor-status]');
+        let gutterKey = '';
+        let activeGutterRow = null;
+
+        const markActiveLine = () => {
+            const before = markdownInput.value.slice(0, markdownInput.selectionStart);
+            const line = before.split('\n').length - 1;
+            const column = before.length - (before.lastIndexOf('\n') + 1) + 1;
+            const total = markdownInput.value.split('\n').length;
+
+            activeGutterRow?.classList.remove('is-active');
+            activeGutterRow = gutterInner?.children[line] ?? null;
+            activeGutterRow?.classList.add('is-active');
+
+            if (editorStatus) {
+                editorStatus.textContent = `Ln ${line + 1}, Col ${column} · ${total} ${total === 1 ? 'line' : 'lines'}`;
+            }
+        };
+
+        const syncGutterScroll = () => {
+            if (gutterInner) {
+                gutterInner.style.transform = `translateY(${-markdownInput.scrollTop}px)`;
+            }
+        };
+
+        // One gutter row per source line, as tall as that line is once wrapped.
+        const renderGutter = () => {
+            if (!gutterInner || markdownInput.clientWidth === 0) {
+                return;
+            }
+
+            const style = getComputedStyle(markdownInput);
+            const mirror = document.createElement('div');
+            mirrorProps.forEach((property) => { mirror.style[property] = style[property]; });
+            Object.assign(mirror.style, { position: 'absolute', visibility: 'hidden', top: '0', left: '-9999px', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', width: `${markdownInput.clientWidth + parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth)}px` });
+            markdownInput.value.split('\n').forEach((text) => {
+                const row = document.createElement('div');
+                row.textContent = text === '' ? '\u200b' : text;
+                mirror.append(row);
+            });
+            document.body.append(mirror);
+            const heights = [...mirror.children].map((row) => row.offsetHeight);
+            mirror.remove();
+
+            const key = `${style.paddingTop}|${style.lineHeight}|${heights.join(',')}`;
+            if (key !== gutterKey) {
+                gutterKey = key;
+                gutterInner.style.paddingTop = style.paddingTop;
+                gutterInner.replaceChildren(...heights.map((height, index) => {
+                    const row = document.createElement('div');
+                    row.textContent = String(index + 1);
+                    row.style.height = `${height}px`;
+                    row.style.lineHeight = style.lineHeight;
+
+                    return row;
+                }));
+                activeGutterRow = null;
+            }
+
+            syncGutterScroll();
+            markActiveLine();
+        };
+
+        let gutterFrame = null;
+        const scheduleGutter = () => {
+            cancelAnimationFrame(gutterFrame);
+            gutterFrame = requestAnimationFrame(renderGutter);
+        };
+        markdownInput.addEventListener('input', scheduleGutter);
+        markdownInput.addEventListener('scroll', syncGutterScroll, { passive: true });
+        document.addEventListener('selectionchange', () => {
+            if (document.activeElement === markdownInput) {
+                markActiveLine();
+            }
+        });
+        window.addEventListener('resize', scheduleGutter);
+        if (window.ResizeObserver) {
+            new ResizeObserver(scheduleGutter).observe(markdownInput);
+        }
+
         const selectMarkdownView = (view) => {
             closeCommands();
             markdownLayout.dataset.view = view;
@@ -636,6 +972,7 @@
 
             markdownInput.required = view !== 'preview';
             renderMarkdownPreview();
+            scheduleGutter();
 
             try {
                 localStorage.setItem('apollo.markdownView', view);
@@ -646,16 +983,21 @@
             button.addEventListener('click', () => selectMarkdownView(button.dataset.markdownView));
         });
 
-        // Live preview: render on every keystroke, coalesced to one render per frame.
+        // Live preview: render on every keystroke, coalesced to one render per frame,
+        // then keep the block being edited in view.
         let previewFrame = null;
         markdownInput.addEventListener('input', () => {
             cancelAnimationFrame(previewFrame);
-            previewFrame = requestAnimationFrame(renderMarkdownPreview);
+            previewFrame = requestAnimationFrame(() => {
+                renderMarkdownPreview();
+                ignoreEditorScrollUntil = performance.now() + 300;
+                syncPreviewToCaret({ smooth: false, onlyIfHidden: true });
+            });
         });
 
-        // Keep preview scroll proportional to the editor scroll in split view.
+        // Wheel/drag scrolling of the editor keeps the preview roughly aligned.
         markdownInput.addEventListener('scroll', () => {
-            if (markdownLayout.dataset.view !== 'split') {
+            if (markdownLayout.dataset.view !== 'split' || performance.now() < ignoreEditorScrollUntil) {
                 return;
             }
 

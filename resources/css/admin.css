@@ -176,3 +176,21 @@
 [data-markdown-layout][data-view='split'] .toxic-editor__textarea { height: 40rem; resize: none; }
 [data-markdown-layout][data-view='split'] [data-markdown-preview-content],
 [data-markdown-layout][data-view='split'] [data-markdown-preview-empty] { height: 40rem; max-height: none; }
+
+/* Click-to-sync blocks in the live preview */
+.markdown-preview { position: relative; }
+.markdown-preview > .md-src:first-child > :first-child { margin-top: 0; }
+.md-src { border-radius: 0.375rem; cursor: text; transition: background-color 0.15s; }
+.md-src--active { background: color-mix(in srgb, var(--color-primary) 8%, transparent); box-shadow: 0 0 0 0.35rem color-mix(in srgb, var(--color-primary) 8%, transparent); }
+
+/* Editor line-number gutter */
+.toxic-editor--numbered .toxic-editor__textarea,
+.toxic-editor--numbered .toxic-editor__overlay { padding-left: 3.75rem !important; }
+.line-gutter { position: absolute; z-index: 20; top: 1px; bottom: 1px; left: 1px; width: 3rem; overflow: hidden; pointer-events: none; border-right: 1px solid var(--color-surface-highest); border-radius: 0.5rem 0 0 0.5rem; background: var(--color-surface-low); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.75rem; color: var(--color-outline); text-align: right; user-select: none; }
+.line-gutter > div > div { padding-right: 0.6rem; }
+.line-gutter .is-active { color: var(--color-primary); font-weight: 600; background: color-mix(in srgb, var(--color-primary) 10%, transparent); }
+
+/* Source line badge on hovered/active preview blocks */
+.md-src { position: relative; }
+.md-src:hover::after, .md-src--active::after { content: attr(data-lines); position: absolute; top: 0; right: 0; border-radius: 0.375rem; background: var(--color-surface-high); padding: 0.05rem 0.4rem; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.65rem; line-height: 1.4; color: var(--color-on-surface-variant); pointer-events: none; }
+.md-src--active::after { background: var(--color-primary); color: var(--color-on-primary); }
