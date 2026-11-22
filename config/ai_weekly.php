@@ -13,8 +13,8 @@ return [
     'collect_schedule' => env('AI_WEEKLY_COLLECT_SCHEDULE', '0 */6 * * *'),
     'analyze_schedule' => env('AI_WEEKLY_ANALYZE_SCHEDULE', '30 */6 * * *'),
     'review_schedule' => env('AI_WEEKLY_REVIEW_SCHEDULE', '0 8 * * 1'),
-    // Max articles analyzed per run; the rest stay pending for the next scheduled run. 0 = no limit.
-    'analyze_batch_size' => (int) env('AI_WEEKLY_ANALYZE_BATCH_SIZE', 20),
+    // Max articles one ANALYZE job handles (also the most you can pick by hand). 0 = no limit.
+    'analyze_batch_size' => (int) env('AI_WEEKLY_ANALYZE_BATCH_SIZE', 5),
     'minimum_articles' => (int) env('AI_WEEKLY_MIN_ARTICLES', 5),
     'minimum_sources' => (int) env('AI_WEEKLY_MIN_SOURCES', 2),
     'max_stories' => (int) env('AI_WEEKLY_MAX_STORIES', 10),

@@ -14,7 +14,10 @@ class AiArticleController extends Controller
     {
         $articles = AiArticle::query()->with('source:id,name')->orderByDesc('collected_at')->orderByDesc('id')->paginate(30);
 
-        return $request->expectsJson() ? response()->json($articles) : view('admin.ai-weekly.articles', compact('articles'));
+        $limit = (int) config('ai_weekly.analyze_batch_size');
+        $maxSelection = $limit > 0 ? $limit : 50;
+
+        return $request->expectsJson() ? response()->json($articles) : view('admin.ai-weekly.articles', compact('articles', 'maxSelection'));
     }
 
     public function show(Request $request, AiArticle $article): JsonResponse|View

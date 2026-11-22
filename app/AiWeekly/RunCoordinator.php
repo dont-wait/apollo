@@ -38,9 +38,13 @@ class RunCoordinator
         return $run;
     }
 
-    public function analyze(string $trigger, ?int $userId = null, ?int $articleId = null): AutomationRun
+    /** @param  list<int>  $articleIds  Articles picked by hand; when given they replace the automatic selection. */
+    public function analyze(string $trigger, ?int $userId = null, ?int $articleId = null, array $articleIds = []): AutomationRun
     {
-        $run = $this->create('ANALYZE', $trigger, $userId, $articleId ? ['article_id' => $articleId] : []);
+        $articleIds = array_values(array_unique(array_map('intval', $articleIds)));
+        sort($articleIds);
+        $payload = $articleIds !== [] ? ['article_ids' => $articleIds] : ($articleId ? ['article_id' => $articleId] : []);
+        $run = $this->create('ANALYZE', $trigger, $userId, $payload);
         $this->dispatch($run);
 
         return $run;
@@ -297,6 +301,20 @@ class RunCoordinator
      */
     private function analysisRunCovers(array $activePayload, array $requestedPayload): bool
     {
+        $activeIds = isset($activePayload['article_ids']) ? array_map('intval', $activePayload['article_ids']) : null;
+        $requestedIds = isset($requestedPayload['article_ids']) ? array_map('intval', $requestedPayload['article_ids']) : null;
+        if ($requestedIds !== null) {
+            // A hand-picked selection is only covered by a run that already has all of those articles.
+            return $activeIds !== null && array_diff($requestedIds, $activeIds) === [];
+        }
+        if ($activeIds !== null) {
+            $single = isset($requestedPayload['article_id']) ? (int) $requestedPayload['article_id'] : null;
+
+            return $single !== null
+                && in_array($single, $activeIds, true)
+                && ! array_key_exists($single, $activePayload['article_results'] ?? []);
+        }
+
         $activeArticleId = $activePayload['article_id'] ?? null;
         $requestedArticleId = $requestedPayload['article_id'] ?? null;
         if ($requestedArticleId === null) {

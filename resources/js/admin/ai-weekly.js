@@ -146,3 +146,76 @@ window.aiPipeline = (initialRuns, url, initialListing = null) => ({
         return { PENDING: 'Đang chờ', RUNNING: 'Đang chạy', SUCCESS: 'Hoàn tất', PARTIAL: 'Có lỗi một phần', FAILED: 'Thất bại' }[status] ?? status;
     },
 });
+
+// Pick-and-analyze: tick a few collected articles, then analyze only those.
+const selectionForm = () => document.querySelector('form[data-ai-select-form]');
+
+const refreshSelection = (form) => {
+    const boxes = [...form.querySelectorAll('input[name="article_ids[]"]')];
+    const checked = boxes.filter((box) => box.checked);
+    const max = Number(form.dataset.max);
+
+    form.querySelector('[data-selection-count]').textContent = `${checked.length} / ${max} selected`;
+    form.querySelector('[data-selection-submit]').disabled = checked.length === 0 || form.dataset.submitting === 'true';
+    form.querySelector('[data-selection-clear]').hidden = checked.length === 0;
+    // Once the limit is reached the other boxes lock until something is unticked.
+    boxes.forEach((box) => {
+        box.disabled = box.dataset.unavailable === 'true' || (! box.checked && checked.length >= max);
+    });
+};
+
+document.addEventListener('change', (event) => {
+    const form = event.target.closest?.('form[data-ai-select-form]');
+
+    if (form) refreshSelection(form);
+});
+
+document.addEventListener('click', (event) => {
+    if (! event.target.closest?.('[data-selection-clear]')) return;
+
+    const form = selectionForm();
+    form.querySelectorAll('input[name="article_ids[]"]').forEach((box) => { box.checked = false; });
+    refreshSelection(form);
+});
+
+document.addEventListener('submit', async (event) => {
+    const form = event.target.closest('form[data-ai-select-form]');
+    if (! form) return;
+
+    event.preventDefault();
+    if (form.dataset.submitting === 'true') return;
+
+    const ids = [...form.querySelectorAll('input[name="article_ids[]"]:checked')].map((box) => Number(box.value));
+    if (ids.length === 0) return;
+
+    form.dataset.submitting = 'true';
+    refreshSelection(form);
+    const feedback = form.querySelector('[data-ai-feedback]');
+    feedback.textContent = 'Working...';
+
+    try {
+        const response = await fetch(form.action, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': form.querySelector('[name="_token"]').value },
+            body: JSON.stringify({ article_ids: ids }),
+        });
+        const result = await response.json();
+
+        if (! response.ok) {
+            throw new Error(Object.values(result.errors || {}).flat().join(' ') || result.message || 'The request failed.');
+        }
+
+        feedback.textContent = `${result.reused ? 'Already queued as job' : 'Created job'} #${result.run_id}. `;
+        const link = document.createElement('a');
+        link.href = form.dataset.runsUrl;
+        link.className = 'underline';
+        link.textContent = 'Track it in Pipeline';
+        feedback.append(link);
+        form.querySelectorAll('input[name="article_ids[]"]').forEach((box) => { box.checked = false; });
+    } catch (error) {
+        feedback.textContent = error.message;
+    } finally {
+        delete form.dataset.submitting;
+        refreshSelection(form);
+    }
+});

@@ -83,12 +83,27 @@ class AutomationRunController extends Controller
 
     public function analyze(Request $request, RunCoordinator $coordinator): JsonResponse
     {
-        $data = $request->validate(['article_id' => ['nullable', 'integer', 'exists:ai_articles,id']]);
+        $limit = (int) config('ai_weekly.analyze_batch_size');
+        $data = $request->validate([
+            'article_id' => ['nullable', 'integer', 'exists:ai_articles,id', 'prohibits:article_ids'],
+            'article_ids' => ['nullable', 'array', 'min:1', 'max:'.($limit > 0 ? $limit : 50)],
+            'article_ids.*' => ['integer', 'distinct', 'exists:ai_articles,id'],
+        ]);
         if (isset($data['article_id']) && AiArticle::query()->whereKey($data['article_id'])->whereNotNull('duplicate_of')->exists()) {
             return response()->json(['message' => 'Không phân tích lại bài trùng.'], 422);
         }
+        $articleIds = array_map('intval', $data['article_ids'] ?? []);
+        if ($articleIds !== []) {
+            $usable = AiArticle::query()->whereIn('id', $articleIds)->whereNull('duplicate_of')
+                ->where(fn ($query) => $query->where(fn ($summary) => $summary->whereNotNull('raw_summary')->where('raw_summary', '!=', ''))
+                    ->orWhere(fn ($body) => $body->whereNotNull('raw_content')->where('raw_content', '!=', '')))
+                ->count();
+            if ($usable !== count($articleIds)) {
+                return response()->json(['message' => 'Duplicate articles and articles without content cannot be analyzed. Remove them from the selection.'], 422);
+            }
+        }
         try {
-            $run = $coordinator->analyze('MANUAL', $request->user()->id, $data['article_id'] ?? null);
+            $run = $coordinator->analyze('MANUAL', $request->user()->id, $data['article_id'] ?? null, $articleIds);
         } catch (RunDispatchBusyException $exception) {
             return response()->json(['message' => $exception->getMessage()], 409);
         }

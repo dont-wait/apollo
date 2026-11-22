@@ -43,9 +43,13 @@ class AnalyzeArticles implements ShouldQueue
         }
         $payload = $run->payload ?? [];
         $cursor = $payload['cursor'] ?? 0;
+        // A run is "explicit" when someone picked the articles (one or several) instead of letting it choose.
+        $selectedIds = isset($payload['article_ids']) ? array_map('intval', $payload['article_ids']) : null;
+        $explicit = isset($payload['article_id']) || $selectedIds !== null;
         $articlesQuery = AiArticle::query()->where('id', '>', $cursor)->whereNull('duplicate_of')
             ->when(isset($payload['article_id']), fn ($query) => $query->whereKey($payload['article_id']))
-            ->when(! isset($payload['article_id']), function ($query): void {
+            ->when($selectedIds !== null, fn ($query) => $query->whereIn('id', $selectedIds))
+            ->when(! $explicit, function ($query): void {
                 $query->where(function ($content): void {
                     $content->where(fn ($summary) => $summary->whereNotNull('raw_summary')->where('raw_summary', '!=', ''))
                         ->orWhere(fn ($body) => $body->whereNotNull('raw_content')->where('raw_content', '!=', ''));
@@ -55,7 +59,7 @@ class AnalyzeArticles implements ShouldQueue
             });
         // A full backlog can overwhelm a small local model, so each run only takes a batch;
         // the remaining articles are picked up by the next scheduled run.
-        $batchSize = isset($payload['article_id']) ? 0 : (int) config('ai_weekly.analyze_batch_size');
+        $batchSize = $explicit ? 0 : (int) config('ai_weekly.analyze_batch_size');
         $pendingTotal = (clone $articlesQuery)->count();
         $payload['total'] ??= $batchSize > 0 ? min($batchSize, $pendingTotal) : $pendingTotal;
         $batchReached = $batchSize > 0 && count($payload['article_results'] ?? []) >= $batchSize;
@@ -84,7 +88,7 @@ class AnalyzeArticles implements ShouldQueue
 
         try {
             $article->refresh();
-            if (! isset($payload['article_id']) && $article->status === 'ANALYZED' && $article->analyses()->where('is_current', true)->where('status', 'SUCCESS')->exists()) {
+            if (! $explicit && $article->status === 'ANALYZED' && $article->analyses()->where('is_current', true)->where('status', 'SUCCESS')->exists()) {
                 $payload['article_results'][$article->id] = ['status' => 'SKIPPED'];
                 $payload['cursor'] = $article->id;
                 unset($payload['current_item']);
