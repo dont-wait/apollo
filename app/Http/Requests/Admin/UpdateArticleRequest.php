@@ -86,9 +86,13 @@ class UpdateArticleRequest extends FormRequest
             'new_tags.*' => ['required', 'string', 'max:60', 'distinct:ignore_case'],
             'thumbnail' => ['nullable', 'image', 'mimes:'.implode(',', Post::ALLOWED_IMAGE_MIMES), 'max:'.Post::MAX_THUMBNAIL_KB],
             'excerpt' => ['nullable', 'string', 'max:'.Post::MAX_EXCERPT_LENGTH],
+            'seo_title' => ['nullable', 'string', 'max:255'],
+            'seo_description' => ['nullable', 'string', 'max:320'],
+            'canonical_url' => ['nullable', 'url:http,https', 'max:500'],
             'markdown_content' => ['required', 'string', 'max:'.Post::MAX_CONTENT_LENGTH],
             'status' => ['required', Rule::in($statuses)],
             'original_status' => ['nullable', Rule::in(array_keys(PostStatus::filterOptions()))],
+            'revision' => ['required', 'string', 'size:64', 'regex:/\A[a-f0-9]{64}\z/'],
             'scheduled_at' => ['nullable', 'date', 'required_if:status,'.PostStatus::Scheduled->value, 'after:now'],
         ];
     }
